@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control</title>
+<!--
+  Single-screen cartoon control panel. Every assistant reply REPLACES the screen.
+  CTRL markup, one directive per line:
+
+    ::ask   <text>              huge headline question
+    ::say   <text>              lead statement
+    ::note  <text>              small secondary detail
+    ::kv    <key> = <value>     yellow stat tile (they tile into a grid)
+    ::ok|::warn|::err <text>    status badge
+    ::wait  <text>              pending badge
+    ::pick  <label>             big green choice button — click sends <label>
+    ::pick  <label> => <cmd>    button showing <label>, sending <cmd>
+    ::fill  <text>              button that pre-fills the composer instead of sending
+    ::card  <title>             clickable tile; lines until ::endcard open in the right pane
+    ::endcard                   closes the most recent ::card
+
+  Press 1-9 to choose while the composer is empty.
+-->
+<style>
+  :root {
+    --ink: #16170f;
+    --paper: #fffdf2;
+    --panel: #ffffff;
+    --green: #34c759;
+    --green-deep: #1f8f3e;
+    --green-soft: #ddf7e2;
+    --yellow: #ffd43b;
+    --yellow-soft: #fff3c4;
+    --red: #ff5a4e;
+    --red-soft: #ffe2de;
+    --line: 4px;
+    --pop: 6px 6px 0 var(--ink);
+    --pop-sm: 4px 4px 0 var(--ink);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; overflow: hidden;
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 12% 8%, var(--yellow-soft) 0, transparent 42%),
+      radial-gradient(circle at 88% 92%, var(--green-soft) 0, transparent 45%);
+    color: var(--ink);
+    font: 600 18px/1.45 ui-rounded, "Nunito", "Segoe UI Variable", system-ui, -apple-system, sans-serif;
+    display: flex; flex-direction: column;
+  }
+
+  /* connection light — no words while everything is fine */
+  #lamp {
+    position: fixed; top: 16px; right: 18px; z-index: 5;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--green); border: 3px solid var(--ink);
+    box-shadow: 0 0 0 4px rgba(52,199,89,.25);
+  }
+  /* same lamp shape, one below the other — grey and quiet */
+  #wipe {
+    position: fixed; top: 50px; right: 18px; z-index: 5;
+    display: grid; place-items: center; padding: 0;
+    width: 20px; height: 20px; border-radius: 50%;
+    font: 900 10px/1 inherit; color: var(--ink);
+    background: #c2c5bd; border: 3px solid var(--ink);
+    box-shadow: 0 0 0 4px rgba(120,124,116,.2);
+    cursor: pointer; opacity: .6; transition: opacity .12s, background .12s;
+  }
+  #wipe:hover { opacity: 1; background: var(--yellow); }
+
+  #lamp.off { background: var(--red); box-shadow: 0 0 0 4px rgba(255,90,78,.25); animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+
+  /* two columns: the decision on the left, whatever it opens on the right */
+  #stage {
+    flex: 1; overflow: hidden; display: grid; gap: 22px; padding: 22px 22px 12px;
+    grid-template-columns: 1fr 1fr; align-items: stretch;
+  }
+  /* the left column still never scrolls -- content is scaled down to fit instead */
+  #left { overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  #fit { width: 100%; max-width: 760px; }
+  /* the right one MAY scroll: detail is not a decision and does not have to fit a screen */
+  #detail {
+    overflow-y: auto; border-left: var(--line) dashed rgba(22,23,15,.22); padding: 4px 4px 4px 22px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  #detail.empty { align-items: center; justify-content: center; border-left-color: rgba(22,23,15,.12); }
+  #detail .placeholder {
+    font-size: 15px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    opacity: .32; text-align: center; max-width: 26ch; line-height: 1.6;
+  }
+  #detail h2 {
+    margin: 0; font-size: 25px; font-weight: 900; letter-spacing: -.02em; line-height: 1.15;
+  }
+  .cards button.on { background: var(--yellow); box-shadow: 0 0 0 var(--ink); transform: translate(4px, 4px); }
+  @media (max-width: 900px) {
+    #stage { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    #detail { border-left: none; border-top: var(--line) dashed rgba(22,23,15,.22); padding: 16px 4px 4px; max-height: 45%; }
+  }
+  #screen {
+    width: 100%; transform-origin: top left;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  #screen.pop { animation: pop .26s cubic-bezier(.2,.9,.3,1.2); }
+  @keyframes pop { from { opacity: 0; } }
+
+  .crumb {
+    align-self: flex-start; font-size: 15px; font-weight: 700;
+    background: var(--panel); border: 3px solid var(--ink); border-radius: 999px;
+    padding: 5px 15px;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .crumb::before { content: "YOU SAID: "; font-size: 12px; letter-spacing: .05em; opacity: .55; }
+
+  .badge {
+    align-self: flex-start; font-size: 17px; font-weight: 800; letter-spacing: .01em;
+    padding: 9px 18px; border: 3px solid var(--ink); border-radius: 999px;
+    text-transform: uppercase;
+  }
+  .badge.ok { background: var(--green); }
+  .badge.warn { background: var(--yellow); }
+  .badge.err { background: var(--red); }
+  .badge.wait { background: var(--panel); text-transform: none; }
+
+  .ask {
+    margin: 0; font-size: clamp(30px, 5vw, 46px); line-height: 1.08;
+    font-weight: 900; letter-spacing: -.03em;
+  }
+  .say { margin: 0; font-size: clamp(19px, 2.3vw, 23px); line-height: 1.4; font-weight: 650; }
+  .note { margin: 0; font-size: 16px; font-weight: 600; opacity: .7; }
+  .plain { margin: 0; font-size: 18px; white-space: pre-wrap; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 12px; }
+  .stat {
+    background: var(--yellow-soft); border: 3px solid var(--ink);
+    border-radius: 14px; padding: 13px 16px;
+  }
+  .stat b {
+    display: block; font-size: 13px; font-weight: 800; letter-spacing: .06em;
+    text-transform: uppercase; opacity: .6; margin-bottom: 3px;
+  }
+  .stat span { font-size: 24px; font-weight: 900; letter-spacing: -.02em; }
+
+  /* two across on any reasonable width, one across on a narrow pane */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+  .cards button {
+    text-align: left; font: inherit; cursor: pointer; color: var(--ink);
+    background: var(--yellow-soft); border: var(--line) solid var(--ink);
+    box-shadow: var(--pop-sm); padding: 14px 15px 12px; border-radius: 0;
+    display: flex; flex-direction: column; gap: 8px; min-height: 96px;
+  }
+  .cards button:hover { background: var(--yellow); }
+  .cards button:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
+  .cards button b { font-size: 17px; font-weight: 800; line-height: 1.25; letter-spacing: -.01em; }
+  .cards button .more {
+    margin-top: auto; font-size: 11px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; opacity: .6;
+  }
+  .picks {
+    display: grid; gap: 14px; margin-top: 4px;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  }
+  .picks button {
+    display: flex; align-items: center; gap: 14px; text-align: left; width: 100%;
+    min-height: 104px; font: inherit; font-size: 19px; font-weight: 800; color: var(--ink);
+    line-height: 1.22;
+    background: var(--green-soft); border: var(--line) solid var(--ink);
+    border-radius: 20px; padding: 16px 18px; cursor: pointer; box-shadow: var(--pop);
+    transition: transform .08s, box-shadow .08s, background .12s;
+  }
+  .picks button:hover { background: var(--green); }
+  .picks button:active { transform: translate(6px, 6px); box-shadow: 0 0 0 var(--ink); }
+  .picks button kbd {
+    flex: none; display: grid; place-items: center; width: 44px; height: 44px;
+    font: 900 20px/1 inherit; background: var(--yellow);
+    border: 3px solid var(--ink); border-radius: 50%;
+  }
+  .picks button.fill { background: var(--panel); }
+
+
+  .thinking {
+    display: flex; align-items: center; gap: 14px; font-size: 22px; font-weight: 800;
+    background: var(--panel); border: var(--line) solid var(--ink);
+    border-radius: 20px; padding: 20px 24px; box-shadow: var(--pop);
+  }
+  .thinking i {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--green); border: 3px solid var(--ink); animation: bounce 1s infinite;
+  }
+  .thinking i:nth-child(2) { animation-delay: .15s; background: var(--yellow); }
+  .thinking i:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounce { 0%, 70%, 100% { transform: translateY(0); } 35% { transform: translateY(-9px); } }
+
+  .fixit {
+    background: var(--red-soft); border: var(--line) solid var(--ink);
+    border-radius: 22px; padding: 24px; box-shadow: var(--pop);
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .fixit h1 { margin: 0; font-size: 34px; font-weight: 900; letter-spacing: -.02em; }
+  .fixit p { margin: 0; font-size: 19px; font-weight: 650; }
+  .fixit code {
+    display: block; font: 700 18px/1.5 ui-monospace, Menlo, Consolas, monospace;
+    background: var(--panel); border: 3px solid var(--ink); border-radius: 14px;
+    padding: 13px 16px; word-break: break-all;
+  }
+
+  footer { flex: none; padding: 10px 22px 18px; border-top: var(--line) solid var(--ink); background: var(--paper); }
+  form { width: 100%; margin: 0; display: flex; gap: 12px; align-items: flex-end; }
+  textarea {
+    flex: 1; resize: none; font: inherit; font-size: 19px; font-weight: 650; color: var(--ink);
+    background: var(--panel); border: var(--line) solid var(--ink);
+    border-radius: 18px; padding: 16px 18px; min-height: 104px; max-height: 220px;
+    box-shadow: var(--pop-sm);
+  }
+  textarea::placeholder { color: var(--ink); opacity: .4; }
+  textarea:focus { outline: none; background: var(--yellow-soft); }
+  form button {
+    font: inherit; font-size: 20px; font-weight: 900; height: 104px; padding: 0 34px;
+    background: var(--yellow); color: var(--ink);
+    border: var(--line) solid var(--ink); border-radius: 18px; cursor: pointer;
+    box-shadow: var(--pop-sm); transition: transform .08s, box-shadow .08s;
+  }
+  form button:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
+</style>
+</head>
+<body>
+  <button id="wipe" type="button" title="Clear the screen">✕</button>
+  <div id="lamp" title="connected"></div>
+  <div id="stage">
+    <div id="left"><div id="fit"><div id="screen"></div></div></div>
+    <div id="detail" class="empty"></div>
+  </div>
+  <footer>
+    <form id="form">
+      <textarea id="input" rows="3" placeholder="Type here…" autofocus></textarea>
+      <button type="submit">SEND</button>
+    </form>
+  </footer>
+
+<script>
+  const detail = document.getElementById('detail');
+  const fitBox = document.getElementById('fit');
+  const screenEl = document.getElementById('screen');
+  const input = document.getElementById('input');
+  const form  = document.getElementById('form');
+  const lamp  = document.getElementById('lamp');
+  let since = 0, fails = 0, offline = false, lastCommand = '';
+  const BUILD = "__BUILD__";  // server stamps chat.html's mtime here at serve time
+
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  };
+
+  /** Shrink the card until it fits the stage — scrolling is never allowed. */
+  function fit() {
+    screenEl.style.transform = 'none';
+    screenEl.style.width = '100%';
+    fitBox.style.height = 'auto';
+    if (!screenEl.children.length) return;
+
+    const avail = document.getElementById('left').clientHeight - 12;
+    let k = Math.min(1, avail / screenEl.scrollHeight);
+    if (k < 1) {
+      // widen first so text reflows, then re-measure: a wider box is a shorter box
+      screenEl.style.width = (100 / k) + '%';
+      k = Math.min(1, Math.max(avail / screenEl.scrollHeight, 0.4));
+      screenEl.style.width = (100 / k) + '%';
+      screenEl.style.transform = 'scale(' + k + ')';
+    }
+    fitBox.style.height = Math.ceil(screenEl.scrollHeight * k) + 'px';
+  }
+
+  /** Swap the whole screen — this console never keeps history. */
+  function show(nodes, crumb = true) {
+    closeSheet();          // a new reply invalidates whatever detail was open
+    const kids = [];
+    if (crumb && lastCommand) kids.push(el('div', 'crumb', lastCommand));
+    kids.push(...nodes);
+    screenEl.classList.remove('pop');
+    screenEl.replaceChildren(...kids);
+    void screenEl.offsetWidth;      // restart the entrance animation
+    screenEl.classList.add('pop');
+    fit();
+  }
+
+  function parse(text) {
+    const blocks = [];
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      if (!line) continue;
+      const m = line.match(/^::(\w+)\s*(.*)$/);
+      blocks.push(m ? { type: m[1].toLowerCase(), body: m[2] } : { type: 'plain', body: line });
+    }
+    return blocks;
+  }
+
+  function build(text) { return buildBlocks(parse(text)); }
+
+  /** Render parsed blocks. Called again for each ::card body, so windows nest naturally. */
+  function buildBlocks(blocks) {
+    const nodes = [];
+    let picks = null, stats = null, cards = null;
+
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      if (b.type === 'card') {
+        picks = null; stats = null;
+        // collect to the matching ::endcard, counting nested ::card so inner windows survive
+        const inner = [];
+        let depth = 1;
+        while (++i < blocks.length) {
+          if (blocks[i].type === 'card') depth++;
+          if (blocks[i].type === 'endcard' && --depth === 0) break;
+          inner.push(blocks[i]);
+        }
+        if (!cards) { cards = el('div', 'cards'); nodes.push(cards); }
+        const tile = el('button');
+        tile.type = 'button';
+        tile.append(el('b', '', b.body), el('span', 'more', 'open ▸'));
+        tile.onclick = () => openSheet(b.body, inner, tile);
+        cards.append(tile);
+        continue;
+      }
+      if (b.type === 'endcard') continue;
+      cards = null;
+      if (b.type === 'pick' || b.type === 'fill') {
+        stats = null;
+        if (!picks) { picks = el('div', 'picks'); nodes.push(picks); }
+        const isFill = b.type === 'fill';
+        const [label, cmd] = b.body.split('=>').map(s => s.trim());
+        const btn = el('button', isFill ? 'fill' : '');
+        btn.type = 'button';
+        btn.dataset.cmd = cmd || label;
+        btn.append(el('kbd', '', isFill ? '✎' : String(picks.children.length + 1)));
+        btn.append(el('span', '', label));
+        btn.onclick = () => isFill
+          ? (input.value = btn.dataset.cmd, input.focus())
+          : send(btn.dataset.cmd);
+        picks.append(btn);
+        continue;
+      }
+      if (b.type === 'kv') {
+        picks = null;
+        if (!stats) { stats = el('div', 'stats'); nodes.push(stats); }
+        const [k, ...rest] = b.body.split('=');
+        const box = el('div', 'stat');
+        box.append(el('b', '', (k || '').trim()), el('span', '', rest.join('=').trim()));
+        stats.append(box);
+        continue;
+      }
+      picks = null; stats = null;
+      switch (b.type) {
+        case 'ask':  nodes.push(el('h1', 'ask', b.body)); break;
+        case 'say':  nodes.push(el('p', 'say', b.body)); break;
+        case 'note': nodes.push(el('p', 'note', b.body)); break;
+        case 'ok': case 'warn': case 'err':
+          nodes.push(el('div', 'badge ' + b.type, b.body)); break;
+        case 'wait': nodes.push(el('div', 'badge wait', b.body)); break;
+        default: nodes.push(el('p', 'plain', b.body));
+      }
+    }
+    return nodes;
+  }
+
+  /* The right pane is the detail surface: empty until something on the left is chosen,
+     and it may scroll, because detail is not a decision and need not fit one screen. */
+  let sheet = null;                       // the pane when it holds something, else null
+  function closeSheet() {
+    detail.replaceChildren(el('p', 'placeholder', 'Pick something on the left'));
+    detail.classList.add('empty');
+    screenEl.querySelectorAll('.cards button.on').forEach(b => b.classList.remove('on'));
+    sheet = null;
+  }
+  function openSheet(title, blocks, tile) {
+    detail.classList.remove('empty');
+    detail.replaceChildren(el('h2', '', title), ...buildBlocks(blocks));
+    detail.scrollTop = 0;
+    screenEl.querySelectorAll('.cards button.on').forEach(b => b.classList.remove('on'));
+    if (tile) tile.classList.add('on');
+    sheet = detail;
+  }
+
+  function waiting() {
+    const box = el('div', 'thinking');
+    box.append(el('i'), el('i'), el('i'), el('span', '', 'Working on it…'));
+    show([box]);
+  }
+
+  /** The only time words appear about the connection: when it is broken. */
+  function showOffline() {
+    const card = el('div', 'fixit');
+    card.append(
+      el('h1', '', 'The panel is switched off'),
+      el('p', '', 'The little program that runs this page has stopped. Open the terminal and type this:'),
+      el('code', '', 'python3 chat_server.py'),
+      el('p', '', 'This page turns itself back on within a second. Nothing is lost.'),
+    );
+    show([card], false);
+  }
+
+  async function send(text) {
+    text = (text || '').trim();
+    if (!text) return true;
+    lastCommand = text;
+    waiting();
+    try {
+      await fetch('/api/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      poll();
+      return true;
+    } catch {
+      showOffline();
+      return false;
+    }
+  }
+
+  async function poll() {
+    try {
+      const res = await fetch('/api/messages?since=' + since + '&v=' + BUILD, { cache: 'no-store' });
+      const data = await res.json();
+      if (data.build && BUILD !== "__BUILD__" && data.build !== BUILD) return location.reload();
+
+      fails = 0;
+      lamp.classList.remove('off');
+      if (offline) { offline = false; since = 0; return; }  // redraw from history next tick
+      if (!data.messages.length) return;
+      since = data.last;
+
+      // A command with no answer yet must keep showing "working" — never fall
+      // back to the previous card, which reads as "nothing happened".
+      const newest = data.messages[data.messages.length - 1];
+      if (newest.role === 'user') {
+        lastCommand = newest.text;
+        waiting();
+        return;
+      }
+      const before = data.messages.slice(0, data.messages.indexOf(newest)).reverse().find(m => m.role === 'user');
+      if (before) lastCommand = before.text;
+      show(build(newest.text));
+    } catch {
+      lamp.classList.add('off');
+      if (++fails >= 2 && !offline) { offline = true; showOffline(); }
+    }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = input.value;
+    input.value = ''; input.style.height = 'auto';
+    if (await send(text) === false) input.value = text;
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+  });
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+    fit();  // a taller composer leaves less room for the card
+  });
+
+  window.addEventListener('resize', fit);
+
+  document.getElementById('wipe').onclick = () => {
+    lastCommand = '';
+    show([], false);      // nothing new arrives until the next reply, so it stays blank
+    input.focus();
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && sheet) { e.preventDefault(); return closeSheet(); }
+    if (!/^[1-9]$/.test(e.key) || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (input.value.trim()) return;
+    const surface = sheet || screenEl;
+    const btn = surface.querySelectorAll('.picks button:not(.fill)')[Number(e.key) - 1];
+    if (!btn) return;
+    e.preventDefault();
+    btn.click();
+  });
+
+  closeSheet();          // the right pane starts empty, with its prompt
+  poll();
+  setInterval(poll, 1000);
+</script>
+</body>
+</html>
