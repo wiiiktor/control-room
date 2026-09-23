@@ -250,6 +250,14 @@
     display: flex; flex-direction: column; gap: 16px;
   }
   #detail.empty { align-items: center; justify-content: center; border-left-color: var(--hair-soft); }
+  /* A scrollable surface says so: the overlay bar the OS draws is invisible until you
+     already scrolled, which is too late to tell you there is more below. */
+  #detail, #timeline { scrollbar-width: thin; scrollbar-color: var(--ink) transparent; }
+  #detail::-webkit-scrollbar, #timeline::-webkit-scrollbar { width: 12px; height: 12px; }
+  #detail::-webkit-scrollbar-track, #timeline::-webkit-scrollbar-track { background: transparent; }
+  #detail::-webkit-scrollbar-thumb, #timeline::-webkit-scrollbar-thumb {
+    background: var(--ink); border: 3px solid var(--paper); border-radius: 999px;
+  }
   #detail .placeholder {
     font-size: 15px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
     opacity: .32; text-align: center; max-width: 26ch; line-height: 1.6;

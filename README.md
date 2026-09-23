@@ -75,5 +75,8 @@ message as a notification, so no polling loop is needed.
 - **Safe concurrent writers.** The server, `reply.py` and the Telegram bot all
   append under an `flock`, and ids come from a high-water mark in `.seq`, so they
   never repeat, even after `chat.jsonl` is truncated.
+- **A scrollable pane says so.** The detail pane and the timeline draw a visible
+  scrollbar rather than the overlay one the OS fades in only after you scroll, which
+  is too late to tell you there is more below.
 - **Local only.** The server binds to `127.0.0.1`. The Telegram bot uses outbound
   long-polling, so nothing is exposed to the internet.
