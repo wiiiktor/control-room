@@ -474,7 +474,7 @@
   <button id="tl-btn" type="button" title="Timeline — past replies">T</button>
   <button id="pal-btn" type="button" title="Colour palette">C</button>
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
-  <div id="lamp" title="connected"></div>
+  <div id="lamp" title="Connected"></div>
   <div id="timeline"></div>
   <div id="stage">
     <div id="left"><div id="fit"><div id="screen"></div></div></div>
@@ -775,6 +775,7 @@
 
       fails = 0;
       lamp.classList.remove('off');
+      lamp.title = 'Connected';
       if (offline) { offline = false; since = 0; return; }  // redraw from history next tick
       if (!data.messages.length) return;
       since = data.last;
@@ -792,6 +793,7 @@
       show(build(newest.text), true, newest.ts);
     } catch {
       lamp.classList.add('off');
+      lamp.title = 'Disconnected — the server is not answering';
       if (++fails >= 2 && !offline) { offline = true; showOffline(); }
     }
   }
@@ -878,16 +880,22 @@
     tlEl.querySelectorAll('.thumb.on').forEach(t => t.classList.remove('on'));
     if (btn) btn.classList.add('on');
   }
+  /** An archived screen is shown the way it was: the question that produced it in the
+      breadcrumb, its own time on the right. msg.asked is paired in openTimeline. */
   function showArchived(msg) {
     holdLive();
     closeSheet();
-    const st = stampOf(msg.ts);
-    const kids = build(msg.text);
-    if (st) {
-      const head = el('div', 'head');
-      head.append(el('div', 'crumb', 'from the timeline'), st);
-      kids.unshift(head);
+    const head = el('div', 'head');
+    if (msg.asked) {
+      const c = el('div', 'crumb', msg.asked);
+      c.title = msg.asked;
+      c.onclick = () => { c.classList.toggle('open'); fit(); };
+      head.append(c);
     }
+    const st = stampOf(msg.ts);
+    if (st) head.append(st);
+    const kids = build(msg.text);
+    if (head.children.length) kids.unshift(head);
     screenEl.replaceChildren(...kids);
     fit();
   }
@@ -895,9 +903,12 @@
   function thumbOf(msg, n) {
     const btn = el('button', 'thumb');
     btn.type = 'button';
-    btn.title = 'reply ' + n + ' — hover to read, click to pin';
+    btn.title = (msg.asked ? msg.asked + '\n\n' : '') + 'hover to read, click to pin';
     const page = el('div', 'page');
     const inner = el('div');
+    // the thumbnail is the screen as it was, breadcrumb included, so a reply can be
+    // recognised by what was ASKED rather than by the shape of its answer
+    if (msg.asked) inner.append(el('div', 'crumb', msg.asked));
     inner.append(...build(msg.text));
     page.append(inner);
     const when = el('div', 'when');
@@ -924,7 +935,14 @@
     } catch {
       return tlEl.replaceChildren(el('p', 'empty-note', 'offline — cannot read the log'));
     }
-    const replies = msgs.filter(m => m.role === 'assistant');
+    // pair each reply with the question before it -- the log is one flat list, and a
+    // reply on its own cannot say what it was answering
+    const replies = [];
+    let asked = '';
+    for (const m of msgs) {
+      if (m.role === 'user') { asked = m.text; continue; }
+      replies.push({ ...m, asked });
+    }
     if (!replies.length) return tlEl.replaceChildren(el('p', 'empty-note', 'no replies yet'));
     tlEl.replaceChildren(...replies.map((m, i) => thumbOf(m, i + 1)));
     tlEl.scrollLeft = tlEl.scrollWidth;      // newest first to the eye, at the right edge
