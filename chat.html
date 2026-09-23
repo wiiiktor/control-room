@@ -244,8 +244,15 @@
   }
   /* the left column shrinks to fit FIRST, and only scrolls once shrinking would make
      the text too small to read (the floor is in fit()) */
-  #left { overflow-y: auto; overflow-x: hidden; display: flex; align-items: center; justify-content: center; }
-  #fit { width: 100%; max-width: 760px; }
+  /* ⚠️ align-items:center CLIPS THE TOP once the content is taller than the column:
+     a centred flex item overflows in BOTH directions and the part above the start edge
+     cannot be scrolled to. Auto margins centre the same way while it fits and collapse
+     to zero when it does not, so the top stays reachable. */
+  #left {
+    overflow-y: auto; overflow-x: hidden;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  #fit { width: 100%; max-width: 760px; margin: auto 0; }
   /* the right one MAY scroll: detail is not a decision and does not have to fit a screen */
   #detail {
     overflow-y: auto; border-left: var(--line) dashed var(--hair); padding: 4px 4px 4px 22px;
@@ -466,7 +473,7 @@
   /** Shrink the card until it fits the stage, but not past MIN_SCALE — below that the
       text stops being readable from across the room, which is the whole point of this
       panel, so the column scrolls instead. */
-  const MIN_SCALE = 0.62;
+  const MIN_SCALE = 0.8;
   function fit() {
     screenEl.style.transform = 'none';
     screenEl.style.width = '100%';
