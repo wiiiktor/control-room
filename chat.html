@@ -22,11 +22,73 @@
     ::card  <title>             clickable tile; lines until ::endcard open in the right pane
     ::endcard                   closes the most recent ::card
 
+  The yellow C picks the palette: dark (default), light, or "peas with corn".
   Press 1-9 to choose while the composer is empty. The yellow T opens the timeline:
   every past reply, re-rendered small; hover one to read it full size on the left.
 -->
+<script>
+  // Before the first paint, so the page never flashes the wrong palette.
+  try { document.documentElement.dataset.theme = localStorage.getItem('ctrl-theme') || 'dark'; }
+  catch { document.documentElement.dataset.theme = 'dark'; }
+</script>
 <style>
-  :root {
+  /* ---- PALETTES -------------------------------------------------------------
+     Three, chosen with the yellow C. :root IS dark mode, the default; the other two
+     override the same tokens, so nothing below this block knows which is running.
+     --ink-on is the text that sits ON a filled accent (always dark, because every
+     palette's accents are light); --hair is a line, --veil a wash, --shadow-col the
+     cartoon drop shadow. ------------------------------------------------------- */
+  :root, :root[data-theme="dark"] {
+    --ink: #d4d4d4;
+    --paper: #1e1e1e;
+    --panel: #252526;
+    --green: #4ec9b0;
+    --green-deep: #6bd6bd;
+    --green-soft: #24352f;
+    --yellow: #dcdcaa;
+    --yellow-soft: #37341f;
+    --red: #f14c4c;
+    --red-soft: #402424;
+    --ink-on: #16170f;
+    --grey: #4a4a4a;
+    --hair: rgba(212,212,212,.24);
+    --hair-soft: rgba(212,212,212,.12);
+    --veil: rgba(30,30,30,.82);
+    --ring-green: rgba(78,201,176,.28);
+    --ring-yellow: rgba(220,220,170,.22);
+    --ring-red: rgba(241,76,76,.28);
+    --ring-grey: rgba(160,160,160,.18);
+    --ring-ink: rgba(212,212,212,.32);
+    --shadow-col: #000;
+    --wash-a: #2b2b21;
+    --wash-b: #1f2d29;
+  }
+  :root[data-theme="light"] {
+    --ink: #1f1f1f;
+    --paper: #ffffff;
+    --panel: #f3f3f3;
+    --green: #3aa45f;
+    --green-deep: #1b7a3f;
+    --green-soft: #e6f2ea;
+    --yellow: #ffcc33;
+    --yellow-soft: #f2f2ee;
+    --red: #e51400;
+    --red-soft: #ffe3e0;
+    --ink-on: #16170f;
+    --grey: #c9c9c9;
+    --hair: rgba(31,31,31,.22);
+    --hair-soft: rgba(31,31,31,.12);
+    --veil: rgba(255,255,255,.82);
+    --ring-green: rgba(58,164,95,.25);
+    --ring-yellow: rgba(255,204,51,.25);
+    --ring-red: rgba(229,20,0,.22);
+    --ring-grey: rgba(120,120,120,.18);
+    --ring-ink: rgba(31,31,31,.35);
+    --shadow-col: #1f1f1f;
+    --wash-a: #fbfaf6;
+    --wash-b: #f5f8f6;
+  }
+  :root[data-theme="peas"] {
     --ink: #16170f;
     --paper: #fffdf2;
     --panel: #ffffff;
@@ -37,9 +99,24 @@
     --yellow-soft: #fff3c4;
     --red: #ff5a4e;
     --red-soft: #ffe2de;
+    --ink-on: #16170f;
+    --grey: #c2c5bd;
+    --hair: rgba(22,23,15,.22);
+    --hair-soft: rgba(22,23,15,.12);
+    --veil: rgba(255,253,242,.75);
+    --ring-green: rgba(52,199,89,.25);
+    --ring-yellow: rgba(255,212,59,.25);
+    --ring-red: rgba(255,90,78,.25);
+    --ring-grey: rgba(120,124,116,.2);
+    --ring-ink: rgba(22,23,15,.35);
+    --shadow-col: #16170f;
+    --wash-a: #fff3c4;
+    --wash-b: #ddf7e2;
+  }
+  :root {
     --line: 4px;
-    --pop: 6px 6px 0 var(--ink);
-    --pop-sm: 4px 4px 0 var(--ink);
+    --pop: 6px 6px 0 var(--shadow-col);
+    --pop-sm: 4px 4px 0 var(--shadow-col);
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -47,8 +124,8 @@
     margin: 0; overflow: hidden;
     background: var(--paper);
     background-image:
-      radial-gradient(circle at 12% 8%, var(--yellow-soft) 0, transparent 42%),
-      radial-gradient(circle at 88% 92%, var(--green-soft) 0, transparent 45%);
+      radial-gradient(circle at 12% 8%, var(--wash-a) 0, transparent 42%),
+      radial-gradient(circle at 88% 92%, var(--wash-b) 0, transparent 45%);
     color: var(--ink);
     font: 600 18px/1.45 ui-rounded, "Nunito", "Segoe UI Variable", system-ui, -apple-system, sans-serif;
     display: flex; flex-direction: column;
@@ -59,7 +136,7 @@
     position: fixed; top: 16px; right: 18px; z-index: 5;
     width: 20px; height: 20px; border-radius: 50%;
     background: var(--green); border: 3px solid var(--ink);
-    box-shadow: 0 0 0 4px rgba(52,199,89,.25);
+    box-shadow: 0 0 0 4px var(--ring-green);
   }
   /* same lamp shape, one below the other — grey and quiet */
   #wipe {
@@ -67,30 +144,60 @@
     display: grid; place-items: center; padding: 0;
     width: 20px; height: 20px; border-radius: 50%;
     font: 900 10px/1 inherit; color: var(--ink);
-    background: #c2c5bd; border: 3px solid var(--ink);
-    box-shadow: 0 0 0 4px rgba(120,124,116,.2);
+    background: var(--grey); border: 3px solid var(--ink);
+    box-shadow: 0 0 0 4px var(--ring-grey);
     cursor: pointer; opacity: .6; transition: opacity .12s, background .12s;
   }
-  #wipe:hover { opacity: 1; background: var(--yellow); }
+  #wipe:hover { opacity: 1; background: var(--yellow); color: var(--ink-on); }
   /* third lamp in the same column: the timeline toggle */
   #tl-btn {
     position: fixed; top: 84px; right: 18px; z-index: 6;
     display: grid; place-items: center; padding: 0;
     width: 20px; height: 20px; border-radius: 50%;
-    font: 900 11px/1 inherit; color: var(--ink);
+    font: 900 11px/1 inherit; color: var(--ink-on);
     background: var(--yellow); border: 3px solid var(--ink);
-    box-shadow: 0 0 0 4px rgba(255,212,59,.25);
+    box-shadow: 0 0 0 4px var(--ring-yellow);
     cursor: pointer; opacity: .75; transition: opacity .12s;
   }
   #tl-btn:hover, #tl-btn.on { opacity: 1; }
   /* open = the same yellow, ringed in ink, so the button never changes identity */
-  #tl-btn.on { box-shadow: 0 0 0 4px rgba(22,23,15,.35); }
+  #tl-btn.on { box-shadow: 0 0 0 4px var(--ring-ink); }
+
+  /* fourth lamp: the palette picker */
+  #pal-btn {
+    position: fixed; top: 118px; right: 18px; z-index: 6;
+    display: grid; place-items: center; padding: 0;
+    width: 20px; height: 20px; border-radius: 50%;
+    font: 900 11px/1 inherit; color: var(--ink-on);
+    background: var(--yellow); border: 3px solid var(--ink);
+    box-shadow: 0 0 0 4px var(--ring-yellow);
+    cursor: pointer; opacity: .75; transition: opacity .12s;
+  }
+  #pal-btn:hover, #pal-btn.on { opacity: 1; }
+  #pal-btn.on { box-shadow: 0 0 0 4px var(--ring-ink); }
+  #palette {
+    display: none; position: fixed; top: 118px; right: 50px; z-index: 7;
+    flex-direction: column; gap: 6px; padding: 10px;
+    background: var(--panel); border: 3px solid var(--ink); box-shadow: var(--pop-sm);
+  }
+  #palette.open { display: flex; }
+  #palette button {
+    font: inherit; font-size: 15px; font-weight: 800; color: var(--ink); cursor: pointer;
+    background: var(--paper); border: 3px solid var(--ink); border-radius: 10px;
+    padding: 7px 14px; text-align: left; white-space: nowrap;
+    display: flex; align-items: center; gap: 9px;
+  }
+  #palette button:hover { background: var(--yellow-soft); }
+  #palette button[aria-checked="true"] { background: var(--green-soft); }
+  #palette .chip {
+    flex: none; width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--ink);
+  }
 
   /* THE TIMELINE — hidden until T. Oldest left, newest right; it scrolls sideways only. */
   #timeline {
     display: none; flex: 0 0 auto; gap: 12px; overflow-x: auto; overflow-y: hidden;
-    padding: 12px 56px 12px 22px; border-bottom: var(--line) dashed rgba(22,23,15,.22);
-    background: rgba(255,253,242,.75);
+    padding: 12px 56px 12px 22px; border-bottom: var(--line) dashed var(--hair);
+    background: var(--veil);
   }
   #timeline.open { display: flex; }
   #timeline .empty-note { font-size: 15px; font-weight: 700; opacity: .5; }
@@ -117,7 +224,7 @@
   }
   .thumb .when i { font-style: normal; opacity: .55; }
 
-  #lamp.off { background: var(--red); box-shadow: 0 0 0 4px rgba(255,90,78,.25); animation: blink 1s steps(2) infinite; }
+  #lamp.off { background: var(--red); box-shadow: 0 0 0 4px var(--ring-red); animation: blink 1s steps(2) infinite; }
   @keyframes blink { 50% { opacity: .35; } }
 
   /* two columns: the decision on the left, whatever it opens on the right */
@@ -130,10 +237,10 @@
   #fit { width: 100%; max-width: 760px; }
   /* the right one MAY scroll: detail is not a decision and does not have to fit a screen */
   #detail {
-    overflow-y: auto; border-left: var(--line) dashed rgba(22,23,15,.22); padding: 4px 4px 4px 22px;
+    overflow-y: auto; border-left: var(--line) dashed var(--hair); padding: 4px 4px 4px 22px;
     display: flex; flex-direction: column; gap: 16px;
   }
-  #detail.empty { align-items: center; justify-content: center; border-left-color: rgba(22,23,15,.12); }
+  #detail.empty { align-items: center; justify-content: center; border-left-color: var(--hair-soft); }
   #detail .placeholder {
     font-size: 15px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
     opacity: .32; text-align: center; max-width: 26ch; line-height: 1.6;
@@ -141,10 +248,10 @@
   #detail h2 {
     margin: 0; font-size: 25px; font-weight: 900; letter-spacing: -.02em; line-height: 1.15;
   }
-  .cards button.on { background: var(--yellow); box-shadow: 0 0 0 var(--ink); transform: translate(4px, 4px); }
+  .cards button.on { background: var(--yellow); color: var(--ink-on); box-shadow: 0 0 0 var(--ink); transform: translate(4px, 4px); }
   @media (max-width: 900px) {
     #stage { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
-    #detail { border-left: none; border-top: var(--line) dashed rgba(22,23,15,.22); padding: 16px 4px 4px; max-height: 45%; }
+    #detail { border-left: none; border-top: var(--line) dashed var(--hair); padding: 16px 4px 4px; max-height: 45%; }
   }
   #screen {
     width: 100%; transform-origin: top left;
@@ -166,9 +273,9 @@
     padding: 9px 18px; border: 3px solid var(--ink); border-radius: 999px;
     text-transform: uppercase;
   }
-  .badge.ok { background: var(--green); }
-  .badge.warn { background: var(--yellow); }
-  .badge.err { background: var(--red); }
+  .badge.ok { background: var(--green); color: var(--ink-on); }
+  .badge.warn { background: var(--yellow); color: var(--ink-on); }
+  .badge.err { background: var(--red); color: var(--ink-on); }
   .badge.wait { background: var(--panel); text-transform: none; }
 
   .ask {
@@ -221,7 +328,7 @@
     box-shadow: var(--pop-sm); padding: 14px 15px 12px; border-radius: 0;
     display: flex; flex-direction: column; gap: 8px; min-height: 96px;
   }
-  .cards button:hover { background: var(--yellow); }
+  .cards button:hover { background: var(--yellow); color: var(--ink-on); }
   .cards button:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
   .cards button b { font-size: 17px; font-weight: 800; line-height: 1.25; letter-spacing: -.01em; }
   .cards button .more {
@@ -240,11 +347,11 @@
     border-radius: 20px; padding: 16px 18px; cursor: pointer; box-shadow: var(--pop);
     transition: transform .08s, box-shadow .08s, background .12s;
   }
-  .picks button:hover { background: var(--green); }
+  .picks button:hover { background: var(--green); color: var(--ink-on); }
   .picks button:active { transform: translate(6px, 6px); box-shadow: 0 0 0 var(--ink); }
   .picks button kbd {
     flex: none; display: grid; place-items: center; width: 44px; height: 44px;
-    font: 900 20px/1 inherit; background: var(--yellow);
+    font: 900 20px/1 inherit; background: var(--yellow); color: var(--ink-on);
     border: 3px solid var(--ink); border-radius: 50%;
   }
   .picks button.fill { background: var(--panel); }
@@ -288,7 +395,7 @@
   textarea:focus { outline: none; background: var(--yellow-soft); }
   form button {
     font: inherit; font-size: 20px; font-weight: 900; height: 104px; padding: 0 34px;
-    background: var(--yellow); color: var(--ink);
+    background: var(--yellow); color: var(--ink-on);
     border: var(--line) solid var(--ink); border-radius: 18px; cursor: pointer;
     box-shadow: var(--pop-sm); transition: transform .08s, box-shadow .08s;
   }
@@ -298,6 +405,8 @@
 <body>
   <button id="wipe" type="button" title="Clear the screen">✕</button>
   <button id="tl-btn" type="button" title="Timeline — past replies">T</button>
+  <button id="pal-btn" type="button" title="Colour palette">C</button>
+  <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
   <div id="lamp" title="connected"></div>
   <div id="timeline"></div>
   <div id="stage">
@@ -609,6 +718,43 @@
   });
 
   window.addEventListener('resize', fit);
+
+  /* ---- PALETTE -------------------------------------------------------------
+     Three token sets in the stylesheet; this only stamps data-theme on <html> and
+     remembers the choice. Dark is the default, so an empty stamp is already right —
+     the read is wrapped because localStorage throws in a locked-down browser. ---- */
+  const THEMES = [
+    { id: 'dark',  name: 'Dark mode',      chip: '#1e1e1e' },
+    { id: 'light', name: 'Light mode',     chip: '#ffffff' },
+    { id: 'peas',  name: 'Peas with corn', chip: '#ffd43b' },
+  ];
+  const palBtn = document.getElementById('pal-btn');
+  const palEl = document.getElementById('palette');
+
+  function applyTheme(id) {
+    document.documentElement.dataset.theme = id;
+    try { localStorage.setItem('ctrl-theme', id); } catch {}
+    palEl.querySelectorAll('button').forEach(b =>
+      b.setAttribute('aria-checked', String(b.dataset.id === id)));
+  }
+
+  THEMES.forEach(t => {
+    const b = el('button');
+    b.type = 'button';
+    b.dataset.id = t.id;
+    b.setAttribute('role', 'radio');
+    const chip = el('span', 'chip');
+    chip.style.background = t.chip;
+    b.append(chip, el('span', '', t.name));
+    b.onclick = () => { applyTheme(t.id); palEl.classList.remove('open'); palBtn.classList.remove('on'); };
+    palEl.append(b);
+  });
+
+  palBtn.onclick = () => {
+    const open = palEl.classList.toggle('open');
+    palBtn.classList.toggle('on', open);
+  };
+  applyTheme(document.documentElement.dataset.theme || 'dark');
 
   /* ---- TIMELINE ------------------------------------------------------------
      Past replies, re-rendered by the same builder rather than stored as pictures,

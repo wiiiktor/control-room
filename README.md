@@ -62,6 +62,10 @@ message as a notification, so no polling loop is needed.
   image. Hover a thumbnail to read that screen full size on the left; click to pin it
   so its cards can be opened; `T` again or `Esc` closes. Nothing is lost by the
   one-screen rule — `chat.jsonl` holds every message, and the strip is built from it.
+- **Three palettes.** The yellow `C` picks dark (the default), light, or "peas with
+  corn" — the original. Every colour is a token on `:root`, so a palette is one block
+  of variables and nothing else in the stylesheet knows which is running. The choice
+  is kept in `localStorage` and stamped on `<html>` before the first paint.
 - **Live reload.** The server stamps the page with its file time, so an open tab
   reloads itself when `chat.html` changes.
 - **Safe concurrent writers.** The server, `reply.py` and the Telegram bot all
