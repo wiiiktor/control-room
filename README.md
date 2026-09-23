@@ -11,9 +11,9 @@ with `reply.py` in a small line-based markup ([MARKUP.md](MARKUP.md)) that the p
 renders as headlines, stat tiles, status pills, cards and choice buttons.
 
 ```
-browser  ──────────►  chat.jsonl  ──►  Claude Code
-        ▲                                     │
-        └──────────  reply.py  ◄──────────────┘
+browser  ────────►  chat.jsonl  ──►  Claude Code
+   ▲                                      │
+   └──────────  reply.py  ◄───────────────┘
 ```
 
 Python 3 standard library only. No dependencies, no build step.
