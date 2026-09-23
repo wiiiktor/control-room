@@ -18,6 +18,7 @@
     ::pick  <label> => <cmd>    button showing <label>, sending <cmd>
     ::fill  <text>              button that pre-fills the composer instead of sending
     ::chart <title> = v1,v2,..  small line chart, scaled to its own min/max
+    ::html  <fragment>          raw HTML; ::html .. ::endhtml for several lines
     ::card  <title>             clickable tile; lines until ::endcard open in the right pane
     ::endcard                   closes the most recent ::card
 
@@ -158,6 +159,14 @@
     display: flex; justify-content: space-between;
     font-size: 13px; font-weight: 800; opacity: .6; margin-top: 4px;
   }
+  .chart .foot .now { opacity: 1; color: var(--green-deep); }
+
+  /* ::html — a raw fragment. It gets the panel's type and a readable table by default. */
+  .raw { font-size: 16px; }
+  .raw table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  .raw th, .raw td { border: 2px solid var(--ink); padding: 6px 10px; text-align: left; }
+  .raw th { background: var(--yellow-soft); font-size: 13px; letter-spacing: .05em; text-transform: uppercase; }
+  .raw img, .raw svg { max-width: 100%; height: auto; }
 
   /* two across on any reasonable width, one across on a narrow pane */
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
@@ -353,10 +362,23 @@
     }));
     box.append(s);
 
+    // left = where it started, right = where it is now, middle = the range the line is drawn in,
+    // so a reader can tell a real fall from an autoscaled wiggle
     const foot = el('div', 'foot');
-    foot.append(el('span', '', String(lo)), el('span', '', String(vals[vals.length - 1])),
-                el('span', '', String(hi)));
+    foot.append(el('span', '', String(vals[0])),
+                el('span', '', `${lo} – ${hi}`),
+                el('span', 'now', String(vals[vals.length - 1])));
     box.append(foot);
+    return box;
+  }
+
+  /** ::html <fragment>, or ::html … ::endhtml for several lines — injected as real HTML.
+      The escape hatch for anything the markup has no directive for: a table, a second
+      chart shape, an <img>. Only replies written by this side reach here; a user message
+      is shown as the crumb's textContent and is never parsed as markup. */
+  function rawHtml(source) {
+    const box = el('div', 'raw');
+    box.innerHTML = source;
     return box;
   }
 
@@ -414,6 +436,16 @@
       }
       picks = null; stats = null;
       if (b.type === 'chart') { nodes.push(chart(b.body)); continue; }
+      if (b.type === 'html') {
+        const parts = b.body ? [b.body] : [];
+        while (i + 1 < blocks.length && blocks[i + 1].type !== 'endhtml') {
+          parts.push(blocks[++i].body);
+        }
+        i++;                                   // step over ::endhtml (or off the end)
+        nodes.push(rawHtml(parts.join('\n')));
+        continue;
+      }
+      if (b.type === 'endhtml') continue;
       switch (b.type) {
         case 'ask':  nodes.push(el('h1', 'ask', b.body)); break;
         case 'say':  nodes.push(el('p', 'say', b.body)); break;
