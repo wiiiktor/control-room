@@ -351,6 +351,13 @@
     padding: 5px 15px;
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  /* one row: what you asked on the left, when this answer landed on the right */
+  .head { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+  .head .crumb { align-self: center; min-width: 0; }
+  .stamp {
+    flex: none; font-size: 15px; font-weight: 800; letter-spacing: .02em;
+    opacity: .55; cursor: default; font-variant-numeric: tabular-nums;
+  }
   .crumb::before { content: "YOU SAID: "; font-size: 12px; letter-spacing: .05em; opacity: .55; }
   /* a long command is cut to one line, and opens on hover or click: what you asked is
      often the context for what came back */
@@ -552,16 +559,32 @@
   }
 
   /** Swap the whole screen — this console never keeps history. */
-  function show(nodes, crumb = true) {
+  /** (HH:MM) from the reply's own timestamp, with the date on hover. The panel stamps
+      every reply, so a reply never has to carry the clock in its own text. */
+  function stampOf(ts) {
+    if (!ts) return null;
+    const st = el('div', 'stamp', '(' + clock(ts) + ')');
+    const d = (ts || '').slice(0, 10).split('-');     // 2026-09-24 -> 24.09.2026
+    if (d.length === 3) st.title = d[2] + '.' + d[1] + '.' + d[0];
+    return st;
+  }
+
+  function show(nodes, crumb = true, ts = null) {
     closeSheet();          // a new reply invalidates whatever detail was open
     // ...and it invalidates a held live screen: what was held is no longer live
     held = null; pinned = null;
     const kids = [];
-    if (crumb && lastCommand) {
-      const c = el('div', 'crumb', lastCommand);
-      c.title = lastCommand;                       // hover, for the impatient
-      c.onclick = () => { c.classList.toggle('open'); fit(); };
-      kids.push(c);
+    const stamp = stampOf(ts);
+    if ((crumb && lastCommand) || stamp) {
+      const head = el('div', 'head');
+      if (crumb && lastCommand) {
+        const c = el('div', 'crumb', lastCommand);
+        c.title = lastCommand;                     // hover, for the impatient
+        c.onclick = () => { c.classList.toggle('open'); fit(); };
+        head.append(c);
+      }
+      if (stamp) head.append(stamp);
+      kids.push(head);
     }
     kids.push(...nodes);
     screenEl.classList.remove('pop');
@@ -798,7 +821,7 @@
       }
       const before = data.messages.slice(0, data.messages.indexOf(newest)).reverse().find(m => m.role === 'user');
       if (before) lastCommand = before.text;
-      show(build(newest.text));
+      show(build(newest.text), true, newest.ts);
     } catch {
       lamp.classList.add('off');
       if (++fails >= 2 && !offline) { offline = true; showOffline(); }
@@ -890,7 +913,14 @@
   function showArchived(msg) {
     holdLive();
     closeSheet();
-    screenEl.replaceChildren(...build(msg.text));
+    const st = stampOf(msg.ts);
+    const kids = build(msg.text);
+    if (st) {
+      const head = el('div', 'head');
+      head.append(el('div', 'crumb', 'from the timeline'), st);
+      kids.unshift(head);
+    }
+    screenEl.replaceChildren(...kids);
     fit();
   }
 

@@ -56,7 +56,9 @@ message as a notification, so no polling loop is needed.
 ## Behaviour worth knowing
 
 - **One screen, no scrollback.** Each reply replaces the left column; detail lives
-  in cards that open on the right. A reply too tall for the column is shrunk to fit,
+  in cards that open on the right. The panel stamps each reply with its own `(HH:MM)`
+  from `chat.jsonl`, with the date on hover, so a reply never carries a clock in its
+  text and an archived one shows when it landed. A reply too tall for the column is shrunk to fit,
   down to a floor where the text is still readable, and only then does the column
   scroll. The "you said" breadcrumb is cut to one line and opens on hover or click.
 - **The timeline is the scrollback.** The yellow `T` in the corner opens a strip of
