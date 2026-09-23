@@ -22,18 +22,19 @@
     ::card  <title>             clickable tile; lines until ::endcard open in the right pane
     ::endcard                   closes the most recent ::card
 
-  The yellow C picks the palette: dark (default), light, or "peas with corn".
+  The yellow C picks the palette: light (default), dark, or "peas with corn".
   Press 1-9 to choose while the composer is empty. The yellow T opens the timeline:
   every past reply, re-rendered small; hover one to read it full size on the left.
 -->
 <script>
   // Before the first paint, so the page never flashes the wrong palette.
-  try { document.documentElement.dataset.theme = localStorage.getItem('ctrl-theme') || 'dark'; }
-  catch { document.documentElement.dataset.theme = 'dark'; }
+  try { document.documentElement.dataset.theme = localStorage.getItem('ctrl-theme') || 'light'; }
+  catch { document.documentElement.dataset.theme = 'light'; }
 </script>
 <style>
   /* ---- PALETTES -------------------------------------------------------------
-     Three, chosen with the yellow C. :root IS dark, the default. Dark and light take
+     Three, chosen with the yellow C. :root holds dark; light is the DEFAULT and is
+     stamped on <html> before the first paint. Dark and light take
      their surfaces, borders and accents from VS Code's own default themes (Dark
      Modern / Light Modern) -- editor background, widget surface, foreground, the
      #2b2b2b / #e5e5e5 border, the primary-button blue, and the chart green, yellow
@@ -241,8 +242,9 @@
     flex: 1; overflow: hidden; display: grid; gap: 22px; padding: 22px 22px 12px;
     grid-template-columns: 1fr 1fr; align-items: stretch;
   }
-  /* the left column still never scrolls -- content is scaled down to fit instead */
-  #left { overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  /* the left column shrinks to fit FIRST, and only scrolls once shrinking would make
+     the text too small to read (the floor is in fit()) */
+  #left { overflow-y: auto; overflow-x: hidden; display: flex; align-items: center; justify-content: center; }
   #fit { width: 100%; max-width: 760px; }
   /* the right one MAY scroll: detail is not a decision and does not have to fit a screen */
   #detail {
@@ -252,10 +254,10 @@
   #detail.empty { align-items: center; justify-content: center; border-left-color: var(--hair-soft); }
   /* A scrollable surface says so: the overlay bar the OS draws is invisible until you
      already scrolled, which is too late to tell you there is more below. */
-  #detail, #timeline { scrollbar-width: thin; scrollbar-color: var(--ink) transparent; }
-  #detail::-webkit-scrollbar, #timeline::-webkit-scrollbar { width: 12px; height: 12px; }
-  #detail::-webkit-scrollbar-track, #timeline::-webkit-scrollbar-track { background: transparent; }
-  #detail::-webkit-scrollbar-thumb, #timeline::-webkit-scrollbar-thumb {
+  #left, #detail, #timeline { scrollbar-width: thin; scrollbar-color: var(--ink) transparent; }
+  #left::-webkit-scrollbar, #detail::-webkit-scrollbar, #timeline::-webkit-scrollbar { width: 12px; height: 12px; }
+  #left::-webkit-scrollbar-track, #detail::-webkit-scrollbar-track, #timeline::-webkit-scrollbar-track { background: transparent; }
+  #left::-webkit-scrollbar-thumb, #detail::-webkit-scrollbar-thumb, #timeline::-webkit-scrollbar-thumb {
     background: var(--ink); border: 3px solid var(--paper); border-radius: 999px;
   }
   #detail .placeholder {
@@ -284,6 +286,13 @@
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .crumb::before { content: "YOU SAID: "; font-size: 12px; letter-spacing: .05em; opacity: .55; }
+  /* a long command is cut to one line, and opens on hover or click: what you asked is
+     often the context for what came back */
+  .crumb { cursor: pointer; }
+  .crumb:hover, .crumb.open {
+    white-space: normal; overflow: visible; border-radius: 18px; max-width: 100%;
+    background: var(--yellow-soft);
+  }
 
   .badge {
     align-self: flex-start; font-size: 17px; font-weight: 800; letter-spacing: .01em;
@@ -454,7 +463,10 @@
     return n;
   };
 
-  /** Shrink the card until it fits the stage — scrolling is never allowed. */
+  /** Shrink the card until it fits the stage, but not past MIN_SCALE — below that the
+      text stops being readable from across the room, which is the whole point of this
+      panel, so the column scrolls instead. */
+  const MIN_SCALE = 0.62;
   function fit() {
     screenEl.style.transform = 'none';
     screenEl.style.width = '100%';
@@ -466,7 +478,7 @@
     if (k < 1) {
       // widen first so text reflows, then re-measure: a wider box is a shorter box
       screenEl.style.width = (100 / k) + '%';
-      k = Math.min(1, Math.max(avail / screenEl.scrollHeight, 0.4));
+      k = Math.min(1, Math.max(avail / screenEl.scrollHeight, MIN_SCALE));
       screenEl.style.width = (100 / k) + '%';
       screenEl.style.transform = 'scale(' + k + ')';
     }
@@ -479,7 +491,12 @@
     // ...and it invalidates a held live screen: what was held is no longer live
     held = null; pinned = null;
     const kids = [];
-    if (crumb && lastCommand) kids.push(el('div', 'crumb', lastCommand));
+    if (crumb && lastCommand) {
+      const c = el('div', 'crumb', lastCommand);
+      c.title = lastCommand;                       // hover, for the impatient
+      c.onclick = () => { c.classList.toggle('open'); fit(); };
+      kids.push(c);
+    }
     kids.push(...nodes);
     screenEl.classList.remove('pop');
     screenEl.replaceChildren(...kids);
@@ -775,7 +792,7 @@
     const open = palEl.classList.toggle('open');
     palBtn.classList.toggle('on', open);
   };
-  applyTheme(document.documentElement.dataset.theme || 'dark');
+  applyTheme(document.documentElement.dataset.theme || 'light');
 
   /* ---- TIMELINE ------------------------------------------------------------
      Past replies, re-rendered by the same builder rather than stored as pictures,

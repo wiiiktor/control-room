@@ -56,7 +56,9 @@ message as a notification, so no polling loop is needed.
 ## Behaviour worth knowing
 
 - **One screen, no scrollback.** Each reply replaces the left column; detail lives
-  in cards that open on the right.
+  in cards that open on the right. A reply too tall for the column is shrunk to fit,
+  down to a floor where the text is still readable, and only then does the column
+  scroll. The "you said" breadcrumb is cut to one line and opens on hover or click.
 - **The timeline is the scrollback.** The yellow `T` in the corner opens a strip of
   every past reply, each one re-rendered by the same builder rather than stored as an
   image. Hover a thumbnail to read that screen full size on the left; click to pin it
