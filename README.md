@@ -71,11 +71,7 @@ message as a notification, so no polling loop is needed.
   relationship: Copper & Cobalt (complementary), Plum & Citron (split-complementary),
   Terracotta Triad (triadic), Moss (analogous) and Porcelain & Ink (near-monochrome
   plus one accent). Surfaces sit in the base hue at low saturation, accents share a
-  lightness, and the text on each fill is picked by contrast ratio, not by eye. Dark and light take their surfaces, borders and accents from
-  the editor's own default themes: `#1f1f1f` / `#ffffff` page, `#181818` / `#f8f8f8`
-  panel, the `#2b2b2b` / `#e5e5e5` border, the primary-button blue and the chart
-  green, yellow and red. The heavy ink outlines stay — no editor theme draws those.
-  Every colour is a token on `:root`, so a palette is one block of variables and
+  lightness, and the text on each fill is picked by contrast ratio, not by eye. Every colour is a token on `:root`, so a palette is one block of variables and
   nothing else in the stylesheet knows which is running; the choice is kept in
   `localStorage` and stamped on `<html>` before the first paint.
 - **Live reload.** The server stamps the page with its file time, so an open tab

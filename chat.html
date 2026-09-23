@@ -33,68 +33,36 @@
 </script>
 <style>
   /* ---- PALETTES -------------------------------------------------------------
-     Three, chosen with the yellow C. :root holds dark; light is the DEFAULT and is
-     stamped on <html> before the first paint. Dark and light take
-     their surfaces, borders and accents from VS Code's own default themes (Dark
-     Modern / Light Modern) -- editor background, widget surface, foreground, the
-     #2b2b2b / #e5e5e5 border, the primary-button blue, and the chart green, yellow
-     and red. The shapes stay ours: this panel is drawn in thick ink outlines, which
-     no editor theme does. --on-green / --on-yellow / --on-red carry the text that
-     sits ON each filled accent, because white reads on the blue and black on the
-     gold. ------------------------------------------------------------------------ */
+     Chosen with the yellow C. :root holds dark; light is the DEFAULT and is stamped on
+     <html> before the first paint. Dark and light are editor-ish rather than literal --
+     a 2026-09-24 pass replaced them with the Dark Modern / Light Modern values and was
+     reverted the same night: the blue-primary version was more faithful and less
+     pleasant to use. --on-green / --on-yellow / --on-red carry the text that sits ON
+     each filled accent, which matters once a palette's accents are not all light.
+     ---------------------------------------------------------------------------- */
   :root, :root[data-theme="dark"] {
-    --ink: #cccccc;                 /* editor.foreground */
-    --paper: #1f1f1f;               /* editor.background */
-    --panel: #181818;               /* sideBar.background */
-    --green: #0078d4;               /* button.background — the primary action */
-    --on-green: #ffffff;
-    --green-deep: #89d185;          /* charts.green — the line on a chart */
-    --green-soft: #04395e;          /* list.activeSelectionBackground */
-    --yellow: #cca700;              /* editorWarning / charts.yellow */
-    --on-yellow: #1f1f1f;
-    --yellow-soft: #33302a;
-    --red: #f14c4c;                 /* editorError.foreground */
-    --on-red: #1f1f1f;
-    --red-soft: #3a2323;
-    --grey: #313131;                /* button.secondary */
-    --hair: #2b2b2b;                /* the default panel border */
-    --hair-soft: #252525;
-    --veil: rgba(24,24,24,.9);
-    --ring-green: rgba(0,120,212,.3);
-    --ring-yellow: rgba(204,167,0,.25);
-    --ring-red: rgba(241,76,76,.28);
-    --ring-grey: rgba(150,150,150,.16);
-    --ring-ink: rgba(204,204,204,.3);
-    --shadow-col: #000;
-    --wash-a: #262626;
-    --wash-b: #1c2530;
+    --ink: #d4d4d4; --paper: #1e1e1e; --panel: #252526;
+    --green: #4ec9b0; --on-green: #16170f; --green-deep: #6bd6bd; --green-soft: #24352f;
+    --yellow: #dcdcaa; --on-yellow: #16170f; --yellow-soft: #37341f;
+    --red: #f14c4c; --on-red: #16170f; --red-soft: #402424;
+    --grey: #4a4a4a; --hair: rgba(212,212,212,.24); --hair-soft: rgba(212,212,212,.12);
+    --veil: rgba(30,30,30,.82);
+    --ring-green: rgba(78,201,176,.28); --ring-yellow: rgba(220,220,170,.22);
+    --ring-red: rgba(241,76,76,.28); --ring-grey: rgba(160,160,160,.18);
+    --ring-ink: rgba(212,212,212,.32); --shadow-col: #000;
+    --wash-a: #2b2b21; --wash-b: #1f2d29;
   }
   :root[data-theme="light"] {
-    --ink: #3b3b3b;                 /* editor.foreground */
-    --paper: #ffffff;               /* editor.background */
-    --panel: #f8f8f8;               /* sideBar.background */
-    --green: #005fb8;               /* button.background */
-    --on-green: #ffffff;
-    --green-deep: #388a34;          /* charts.green */
-    --green-soft: #e4edf7;
-    --yellow: #bf8803;              /* charts.yellow */
-    --on-yellow: #ffffff;
-    --yellow-soft: #f3f1ea;
-    --red: #cd3131;                 /* editorError.foreground */
-    --on-red: #ffffff;
-    --red-soft: #fbe9e9;
-    --grey: #e5e5e5;
-    --hair: #e5e5e5;                /* the default panel border */
-    --hair-soft: #f0f0f0;
-    --veil: rgba(248,248,248,.92);
-    --ring-green: rgba(0,95,184,.22);
-    --ring-yellow: rgba(191,136,3,.22);
-    --ring-red: rgba(205,49,49,.2);
-    --ring-grey: rgba(120,120,120,.16);
-    --ring-ink: rgba(59,59,59,.3);
-    --shadow-col: #3b3b3b;
-    --wash-a: #fbfbfb;
-    --wash-b: #f6f8fb;
+    --ink: #1f1f1f; --paper: #ffffff; --panel: #f3f3f3;
+    --green: #3aa45f; --on-green: #16170f; --green-deep: #1b7a3f; --green-soft: #e6f2ea;
+    --yellow: #ffcc33; --on-yellow: #16170f; --yellow-soft: #f2f2ee;
+    --red: #e51400; --on-red: #16170f; --red-soft: #ffe3e0;
+    --grey: #c9c9c9; --hair: rgba(31,31,31,.22); --hair-soft: rgba(31,31,31,.12);
+    --veil: rgba(255,255,255,.82);
+    --ring-green: rgba(58,164,95,.25); --ring-yellow: rgba(255,204,51,.25);
+    --ring-red: rgba(229,20,0,.22); --ring-grey: rgba(120,120,120,.18);
+    --ring-ink: rgba(31,31,31,.35); --shadow-col: #1f1f1f;
+    --wash-a: #fbfaf6; --wash-b: #f5f8f6;
   }
   :root[data-theme="peas"] {
     --ink: #16170f;
