@@ -3,7 +3,7 @@
 ![Control Room](docs/control-room.png)
 
 A big-button control panel for driving [Claude Code](https://claude.com/claude-code)
-from a browser or from Telegram.
+from a browser.
 
 You type (or tap a button) in the panel. The message is appended to `chat.jsonl`.
 Claude Code, running in a terminal, watches that file, does the work, and answers
@@ -11,7 +11,7 @@ with `reply.py` in a small line-based markup ([MARKUP.md](MARKUP.md)) that the p
 renders as headlines, stat tiles, status pills, cards and choice buttons.
 
 ```
-browser / Telegram  ──►  chat.jsonl  ──►  Claude Code
+browser  ──────────►  chat.jsonl  ──►  Claude Code
         ▲                                     │
         └──────────  reply.py  ◄──────────────┘
 ```
@@ -26,7 +26,6 @@ Python 3 standard library only. No dependencies, no build step.
 | `chat.html` | The panel: renders the markup, sends messages, polls for replies |
 | `reply.py` | Posts an assistant reply into the log |
 | `watch.py` | Filter for `tail -F chat.jsonl`: one line per new user message |
-| `telegram_bot.py` | Optional Telegram front-end on the same log ([TELEGRAM.md](TELEGRAM.md)) |
 
 ## What a reply looks like
 
@@ -85,11 +84,11 @@ message as a notification, so no polling loop is needed.
   `localStorage` and stamped on `<html>` before the first paint.
 - **Live reload.** The server stamps the page with its file time, so an open tab
   reloads itself when `chat.html` changes.
-- **Safe concurrent writers.** The server, `reply.py` and the Telegram bot all
+- **Safe concurrent writers.** The server and `reply.py` both
   append under an `flock`, and ids come from a high-water mark in `.seq`, so they
   never repeat, even after `chat.jsonl` is truncated.
 - **A scrollable pane says so.** The detail pane and the timeline draw a visible
   scrollbar rather than the overlay one the OS fades in only after you scroll, which
   is too late to tell you there is more below.
-- **Local only.** The server binds to `127.0.0.1`. The Telegram bot uses outbound
-  long-polling, so nothing is exposed to the internet.
+- **Local only.** The server binds to `127.0.0.1`, so nothing is exposed to the
+  internet.

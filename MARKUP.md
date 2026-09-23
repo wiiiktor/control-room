@@ -1,8 +1,7 @@
 # CTRL markup
 
-Every assistant reply is written in this line-oriented markup. [chat.html](chat.html)
-renders it as large UI elements, and [telegram_bot.py](telegram_bot.py) renders it
-as formatted messages with buttons. One directive per line.
+Every assistant reply is written in this line-oriented markup, and
+[chat.html](chat.html) renders it as large UI elements. One directive per line.
 
 The web console has two columns. The **left** holds the current reply and always
 fits one screen: each new reply replaces it, and the previous command survives only

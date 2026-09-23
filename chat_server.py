@@ -56,7 +56,7 @@ def read_messages(since=0):
 
 def append_message(role, text):
     # LOCK guards threads inside this process; flock guards the other processes
-    # writing the same log (the web server, reply.py and the Telegram bot).
+    # writing the same log (the web server and reply.py).
     with LOCK, LOG.open("a+", encoding="utf-8") as handle:
         fcntl.flock(handle, fcntl.LOCK_EX)
         existing = read_messages()

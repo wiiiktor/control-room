@@ -1,6 +1,4 @@
 chat.jsonl
 .seq
 access.log
-.telegram-token
-.telegram-owner
 __pycache__/
