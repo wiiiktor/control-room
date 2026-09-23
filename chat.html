@@ -33,73 +33,82 @@
 </script>
 <style>
   /* ---- PALETTES -------------------------------------------------------------
-     Three, chosen with the yellow C. :root IS dark mode, the default; the other two
-     override the same tokens, so nothing below this block knows which is running.
-     --ink-on is the text that sits ON a filled accent (always dark, because every
-     palette's accents are light); --hair is a line, --veil a wash, --shadow-col the
-     cartoon drop shadow. ------------------------------------------------------- */
+     Three, chosen with the yellow C. :root IS dark, the default. Dark and light take
+     their surfaces, borders and accents from VS Code's own default themes (Dark
+     Modern / Light Modern) -- editor background, widget surface, foreground, the
+     #2b2b2b / #e5e5e5 border, the primary-button blue, and the chart green, yellow
+     and red. The shapes stay ours: this panel is drawn in thick ink outlines, which
+     no editor theme does. --on-green / --on-yellow / --on-red carry the text that
+     sits ON each filled accent, because white reads on the blue and black on the
+     gold. ------------------------------------------------------------------------ */
   :root, :root[data-theme="dark"] {
-    --ink: #d4d4d4;
-    --paper: #1e1e1e;
-    --panel: #252526;
-    --green: #4ec9b0;
-    --green-deep: #6bd6bd;
-    --green-soft: #24352f;
-    --yellow: #dcdcaa;
-    --yellow-soft: #37341f;
-    --red: #f14c4c;
-    --red-soft: #402424;
-    --ink-on: #16170f;
-    --grey: #4a4a4a;
-    --hair: rgba(212,212,212,.24);
-    --hair-soft: rgba(212,212,212,.12);
-    --veil: rgba(30,30,30,.82);
-    --ring-green: rgba(78,201,176,.28);
-    --ring-yellow: rgba(220,220,170,.22);
+    --ink: #cccccc;                 /* editor.foreground */
+    --paper: #1f1f1f;               /* editor.background */
+    --panel: #181818;               /* sideBar.background */
+    --green: #0078d4;               /* button.background — the primary action */
+    --on-green: #ffffff;
+    --green-deep: #89d185;          /* charts.green — the line on a chart */
+    --green-soft: #04395e;          /* list.activeSelectionBackground */
+    --yellow: #cca700;              /* editorWarning / charts.yellow */
+    --on-yellow: #1f1f1f;
+    --yellow-soft: #33302a;
+    --red: #f14c4c;                 /* editorError.foreground */
+    --on-red: #1f1f1f;
+    --red-soft: #3a2323;
+    --grey: #313131;                /* button.secondary */
+    --hair: #2b2b2b;                /* the default panel border */
+    --hair-soft: #252525;
+    --veil: rgba(24,24,24,.9);
+    --ring-green: rgba(0,120,212,.3);
+    --ring-yellow: rgba(204,167,0,.25);
     --ring-red: rgba(241,76,76,.28);
-    --ring-grey: rgba(160,160,160,.18);
-    --ring-ink: rgba(212,212,212,.32);
+    --ring-grey: rgba(150,150,150,.16);
+    --ring-ink: rgba(204,204,204,.3);
     --shadow-col: #000;
-    --wash-a: #2b2b21;
-    --wash-b: #1f2d29;
+    --wash-a: #262626;
+    --wash-b: #1c2530;
   }
   :root[data-theme="light"] {
-    --ink: #1f1f1f;
-    --paper: #ffffff;
-    --panel: #f3f3f3;
-    --green: #3aa45f;
-    --green-deep: #1b7a3f;
-    --green-soft: #e6f2ea;
-    --yellow: #ffcc33;
-    --yellow-soft: #f2f2ee;
-    --red: #e51400;
-    --red-soft: #ffe3e0;
-    --ink-on: #16170f;
-    --grey: #c9c9c9;
-    --hair: rgba(31,31,31,.22);
-    --hair-soft: rgba(31,31,31,.12);
-    --veil: rgba(255,255,255,.82);
-    --ring-green: rgba(58,164,95,.25);
-    --ring-yellow: rgba(255,204,51,.25);
-    --ring-red: rgba(229,20,0,.22);
-    --ring-grey: rgba(120,120,120,.18);
-    --ring-ink: rgba(31,31,31,.35);
-    --shadow-col: #1f1f1f;
-    --wash-a: #fbfaf6;
-    --wash-b: #f5f8f6;
+    --ink: #3b3b3b;                 /* editor.foreground */
+    --paper: #ffffff;               /* editor.background */
+    --panel: #f8f8f8;               /* sideBar.background */
+    --green: #005fb8;               /* button.background */
+    --on-green: #ffffff;
+    --green-deep: #388a34;          /* charts.green */
+    --green-soft: #e4edf7;
+    --yellow: #bf8803;              /* charts.yellow */
+    --on-yellow: #ffffff;
+    --yellow-soft: #f3f1ea;
+    --red: #cd3131;                 /* editorError.foreground */
+    --on-red: #ffffff;
+    --red-soft: #fbe9e9;
+    --grey: #e5e5e5;
+    --hair: #e5e5e5;                /* the default panel border */
+    --hair-soft: #f0f0f0;
+    --veil: rgba(248,248,248,.92);
+    --ring-green: rgba(0,95,184,.22);
+    --ring-yellow: rgba(191,136,3,.22);
+    --ring-red: rgba(205,49,49,.2);
+    --ring-grey: rgba(120,120,120,.16);
+    --ring-ink: rgba(59,59,59,.3);
+    --shadow-col: #3b3b3b;
+    --wash-a: #fbfbfb;
+    --wash-b: #f6f8fb;
   }
   :root[data-theme="peas"] {
     --ink: #16170f;
     --paper: #fffdf2;
     --panel: #ffffff;
     --green: #34c759;
+    --on-green: #16170f;
     --green-deep: #1f8f3e;
     --green-soft: #ddf7e2;
     --yellow: #ffd43b;
+    --on-yellow: #16170f;
     --yellow-soft: #fff3c4;
     --red: #ff5a4e;
+    --on-red: #16170f;
     --red-soft: #ffe2de;
-    --ink-on: #16170f;
     --grey: #c2c5bd;
     --hair: rgba(22,23,15,.22);
     --hair-soft: rgba(22,23,15,.12);
@@ -148,13 +157,13 @@
     box-shadow: 0 0 0 4px var(--ring-grey);
     cursor: pointer; opacity: .6; transition: opacity .12s, background .12s;
   }
-  #wipe:hover { opacity: 1; background: var(--yellow); color: var(--ink-on); }
+  #wipe:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
   /* third lamp in the same column: the timeline toggle */
   #tl-btn {
     position: fixed; top: 84px; right: 18px; z-index: 6;
     display: grid; place-items: center; padding: 0;
     width: 20px; height: 20px; border-radius: 50%;
-    font: 900 11px/1 inherit; color: var(--ink-on);
+    font: 900 11px/1 inherit; color: var(--on-yellow);
     background: var(--yellow); border: 3px solid var(--ink);
     box-shadow: 0 0 0 4px var(--ring-yellow);
     cursor: pointer; opacity: .75; transition: opacity .12s;
@@ -168,7 +177,7 @@
     position: fixed; top: 118px; right: 18px; z-index: 6;
     display: grid; place-items: center; padding: 0;
     width: 20px; height: 20px; border-radius: 50%;
-    font: 900 11px/1 inherit; color: var(--ink-on);
+    font: 900 11px/1 inherit; color: var(--on-yellow);
     background: var(--yellow); border: 3px solid var(--ink);
     box-shadow: 0 0 0 4px var(--ring-yellow);
     cursor: pointer; opacity: .75; transition: opacity .12s;
@@ -248,7 +257,7 @@
   #detail h2 {
     margin: 0; font-size: 25px; font-weight: 900; letter-spacing: -.02em; line-height: 1.15;
   }
-  .cards button.on { background: var(--yellow); color: var(--ink-on); box-shadow: 0 0 0 var(--ink); transform: translate(4px, 4px); }
+  .cards button.on { background: var(--yellow); color: var(--on-yellow); box-shadow: 0 0 0 var(--ink); transform: translate(4px, 4px); }
   @media (max-width: 900px) {
     #stage { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
     #detail { border-left: none; border-top: var(--line) dashed var(--hair); padding: 16px 4px 4px; max-height: 45%; }
@@ -273,9 +282,9 @@
     padding: 9px 18px; border: 3px solid var(--ink); border-radius: 999px;
     text-transform: uppercase;
   }
-  .badge.ok { background: var(--green); color: var(--ink-on); }
-  .badge.warn { background: var(--yellow); color: var(--ink-on); }
-  .badge.err { background: var(--red); color: var(--ink-on); }
+  .badge.ok { background: var(--green); color: var(--on-green); }
+  .badge.warn { background: var(--yellow); color: var(--on-yellow); }
+  .badge.err { background: var(--red); color: var(--on-red); }
   .badge.wait { background: var(--panel); text-transform: none; }
 
   .ask {
@@ -328,7 +337,7 @@
     box-shadow: var(--pop-sm); padding: 14px 15px 12px; border-radius: 0;
     display: flex; flex-direction: column; gap: 8px; min-height: 96px;
   }
-  .cards button:hover { background: var(--yellow); color: var(--ink-on); }
+  .cards button:hover { background: var(--yellow); color: var(--on-yellow); }
   .cards button:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
   .cards button b { font-size: 17px; font-weight: 800; line-height: 1.25; letter-spacing: -.01em; }
   .cards button .more {
@@ -347,11 +356,11 @@
     border-radius: 20px; padding: 16px 18px; cursor: pointer; box-shadow: var(--pop);
     transition: transform .08s, box-shadow .08s, background .12s;
   }
-  .picks button:hover { background: var(--green); color: var(--ink-on); }
+  .picks button:hover { background: var(--green); color: var(--on-green); }
   .picks button:active { transform: translate(6px, 6px); box-shadow: 0 0 0 var(--ink); }
   .picks button kbd {
     flex: none; display: grid; place-items: center; width: 44px; height: 44px;
-    font: 900 20px/1 inherit; background: var(--yellow); color: var(--ink-on);
+    font: 900 20px/1 inherit; background: var(--yellow); color: var(--on-yellow);
     border: 3px solid var(--ink); border-radius: 50%;
   }
   .picks button.fill { background: var(--panel); }
@@ -395,7 +404,7 @@
   textarea:focus { outline: none; background: var(--yellow-soft); }
   form button {
     font: inherit; font-size: 20px; font-weight: 900; height: 104px; padding: 0 34px;
-    background: var(--yellow); color: var(--ink-on);
+    background: var(--yellow); color: var(--on-yellow);
     border: var(--line) solid var(--ink); border-radius: 18px; cursor: pointer;
     box-shadow: var(--pop-sm); transition: transform .08s, box-shadow .08s;
   }
@@ -724,7 +733,7 @@
      remembers the choice. Dark is the default, so an empty stamp is already right —
      the read is wrapped because localStorage throws in a locked-down browser. ---- */
   const THEMES = [
-    { id: 'dark',  name: 'Dark mode',      chip: '#1e1e1e' },
+    { id: 'dark',  name: 'Dark mode',      chip: '#1f1f1f' },
     { id: 'light', name: 'Light mode',     chip: '#ffffff' },
     { id: 'peas',  name: 'Peas with corn', chip: '#ffd43b' },
   ];
