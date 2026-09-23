@@ -23,7 +23,8 @@ card you open, and it may scroll.
 | `::pick <label> => <cmd>` | choice button showing `<label>`, sending `<cmd>` |
 | `::fill <text>` | button that pre-fills the composer instead of sending |
 | `::chart <title> = v1,v2,…` | line chart of the numbers, scaled to its own min/max; the last point is marked and min/last/max are printed under it |
-| `::html <fragment>` / `::html` … `::endhtml` | the fragment injected as real HTML — the escape hatch for a table, an image or a shape the directives do not cover |
+| `::html <fragment>` | that one line injected as real HTML — the escape hatch for a table, an image or a shape the directives do not cover |
+| `::html` … `::endhtml` | the same, for a fragment spanning several lines (the opening `::html` must carry no text) |
 | `::card <title>` … `::endcard` | tile; clicking it shows everything between in the right pane |
 
 Bare (non-`::`) lines render as plain text, so nothing is lost if a directive is

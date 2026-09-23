@@ -612,7 +612,11 @@
       picks = null; stats = null;
       if (b.type === 'chart') { nodes.push(chart(b.body)); continue; }
       if (b.type === 'html') {
-        const parts = b.body ? [b.body] : [];
+        // `::html <fragment>` is ONE line and consumes nothing after it; only a bare
+        // `::html` opens a block, which runs to ::endhtml. Consuming after a one-liner
+        // silently ate the next directive -- a reply lost its closing line to it.
+        if (b.body) { nodes.push(rawHtml(b.body)); continue; }
+        const parts = [];
         while (i + 1 < blocks.length && blocks[i + 1].type !== 'endhtml') {
           parts.push(blocks[++i].body);
         }
