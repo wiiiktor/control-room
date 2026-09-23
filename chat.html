@@ -17,6 +17,7 @@
     ::pick  <label>             big green choice button — click sends <label>
     ::pick  <label> => <cmd>    button showing <label>, sending <cmd>
     ::fill  <text>              button that pre-fills the composer instead of sending
+    ::chart <title> = v1,v2,..  small line chart, scaled to its own min/max
     ::card  <title>             clickable tile; lines until ::endcard open in the right pane
     ::endcard                   closes the most recent ::card
 
@@ -142,6 +143,21 @@
     text-transform: uppercase; opacity: .6; margin-bottom: 3px;
   }
   .stat span { font-size: 24px; font-weight: 900; letter-spacing: -.02em; }
+
+  /* A chart is a stat that moved: same card, same ink, one line of data. */
+  .chart {
+    background: var(--panel); border: 3px solid var(--ink);
+    border-radius: 14px; padding: 13px 16px;
+  }
+  .chart b {
+    display: block; font-size: 13px; font-weight: 800; letter-spacing: .06em;
+    text-transform: uppercase; opacity: .6; margin-bottom: 6px;
+  }
+  .chart svg { display: block; width: 100%; height: auto; }
+  .chart .foot {
+    display: flex; justify-content: space-between;
+    font-size: 13px; font-weight: 800; opacity: .6; margin-top: 4px;
+  }
 
   /* two across on any reasonable width, one across on a narrow pane */
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
@@ -301,6 +317,49 @@
 
   function build(text) { return buildBlocks(parse(text)); }
 
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function svg(tag, attrs) {
+    const n = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+
+  /** ::chart <title> = v1,v2,v3 — one line, scaled to its own min/max, last point marked.
+      The y axis is the series' own range, so a flat line means flat, not zoomed-out. */
+  function chart(body) {
+    const cut = body.indexOf('=');
+    const title = (cut < 0 ? body : body.slice(0, cut)).trim();
+    const vals = (cut < 0 ? '' : body.slice(cut + 1))
+      .split(',').map(s => parseFloat(s)).filter(v => isFinite(v));
+    const box = el('div', 'chart');
+    box.append(el('b', '', title));
+    if (vals.length < 2) { box.append(el('p', 'note', 'no data')); return box; }
+
+    const W = 600, H = 150, PAD = 8;
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const span = hi - lo || 1;
+    const x = i => PAD + i * (W - 2 * PAD) / (vals.length - 1);
+    const y = v => H - PAD - (v - lo) / span * (H - 2 * PAD);
+
+    const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': title });
+    s.append(svg('polyline', {
+      points: vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' '),
+      fill: 'none', stroke: 'var(--green-deep)', 'stroke-width': 4,
+      'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+    }));
+    s.append(svg('circle', {
+      cx: x(vals.length - 1), cy: y(vals[vals.length - 1]), r: 7,
+      fill: 'var(--yellow)', stroke: 'var(--ink)', 'stroke-width': 3,
+    }));
+    box.append(s);
+
+    const foot = el('div', 'foot');
+    foot.append(el('span', '', String(lo)), el('span', '', String(vals[vals.length - 1])),
+                el('span', '', String(hi)));
+    box.append(foot);
+    return box;
+  }
+
   /** Render parsed blocks. Called again for each ::card body, so windows nest naturally. */
   function buildBlocks(blocks) {
     const nodes = [];
@@ -354,6 +413,7 @@
         continue;
       }
       picks = null; stats = null;
+      if (b.type === 'chart') { nodes.push(chart(b.body)); continue; }
       switch (b.type) {
         case 'ask':  nodes.push(el('h1', 'ask', b.body)); break;
         case 'say':  nodes.push(el('p', 'say', b.body)); break;

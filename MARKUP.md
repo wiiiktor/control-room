@@ -22,6 +22,7 @@ card you open, and it may scroll.
 | `::pick <label>` | big choice button — clicking sends `<label>` as a user message |
 | `::pick <label> => <cmd>` | choice button showing `<label>`, sending `<cmd>` |
 | `::fill <text>` | button that pre-fills the composer instead of sending |
+| `::chart <title> = v1,v2,…` | line chart of the numbers, scaled to its own min/max; the last point is marked and min/last/max are printed under it |
 | `::card <title>` … `::endcard` | tile; clicking it shows everything between in the right pane |
 
 Bare (non-`::`) lines render as plain text, so nothing is lost if a directive is
