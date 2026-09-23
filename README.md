@@ -1,5 +1,7 @@
 # Control Room
 
+![Decision Center](docs/decision-center.jpeg)
+
 A big-button control panel for driving [Claude Code](https://claude.com/claude-code)
 from a browser or from Telegram.
 
