@@ -28,6 +28,15 @@ Python 3 standard library only. No dependencies, no build step.
 | `watch.py` | Filter for `tail -F chat.jsonl`: one line per new user message |
 | `telegram_bot.py` | Optional Telegram front-end on the same log ([TELEGRAM.md](TELEGRAM.md)) |
 
+## What a reply looks like
+
+![Every element the panel can draw](docs/control-room-example.png)
+
+One reply, every directive: the headline, the lead, a note, four stat tiles, three
+cards, a plain line, two choice buttons and a `::fill`. The card that is open on the
+right holds a `::chart` and an `::html` table. The palette here is "peas with corn";
+the yellow `C` in the corner switches it.
+
 ## Run it
 
 ```bash
