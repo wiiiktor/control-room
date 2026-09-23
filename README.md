@@ -57,6 +57,11 @@ message as a notification, so no polling loop is needed.
 
 - **One screen, no scrollback.** Each reply replaces the left column; detail lives
   in cards that open on the right.
+- **The timeline is the scrollback.** The yellow `T` in the corner opens a strip of
+  every past reply, each one re-rendered by the same builder rather than stored as an
+  image. Hover a thumbnail to read that screen full size on the left; click to pin it
+  so its cards can be opened; `T` again or `Esc` closes. Nothing is lost by the
+  one-screen rule — `chat.jsonl` holds every message, and the strip is built from it.
 - **Live reload.** The server stamps the page with its file time, so an open tab
   reloads itself when `chat.html` changes.
 - **Safe concurrent writers.** The server, `reply.py` and the Telegram bot all
