@@ -123,65 +123,64 @@
     --wash-a: #fff3c4;
     --wash-b: #ddf7e2;
   }
-  /* Five taken from Notepad++'s own themes, keeping each one's real editor colours:
-     background, foreground, and the hues it uses for strings, numbers and keywords.
-     --green is the PRIMARY ACTION here, so each theme lends its keyword blue or cyan;
-     --green-deep is the chart line and takes that theme's green. */
-  :root[data-theme="obsidian"] {            /* Obsidian */
-    --ink: #e0e2e4; --paper: #293134; --panel: #22292c;
-    --green: #678cb1; --on-green: #10181c; --green-deep: #93c763; --green-soft: #2f3d47;
-    --yellow: #ffcd22; --on-yellow: #23282a; --yellow-soft: #3a3a2b;
-    --red: #ec7600; --on-red: #1b1200; --red-soft: #3d2a19;
-    --grey: #3f4b50; --hair: #3f4b50; --hair-soft: #313a3e; --veil: rgba(41,49,52,.9);
-    --ring-green: rgba(103,140,177,.3); --ring-yellow: rgba(255,205,34,.25);
-    --ring-red: rgba(236,118,0,.25); --ring-grey: rgba(160,175,180,.16);
-    --ring-ink: rgba(224,226,228,.28); --shadow-col: #161b1d;
-    --wash-a: #2f393d; --wash-b: #273135;
+  /* Five built on the colour wheel rather than copied: each picks ONE relationship and
+     holds to it, with surfaces in the base hue at low saturation, accents at a matched
+     lightness so no one of them shouts, and --on-* chosen by contrast ratio against
+     each fill. --green is the primary action, --green-deep the chart line. */
+  :root[data-theme="cobalt"] {            /* Copper & Cobalt — complementary, 215 vs 30 */
+    --ink: #d6dae0; --paper: #13161b; --panel: #1b2027;
+    --green: #4987df; --on-green: #0e131b; --green-deep: #64bbd8;
+    --green-soft: #28313e; --yellow: #d8ab79; --on-yellow: #0e131b;
+    --yellow-soft: #3e3428; --red: #d87364; --on-red: #0e131b;
+    --red-soft: #3e2b28; --grey: #353c46; --hair: #353c46;
+    --hair-soft: #252a31; --veil: rgba(0,0,0,.85); --ring-green: #4987df55;
+    --ring-yellow: #d8ab7944; --ring-red: #d8736444; --ring-grey: #353c4644;
+    --ring-ink: #d6dae04d; --shadow-col: #080a0d; --wash-a: #1f252e;
+    --wash-b: #1d232a;
   }
-  :root[data-theme="zenburn"] {             /* Zenburn — the low-contrast one */
-    --ink: #dcdccc; --paper: #3f3f3f; --panel: #383838;
-    --green: #8cd0d3; --on-green: #2b2b2b; --green-deep: #7f9f7f; --green-soft: #4a5354;
-    --yellow: #f0dfaf; --on-yellow: #3f3f3f; --yellow-soft: #4c4a3f;
-    --red: #cc9393; --on-red: #3f3f3f; --red-soft: #4e4040;
-    --grey: #4f4f4f; --hair: #5a5a5a; --hair-soft: #4a4a4a; --veil: rgba(63,63,63,.9);
-    --ring-green: rgba(140,208,211,.25); --ring-yellow: rgba(240,223,175,.22);
-    --ring-red: rgba(204,147,147,.25); --ring-grey: rgba(180,180,170,.16);
-    --ring-ink: rgba(220,220,204,.28); --shadow-col: #2b2b2b;
-    --wash-a: #494949; --wash-b: #414744;
+  :root[data-theme="plum"] {            /* Plum & Citron — split-complementary, 290 vs 70/110 */
+    --ink: #ded6e0; --paper: #19131b; --panel: #251b27;
+    --green: #9949df; --on-green: #f8f6f9; --green-deep: #77d864;
+    --green-soft: #34283e; --yellow: #ced879; --on-yellow: #180e1b;
+    --yellow-soft: #3c3e28; --red: #d86473; --on-red: #180e1b;
+    --red-soft: #3e282b; --grey: #423546; --hair: #423546;
+    --hair-soft: #2f2531; --veil: rgba(0,0,0,.85); --ring-green: #9949df55;
+    --ring-yellow: #ced87944; --ring-red: #d8647344; --ring-grey: #42354644;
+    --ring-ink: #ded6e04d; --shadow-col: #0c080d; --wash-a: #2b1f2e;
+    --wash-b: #241d2a;
   }
-  :root[data-theme="solarized"] {           /* Solarized Light */
-    --ink: #586e75; --paper: #fdf6e3; --panel: #eee8d5;
-    --green: #268bd2; --on-green: #fdf6e3; --green-deep: #859900; --green-soft: #e4ecdf;
-    --yellow: #b58900; --on-yellow: #fdf6e3; --yellow-soft: #f3ecd6;
-    --red: #dc322f; --on-red: #fdf6e3; --red-soft: #f6e0d8;
-    --grey: #ded8c5; --hair: rgba(88,110,117,.28); --hair-soft: rgba(88,110,117,.14);
-    --veil: rgba(253,246,227,.88);
-    --ring-green: rgba(38,139,210,.25); --ring-yellow: rgba(181,137,0,.22);
-    --ring-red: rgba(220,50,47,.2); --ring-grey: rgba(147,161,161,.2);
-    --ring-ink: rgba(88,110,117,.3); --shadow-col: #586e75;
-    --wash-a: #f6efdc; --wash-b: #eef0e2;
+  :root[data-theme="terracotta"] {            /* Terracotta Triad — triadic, 20 / 140 / 260 */
+    --ink: #3e3028; --paper: #fcf9f8; --panel: #f5f1ef;
+    --green: #7051b8; --on-green: #f9f7f6; --green-deep: #279b57;
+    --green-soft: #eae6f4; --yellow: #b28638; --on-yellow: #1b130e;
+    --yellow-soft: #f4efe6; --red: #c15033; --on-red: #f9f7f6;
+    --red-soft: #f4e9e6; --grey: #e6dfdb; --hair: rgba(0,0,0,.18);
+    --hair-soft: rgba(0,0,0,.09); --veil: rgba(255,255,255,.88); --ring-green: #7051b855;
+    --ring-yellow: #b2863844; --ring-red: #c1503344; --ring-grey: #e6dfdb44;
+    --ring-ink: #3e30284d; --shadow-col: #46342a; --wash-a: #f8f4ed;
+    --wash-b: #f0eef7;
   }
-  :root[data-theme="monokai"] {             /* Monokai */
-    --ink: #f8f8f2; --paper: #272822; --panel: #1f201b;
-    --green: #66d9ef; --on-green: #15160f; --green-deep: #a6e22e; --green-soft: #2f3a3c;
-    --yellow: #e6db74; --on-yellow: #272822; --yellow-soft: #3b3a2a;
-    --red: #f92672; --on-red: #ffffff; --red-soft: #3d2029;
-    --grey: #3e3d32; --hair: #3e3d32; --hair-soft: #32322a; --veil: rgba(39,40,34,.9);
-    --ring-green: rgba(102,217,239,.28); --ring-yellow: rgba(230,219,116,.22);
-    --ring-red: rgba(249,38,114,.28); --ring-grey: rgba(180,180,160,.16);
-    --ring-ink: rgba(248,248,242,.28); --shadow-col: #12130f;
-    --wash-a: #33342b; --wash-b: #2b332f;
+  :root[data-theme="moss"] {            /* Moss Analogous — 90 / 120 / 160 neighbours */
+    --ink: #d6e0d6; --paper: #131b13; --panel: #1b271b;
+    --green: #49df99; --on-green: #0e1b0e; --green-deep: #8bd864;
+    --green-soft: #283e34; --yellow: #abd879; --on-yellow: #0e1b0e;
+    --yellow-soft: #343e28; --red: #d88b64; --on-red: #0e1b0e;
+    --red-soft: #3e2f28; --grey: #354635; --hair: #354635;
+    --hair-soft: #253125; --veil: rgba(0,0,0,.85); --ring-green: #49df9955;
+    --ring-yellow: #abd87944; --ring-red: #d88b6444; --ring-grey: #35463544;
+    --ring-ink: #d6e0d64d; --shadow-col: #080d08; --wash-a: #1f2e1f;
+    --wash-b: #1d2a24;
   }
-  :root[data-theme="bespin"] {              /* Bespin */
-    --ink: #baae9e; --paper: #28211c; --panel: #322a24;
-    --green: #5ea6ea; --on-green: #14100d; --green-deep: #54be0d; --green-soft: #33332c;
-    --yellow: #f9ee98; --on-yellow: #28211c; --yellow-soft: #3b3325;
-    --red: #cf6a4c; --on-red: #1a0f0a; --red-soft: #3a261d;
-    --grey: #3d342c; --hair: #453a31; --hair-soft: #352d26; --veil: rgba(40,33,28,.9);
-    --ring-green: rgba(94,166,234,.25); --ring-yellow: rgba(249,238,152,.22);
-    --ring-red: rgba(207,106,76,.25); --ring-grey: rgba(186,174,158,.16);
-    --ring-ink: rgba(186,174,158,.28); --shadow-col: #150f0c;
-    --wash-a: #382e26; --wash-b: #2e2a22;
+  :root[data-theme="porcelain"] {            /* Porcelain & Ink — near-monochrome 210 with one saffron */
+    --ink: #28333e; --paper: #f8fafc; --panel: #eff2f5;
+    --green: #226dc3; --on-green: #f6f7f9; --green-deep: #276b9b;
+    --green-soft: #e6edf4; --yellow: #b28c34; --on-yellow: #0e141b;
+    --yellow-soft: #f4f0e6; --red: #b82e32; --on-red: #f6f7f9;
+    --red-soft: #f4e6e6; --grey: #dbe0e6; --hair: rgba(0,0,0,.18);
+    --hair-soft: rgba(0,0,0,.09); --veil: rgba(255,255,255,.88); --ring-green: #226dc355;
+    --ring-yellow: #b28c3444; --ring-red: #b82e3244; --ring-grey: #dbe0e644;
+    --ring-ink: #28333e4d; --shadow-col: #2a3846; --wash-a: #f8f5ed;
+    --wash-b: #eef2f7;
   }
   :root {
     --line: 4px;
@@ -832,11 +831,11 @@
     { id: 'dark',  name: 'Dark mode',      chip: '#1f1f1f' },
     { id: 'light', name: 'Light mode',     chip: '#ffffff' },
     { id: 'peas',  name: 'Peas with corn', chip: '#ffd43b' },
-    { id: 'obsidian',  name: 'Obsidian',        chip: '#293134' },
-    { id: 'zenburn',   name: 'Zenburn',         chip: '#3f3f3f' },
-    { id: 'solarized', name: 'Solarized Light', chip: '#fdf6e3' },
-    { id: 'monokai',   name: 'Monokai',         chip: '#f92672' },
-    { id: 'bespin',    name: 'Bespin',          chip: '#28211c' },
+    { id: 'cobalt',     name: 'Copper & Cobalt', chip: '#4987df' },
+    { id: 'plum',       name: 'Plum & Citron',   chip: '#9949df' },
+    { id: 'terracotta', name: 'Terracotta Triad', chip: '#c96a3e' },
+    { id: 'moss',       name: 'Moss',            chip: '#49df99' },
+    { id: 'porcelain',  name: 'Porcelain & Ink', chip: '#226dc3' },
   ];
   const palBtn = document.getElementById('pal-btn');
   const palEl = document.getElementById('palette');
