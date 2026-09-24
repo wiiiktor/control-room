@@ -2,3 +2,4 @@ chat.jsonl
 .seq
 access.log
 __pycache__/
+.status

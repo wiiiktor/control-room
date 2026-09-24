@@ -25,6 +25,7 @@ Python 3 standard library only. No dependencies, no build step.
 | `chat_server.py` | HTTP server on `localhost:8000`: serves the page, reads and appends to `chat.jsonl` |
 | `chat.html` | The panel: renders the markup, sends messages, polls for replies |
 | `reply.py` | Posts an assistant reply into the log |
+| `status.py` | Says what is happening WHILE working; shows under "Working on it…" and is cleared when the reply lands |
 | `watch.py` | Filter for `tail -F chat.jsonl`: one line per new user message |
 
 ## What a reply looks like
@@ -85,6 +86,9 @@ message as a notification, so no polling loop is needed.
   on `<html>` before the first paint.
 - **Live reload.** The server stamps the page with its file time, so an open tab
   reloads itself when `chat.html` changes.
+- **Progress while you wait.** `python3 status.py "reading the training log"` adds a
+  line under "Working on it…". The lines live in `.status`, never in `chat.jsonl`, and
+  are cleared the moment a message lands — scaffolding, not conversation.
 - **Safe concurrent writers.** The server and `reply.py` both
   append under an `flock`, and ids come from a high-water mark in `.seq`, so they
   never repeat, even after `chat.jsonl` is truncated.

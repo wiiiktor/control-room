@@ -402,8 +402,20 @@
     margin-top: auto; font-size: 11px; font-weight: 700; letter-spacing: .1em;
     text-transform: uppercase; opacity: .6;
   }
+  /* progress notes under "Working on it…" — scaffolding, so it stays quiet */
+  .progress { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+  .progress .step {
+    display: flex; gap: 10px; align-items: baseline;
+    font-size: 16px; font-weight: 650; opacity: .55;
+  }
+  .progress .step b { font-size: 13px; opacity: .8; }
+  .progress .step.now { opacity: 1; font-weight: 800; }
+
   .picks {
     display: grid; gap: 14px; margin-top: 4px;
+    /* the buttons cast a 6px offset shadow; without room under the last row it is
+       clipped by the column and the thick rim looks cut off */
+    margin-bottom: 10px;
     grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
   }
   .picks button {
@@ -415,6 +427,11 @@
     transition: transform .08s, box-shadow .08s, background .12s;
   }
   .picks button:hover { background: var(--green); color: var(--on-green); }
+  .picks button:disabled {
+    cursor: default; opacity: .55; box-shadow: var(--pop-sm);
+    background: var(--panel);
+  }
+  .picks button:disabled:hover { background: var(--panel); color: var(--ink); }
   .picks button:active { transform: translate(6px, 6px); box-shadow: 0 0 0 var(--ink); }
   .picks button kbd {
     flex: none; display: grid; place-items: center; width: 44px; height: 44px;
@@ -495,6 +512,11 @@
   const form  = document.getElementById('form');
   const lamp  = document.getElementById('lamp');
   let since = 0, fails = 0, offline = false, lastCommand = '';
+  let waitingNow = false, lastStatusSig = '';
+  // every question asked since the last reply, in order: several messages in a row are
+  // all answered by the one reply that follows, so the breadcrumb has to carry them all
+  let pendingAsk = [];
+  const JOIN = '  /  ';
   const BUILD = "__BUILD__";  // server stamps chat.html's mtime here at serve time
 
   const el = (tag, cls, text) => {
@@ -734,10 +756,22 @@
     sheet = detail;
   }
 
-  function waiting() {
+  function waiting(status) {
+    waitingNow = true;
     const box = el('div', 'thinking');
     box.append(el('i'), el('i'), el('i'), el('span', '', 'Working on it…'));
-    show([box]);
+    const kids = [box];
+    if (status && status.length) {
+      // newest last, the way a log reads; the last line is the one happening now
+      const log = el('div', 'progress');
+      status.forEach((line, i) => {
+        const row = el('div', 'step' + (i === status.length - 1 ? ' now' : ''));
+        row.append(el('b', '', i === status.length - 1 ? '▸' : '·'), el('span', '', line));
+        log.append(row);
+      });
+      kids.push(log);
+    }
+    show(kids);
   }
 
   /** The only time words appear about the connection: when it is broken. */
@@ -781,19 +815,30 @@
       lamp.classList.remove('off');
       lamp.title = 'Connected';
       if (offline) { offline = false; since = 0; return; }  // redraw from history next tick
-      if (!data.messages.length) return;
+      // progress lines move while NO new message arrives, so they are their own redraw
+      if (!data.messages.length) {
+        const sig = (data.status || []).join('\u0001');
+        if (waitingNow && sig !== lastStatusSig) { lastStatusSig = sig; waiting(data.status); }
+        return;
+      }
+      lastStatusSig = (data.status || []).join('\u0001');
       since = data.last;
+
+      // Walk the batch in order: questions pile up until a reply answers them all.
+      for (const m of data.messages) {
+        if (m.role === 'user') pendingAsk.push(m.text);
+        else { if (pendingAsk.length) lastCommand = pendingAsk.join(JOIN); pendingAsk = []; }
+      }
 
       // A command with no answer yet must keep showing "working" — never fall
       // back to the previous card, which reads as "nothing happened".
       const newest = data.messages[data.messages.length - 1];
       if (newest.role === 'user') {
-        lastCommand = newest.text;
-        waiting();
+        lastCommand = pendingAsk.join(JOIN);
+        waiting(data.status);
         return;
       }
-      const before = data.messages.slice(0, data.messages.indexOf(newest)).reverse().find(m => m.role === 'user');
-      if (before) lastCommand = before.text;
+      waitingNow = false;
       show(build(newest.text), true, newest.ts);
     } catch {
       lamp.classList.add('off');
@@ -901,6 +946,13 @@
     const kids = build(msg.text);
     if (head.children.length) kids.unshift(head);
     screenEl.replaceChildren(...kids);
+    // ⛔ an archived reply is a RECORD. Its choice buttons still carried live onclicks,
+    // so reading yesterday's screen could SEND yesterday's command. Cards stay usable --
+    // they only open the right pane -- everything that would post is disabled.
+    screenEl.querySelectorAll('.picks button').forEach(b => {
+      b.disabled = true;
+      b.title = 'from an earlier reply — not live';
+    });
     fit();
   }
 
@@ -914,6 +966,9 @@
     // recognised by what was ASKED rather than by the shape of its answer
     if (msg.asked) inner.append(el('div', 'crumb', msg.asked));
     inner.append(...build(msg.text));
+    // belt and braces with .page's pointer-events: inert takes it out of the tab order
+    // and out of hit-testing entirely, so a nested button cannot be reached at all
+    inner.inert = true;
     page.append(inner);
     const when = el('div', 'when');
     when.append(el('span', '', clock(msg.ts)), el('i', '', '#' + n));
@@ -942,10 +997,11 @@
     // pair each reply with the question before it -- the log is one flat list, and a
     // reply on its own cannot say what it was answering
     const replies = [];
-    let asked = '';
+    let asked = [];
     for (const m of msgs) {
-      if (m.role === 'user') { asked = m.text; continue; }
-      replies.push({ ...m, asked });
+      if (m.role === 'user') { asked.push(m.text); continue; }
+      replies.push({ ...m, asked: asked.join(JOIN) });
+      asked = [];
     }
     if (!replies.length) return tlEl.replaceChildren(el('p', 'empty-note', 'no replies yet'));
     tlEl.replaceChildren(...replies.map((m, i) => thumbOf(m, i + 1)));

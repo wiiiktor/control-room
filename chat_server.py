@@ -18,6 +18,7 @@ LOG = ROOT / "chat.jsonl"
 PAGE = ROOT / "chat.html"
 ACCESS = ROOT / "access.log"
 SEQ = ROOT / ".seq"
+STATUS = ROOT / ".status"
 LOCK = threading.Lock()
 
 
@@ -27,6 +28,32 @@ def build_id():
         return str(int(PAGE.stat().st_mtime))
     except OSError:
         return "0"
+
+
+def read_status():
+    """Progress lines written by `status.py` while a reply is being worked on.
+
+    They live in their own file, not in chat.jsonl: they are scaffolding, not messages,
+    and they are cleared the moment the reply lands. Newest last, capped at 8.
+    """
+    try:
+        lines = [l.rstrip("\n") for l in STATUS.read_text(encoding="utf-8").splitlines() if l.strip()]
+    except OSError:
+        return []
+    return lines[-8:]
+
+
+def clear_status():
+    try:
+        STATUS.unlink()
+    except OSError:
+        pass
+
+
+def add_status(line):
+    with LOCK, STATUS.open("a", encoding="utf-8") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        fh.write(line.strip() + "\n")
 
 
 def access(line):
@@ -77,6 +104,9 @@ def append_message(role, text):
         handle.write(json.dumps(msg, ensure_ascii=False) + "\n")
         handle.flush()
         fcntl.flock(handle, fcntl.LOCK_UN)
+    # a new message ends whatever the last one was waiting for: the reply supersedes its
+    # own progress notes, and a new question's notes have not been written yet
+    clear_status()
     return msg
 
 
@@ -112,7 +142,8 @@ class Handler(BaseHTTPRequestHandler):
                 since = 0
             msgs = read_messages(since)
             last = msgs[-1]["id"] if msgs else since
-            return self._json(200, {"messages": msgs, "last": last, "build": build_id()})
+            return self._json(200, {"messages": msgs, "last": last, "build": build_id(),
+                                    "status": read_status()})
         return self._send(404, "not found", "text/plain; charset=utf-8")
 
     def do_POST(self):
