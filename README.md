@@ -74,14 +74,15 @@ message as a notification, so no polling loop is needed.
   image. Hover a thumbnail to read that screen full size on the left; click to pin it
   so its cards can be opened; `T` again or `Esc` closes. Nothing is lost by the
   one-screen rule — `chat.jsonl` holds every message, and the strip is built from it.
-- **Three palettes.** The yellow `C` picks dark (the default), light, or "peas with
-  corn" — the original — plus five built on the colour wheel, each holding to one
-  relationship: Copper & Cobalt (complementary), Plum & Citron (split-complementary),
-  Terracotta Triad (triadic), Moss (analogous) and Porcelain & Ink (near-monochrome
-  plus one accent). Surfaces sit in the base hue at low saturation, accents share a
-  lightness, and the text on each fill is picked by contrast ratio, not by eye. Every colour is a token on `:root`, so a palette is one block of variables and
-  nothing else in the stylesheet knows which is running; the choice is kept in
-  `localStorage` and stamped on `<html>` before the first paint.
+- **Eight palettes.** The yellow `C` picks "peas with corn" (the default), dark,
+  light, and five built on the colour wheel, each holding to one relationship:
+  Copper & Cobalt (complementary), Plum & Citron (split-complementary), Terracotta
+  Triad (triadic), Moss (analogous) and Porcelain & Ink (near-monochrome plus one
+  accent). Surfaces sit in the base hue at low saturation, accents share a lightness,
+  and the text on each fill is picked by contrast ratio, not by eye. Every colour is a
+  token on `:root`, so a palette is one block of variables and nothing else in the
+  stylesheet knows which is running; the choice is kept in `localStorage` and stamped
+  on `<html>` before the first paint.
 - **Live reload.** The server stamps the page with its file time, so an open tab
   reloads itself when `chat.html` changes.
 - **Safe concurrent writers.** The server and `reply.py` both

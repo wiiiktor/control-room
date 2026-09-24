@@ -22,19 +22,19 @@
     ::card  <title>             clickable tile; lines until ::endcard open in the right pane
     ::endcard                   closes the most recent ::card
 
-  The yellow C picks the palette: light (default), dark, or "peas with corn".
+  The yellow C picks the palette: "peas with corn" (default), light, dark, and five more.
   Press 1-9 to choose while the composer is empty. The yellow T opens the timeline:
   every past reply, re-rendered small; hover one to read it full size on the left.
 -->
 <script>
   // Before the first paint, so the page never flashes the wrong palette.
-  try { document.documentElement.dataset.theme = localStorage.getItem('ctrl-theme') || 'light'; }
-  catch { document.documentElement.dataset.theme = 'light'; }
+  try { document.documentElement.dataset.theme = localStorage.getItem('ctrl-theme') || 'peas'; }
+  catch { document.documentElement.dataset.theme = 'peas'; }
 </script>
 <style>
   /* ---- PALETTES -------------------------------------------------------------
-     Chosen with the yellow C. :root holds dark; light is the DEFAULT and is stamped on
-     <html> before the first paint. Dark and light are editor-ish rather than literal --
+     Chosen with the yellow C. :root holds dark, but "peas with corn" is the DEFAULT and
+     is stamped on <html> before the first paint. Dark and light are editor-ish rather than literal --
      a 2026-09-24 pass replaced them with the Dark Modern / Light Modern values and was
      reverted the same night: the blue-primary version was more faithful and less
      pleasant to use. --on-green / --on-yellow / --on-red carry the text that sits ON
@@ -860,7 +860,7 @@
     const open = palEl.classList.toggle('open');
     palBtn.classList.toggle('on', open);
   };
-  applyTheme(document.documentElement.dataset.theme || 'light');
+  applyTheme(document.documentElement.dataset.theme || 'peas');
 
   /* ---- TIMELINE ------------------------------------------------------------
      Past replies, re-rendered by the same builder rather than stored as pictures,
