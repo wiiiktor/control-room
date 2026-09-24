@@ -20,7 +20,7 @@ card you open, and it may scroll.
 | `::wait <text>` | neutral pending pill |
 | `::pick <label>` | big choice button — clicking sends `<label>` as a user message |
 | `::pick <label> => <cmd>` | choice button showing `<label>`, sending `<cmd>` |
-| `::fill <text>` | button that pre-fills the composer instead of sending |
+| `::fill <text>` | button that pre-fills the composer instead of sending, with a trailing space and the caret after it |
 | `::chart <title> = v1,v2,…` | line chart of the numbers, scaled to its own min/max; the last point is marked and min/last/max are printed under it |
 | `::html <fragment>` | that one line injected as real HTML — the escape hatch for a table, an image or a shape the directives do not cover |
 | `::html` … `::endhtml` | the same, for a fragment spanning several lines (the opening `::html` must carry no text) |

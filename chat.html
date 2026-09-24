@@ -668,8 +668,12 @@
         btn.dataset.cmd = cmd || label;
         btn.append(el('kbd', '', isFill ? '✎' : String(picks.children.length + 1)));
         btn.append(el('span', '', label));
+        // a prefill is the START of a sentence, so it ends with a space and the caret
+        // sits after it -- the point is to keep typing, not to edit what landed
         btn.onclick = () => isFill
-          ? (input.value = btn.dataset.cmd, input.focus())
+          ? (input.value = btn.dataset.cmd + ' ',
+             input.focus(),
+             input.setSelectionRange(input.value.length, input.value.length))
           : send(btn.dataset.cmd);
         picks.append(btn);
         continue;
