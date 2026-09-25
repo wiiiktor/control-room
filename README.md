@@ -25,6 +25,7 @@ Python 3 standard library only. No dependencies, no build step.
 | `chat_server.py` | HTTP server on `localhost:8000`: serves the page, reads and appends to `chat.jsonl` |
 | `chat.html` | The panel: renders the markup, sends messages, polls for replies |
 | `reply.py` | Posts an assistant reply into the log |
+| `resume.py` | Opt-in: answers messages addressed to ONE dormant session by resuming it (`claude --resume`) |
 | `sessions.py` | Lists this project's Claude Code sessions: id, time, size, opening message |
 | `control-room.service` | systemd user unit: starts the panel at login and restarts it if it dies |
 | `status.py` | Says what is happening WHILE working; shows under "Working on it…" and is cleared when the reply lands |

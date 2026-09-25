@@ -895,10 +895,13 @@
 
   /** The "to:" list is the sessions with a LIVE watch. One watcher is the normal case and
       needs no choice, so the control only appears once there are two. */
-  let target = '';                          // session the composer is addressed at
+  // the chosen session survives a reload, like the palette: losing it silently is how a
+  // message ends up somewhere you did not mean
+  let target = (() => { try { return localStorage.getItem('ctrl-to') || ''; } catch { return ''; } })();
   let aliveIds = [];
 
   function drawTarget() {
+    try { target ? localStorage.setItem('ctrl-to', target) : localStorage.removeItem('ctrl-to'); } catch {}
     toSel.value = target;
     const name = tlNames[target] || target;
     const alive = !target || aliveIds.includes(target);
@@ -923,7 +926,7 @@
       });
       if ([...toSel.options].some(o => o.value === keep)) toSel.value = keep;
     }
-    toWrap.classList.toggle('on', list.length > 1);
+    toWrap.classList.toggle('on', list.length > 1 || !!target);
     drawTarget();
   }
 
