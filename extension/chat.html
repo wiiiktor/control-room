@@ -243,7 +243,9 @@
   /* The splash is one button. Everything it needs to say fits on it, and the backdrop
      dismisses it -- a second control to explain would be a third thing to read. */
   #splash {
-    position: fixed; inset: 0; z-index: 9; display: none;
+    /* above EVERYTHING -- the timeline rail is 20 and the session menu 60. A screen that
+       says whether the panel is connected cannot be the thing another layer covers. */
+    position: fixed; inset: 0; z-index: 100; display: none;
     place-items: center; background: var(--veil); backdrop-filter: blur(3px);
   }
   #splash.on { display: grid; }
@@ -1362,12 +1364,14 @@
       splashGo.classList.remove('live');
       splashGo.textContent = SPLASH_TEXT;
     }
-    // ⛔ A HEARTBEAT IS NOT AN ANSWER. `.watch.<id>` stays fresh for up to 90 seconds after
-    // the watch behind it has died, and a watch armed a moment ago has not yet proved it
-    // can reply -- so going green on a watcher turned the light on before the bridge
-    // worked. Only a reply in the log turns it green; see splashAnswered().
-    if (watching && splashWaiting && !splashLive) {
-      splashGo.textContent = 'A session is listening — waiting for its first reply';
+    // ⚠️ A heartbeat is not an answer -- `.watch.<id>` stays fresh for up to 90 seconds
+    // after the watch behind it has died -- but it IS the setup being right, so it goes
+    // green and says what it is now EXPECTING, which claims no more than it knows. The
+    // wording changes again in splashAnswered(), where a reply has actually arrived.
+    if (watching && !splashLive) {
+      splashWaiting = false;
+      splashGo.textContent = 'Session ok, I expect Claude to start talking to me';
+      splashGo.classList.add('live');
     }
     splashWatching = watching;
     splash.classList.toggle('on', !splashDismissed);
