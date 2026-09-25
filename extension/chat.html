@@ -231,12 +231,21 @@
   }
 
   /* THE TIMELINE — hidden until T. Oldest left, newest right; it scrolls sideways only. */
-  #timeline {
-    display: none; flex: 0 0 auto; gap: 12px; overflow-x: auto; overflow-y: hidden;
-    padding: 12px 56px 12px 22px; border-bottom: var(--line) dashed var(--hair);
-    background: var(--veil);
+  /* the menu must not scroll away with the thumbnails, so the bar is two parts: a fixed
+     head and a rail that scrolls to the right of it */
+  #tl-bar {
+    display: none; flex: 0 0 auto; align-items: stretch;
+    border-bottom: var(--line) dashed var(--hair); background: var(--veil);
   }
-  #timeline.open { display: flex; }
+  #tl-bar.open { display: flex; }
+  #tl-head {
+    flex: 0 0 auto; display: flex; align-items: center;
+    padding: 12px 14px 12px 22px; border-right: 3px dashed var(--hair);
+  }
+  #timeline {
+    flex: 1 1 auto; min-width: 0; display: flex; gap: 12px;
+    overflow-x: auto; overflow-y: hidden; padding: 12px 56px 12px 14px;
+  }
   #timeline .empty-note { font-size: 15px; font-weight: 700; opacity: .5; }
   /* a session boundary: the strip is one ribbon, this says where a working session began */
   .tl-sep {
@@ -301,6 +310,11 @@
     user-select: all;
   }
   .tl-empty i { font-style: normal; font-size: 12px; opacity: .55; }
+  .tl-empty .wake {
+    align-self: flex-start; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+    color: var(--on-green); background: var(--green);
+    border: 3px solid var(--ink); border-radius: 12px; padding: 7px 14px;
+  }
 
   .thumb {
     flex: 0 0 auto; width: 150px; cursor: pointer; padding: 0; font: inherit; color: var(--ink);
@@ -308,6 +322,7 @@
     display: flex; flex-direction: column; text-align: left;
   }
   .thumb:hover, .thumb.on { background: var(--yellow-soft); }
+  .thumb.pending { border-style: dashed; }
   .thumb.on { box-shadow: 0 0 0 var(--ink); transform: translate(4px, 4px); }
   /* the page itself, rendered at full width and scaled down -- a real screen, not a picture of one */
   .thumb .page {
@@ -569,22 +584,22 @@
   textarea {
     flex: 1; resize: none; font: inherit; font-size: 19px; font-weight: 650; color: var(--ink);
     background: var(--panel); border: var(--line) solid var(--ink);
-    border-radius: 18px; padding: 16px 18px; min-height: 104px; max-height: 220px;
+    border-radius: 18px; padding: 16px 18px 40px; min-height: 104px; max-height: 220px;
     box-shadow: var(--pop-sm);
   }
   textarea::placeholder { color: var(--ink); opacity: .4; }
   textarea:focus { outline: none; background: var(--yellow-soft); }
-  #compose { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-  #to-wrap {
-    display: none; align-items: center; gap: 8px;
-    font-size: 13px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; opacity: .7;
+  #compose { flex: 1; position: relative; display: flex; flex-direction: column; min-width: 0; }
+  /* inside the box, bottom right, in the placeholder's own voice: it is a property of
+     what you are about to write, not a separate control */
+  #to-hint {
+    display: none; position: absolute; right: 22px; bottom: 14px; max-width: 70%;
+    font: inherit; font-size: 19px; font-weight: 650; color: var(--ink); opacity: .4;
+    text-align: right; pointer-events: none;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  #to-wrap.on { display: flex; }
-  #to {
-    font: inherit; font-size: 14px; font-weight: 700; color: var(--ink);
-    background: var(--panel); border: 3px solid var(--ink); border-radius: 10px;
-    padding: 4px 8px; max-width: 60%;
-  }
+  #to-hint.on { display: block; }
+  #to-hint.dead { color: var(--red); opacity: .85; }
 
   form button {
     font: inherit; font-size: 20px; font-weight: 900; height: 104px; padding: 0 34px;
@@ -602,7 +617,7 @@
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
   <div id="lamp" title="Connected"></div>
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
-  <div id="timeline"></div>
+  <div id="tl-bar"><div id="tl-head"></div><div id="timeline"></div></div>
   <div id="stage">
     <div id="left"><div id="fit"><div id="screen"></div></div></div>
     <div id="detail" class="empty"></div>
@@ -611,9 +626,7 @@
     <form id="form">
       <div id="compose">
         <textarea id="input" rows="3" placeholder="Type here…" autofocus></textarea>
-        <label id="to-wrap" for="to"><span>to</span>
-          <select id="to"><option value="">whoever is listening</option></select>
-        </label>
+        <div id="to-hint"></div>
       </div>
       <button type="submit">SEND</button>
     </form>
@@ -626,8 +639,7 @@
   const input = document.getElementById('input');
   const form  = document.getElementById('form');
   const lamp  = document.getElementById('lamp');
-  const toSel = document.getElementById('to');
-  const toWrap = document.getElementById('to-wrap');
+  const toHint = document.getElementById('to-hint');
   const deaf  = document.getElementById('deaf');
   let since = 0, fails = 0, offline = false, lastCommand = '';
   let waitingNow = false, lastStatusSig = '', lastWatchAge = null, lastWatcherSig = '';
@@ -886,21 +898,25 @@
 
   /** The "to:" list is the sessions with a LIVE watch. One watcher is the normal case and
       needs no choice, so the control only appears once there are two. */
+  // the chosen session survives a reload, like the palette: losing it silently is how a
+  // message ends up somewhere you did not mean
+  let target = (() => { try { return localStorage.getItem('ctrl-to') || ''; } catch { return ''; } })();
+  let aliveIds = [];
+
+  function drawTarget() {
+    try { target ? localStorage.setItem('ctrl-to', target) : localStorage.removeItem('ctrl-to'); } catch {}
+    const name = tlNames[target] || target;
+    const alive = !target || aliveIds.includes(target);
+    toHint.textContent = !target ? ''
+      : (alive ? 'you are talking to session: ' + name.slice(0, 40)
+               : 'NOT RUNNING — ' + name.slice(0, 32) + ' · claude --resume ' + target.slice(0, 8));
+    toHint.classList.toggle('on', !!target);
+    toHint.classList.toggle('dead', !!target && !alive);
+  }
+
   function drawWatchers(list) {
-    const sig = list.map(w => w.session).join(',');
-    if (sig !== lastWatcherSig) {
-      lastWatcherSig = sig;
-      const keep = toSel.value;
-      toSel.replaceChildren(el('option', '', 'whoever is listening'));
-      list.forEach(w => {
-        const o = el('option', '', (w.label || w.session).slice(0, 48));
-        o.value = w.session;
-        toSel.append(o);
-      });
-      if ([...toSel.options].some(o => o.value === keep)) toSel.value = keep;
-    }
-    toWrap.classList.toggle('on', list.length > 1);
-    if (list.length < 2) toSel.value = '';
+    aliveIds = list.map(w => w.session);
+    drawTarget();
   }
 
   function waiting(status) {
@@ -942,7 +958,7 @@
       await fetch('/api/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, to: toSel.value || '' }),
+        body: JSON.stringify({ text, to: target || '' }),
       });
       poll();
       return true;
@@ -950,6 +966,13 @@
       showOffline();
       return false;
     }
+  }
+
+  async function loadSessions() {
+    try {
+      tlNames = (await (await fetch('/api/sessions', { cache: 'no-store' })).json()).sessions || {};
+      lastWatcherSig = '';                 // force the "to:" list to rebuild with names
+    } catch { /* offline; the poll will try again with the next name it needs */ }
   }
 
   async function poll() {
@@ -989,10 +1012,12 @@
       if (newest.role === 'user') {
         lastCommand = pendingAsk.join(JOIN);
         waiting(data.status);
+        if (tlOpen) refreshTimeline(true); // a question you just sent belongs there too
         return;
       }
       waitingNow = false;
       show(build(newest.text), true, newest.ts);
+      if (tlOpen) refreshTimeline(true);   // the strip follows the log, not the opening
     } catch {
       lamp.classList.add('off');
       lamp.title = 'Disconnected — the server is not answering';
@@ -1070,6 +1095,8 @@
      left column; the live screen is held aside and put back on the way out. A click
      pins it, so you can open its cards. ------------------------------------------ */
   const tlEl = document.getElementById('timeline');
+  const tlBar = document.getElementById('tl-bar');
+  const tlHead = document.getElementById('tl-head');
   let tlFilter = null, tlRows = [], tlNames = {};
   const tlBtn = document.getElementById('tl-btn');
   let tlOpen = false, held = null, pinned = null;
@@ -1133,6 +1160,7 @@
     when.append(el('span', '', clock(msg.ts)), el('i', '', '#' + n));
     btn.append(page, when);
 
+    if (msg.pending) btn.classList.add('pending');
     btn.onmouseenter = () => { if (!pinned) { showArchived(msg); markThumb(btn); } };
     btn.onmouseleave = () => { if (!pinned) { restoreLive(); markThumb(null); } };
     btn.onclick = () => {
@@ -1142,35 +1170,46 @@
     return btn;
   }
 
-  async function openTimeline() {
-    tlOpen = true;
-    tlEl.classList.add('open');
-    tlBtn.classList.add('on');
-    tlEl.replaceChildren(el('p', 'empty-note', 'loading…'));
+  /** Pull the whole log and redraw the strip. Called when the timeline opens, and again
+      whenever a message arrives while it is open -- it used to be built ONCE, so a reply
+      that landed after opening was invisible until you closed and reopened it. */
+  async function refreshTimeline(keepFilter) {
     let msgs;
     try {
       msgs = (await (await fetch('/api/messages?since=0', { cache: 'no-store' })).json()).messages || [];
     } catch {
       return tlEl.replaceChildren(el('p', 'empty-note', 'offline — cannot read the log'));
     }
-    // pair each reply with the question before it -- the log is one flat list, and a
-    // reply on its own cannot say what it was answering
     const replies = [];
     let asked = [];
     for (const m of msgs) {
-      if (m.role === 'user') { asked.push(m.text); continue; }
+      if (m.role === 'user') {
+        asked.push(m.text);
+        if (m.to) replies.push({ ...m, session: m.to, asked: m.text, pending: true });
+        continue;
+      }
       replies.push({ ...m, asked: asked.join(JOIN) });
       asked = [];
     }
-    if (!replies.length) return tlEl.replaceChildren(el('p', 'empty-note', 'no replies yet'));
+    replies.forEach((r, i) => {
+      if (!r.pending) return;
+      r.pending = !replies.slice(i + 1).some(x => !x.pending && x.session === r.session);
+    });
     tlRows = replies;
-    // never a mixed strip: default to the session of the NEWEST reply
-    tlFilter = replies.length ? (replies[replies.length - 1].session || '') : null;
-    try {
-      tlNames = (await (await fetch('/api/sessions', { cache: 'no-store' })).json()).sessions || {};
-    } catch { tlNames = {}; }
+    if (!keepFilter || tlFilter === null) {
+      tlFilter = replies.length ? (replies[replies.length - 1].session || '') : null;
+    }
+    await loadSessions();
     drawTimeline();
-    tlEl.scrollLeft = tlEl.scrollWidth;      // newest first to the eye, at the right edge
+  }
+
+  async function openTimeline() {
+    tlOpen = true;
+    tlBar.classList.add('open');
+    tlBtn.classList.add('on');
+    tlHead.replaceChildren();
+    tlEl.replaceChildren(el('p', 'empty-note', 'loading…'));
+    await refreshTimeline(!!target);       // a chosen session survives reopening
     fit();
   }
 
@@ -1203,6 +1242,10 @@
       b.classList.toggle('empty', !withReplies.has(id));
       b.onclick = () => {
         tlFilter = id;                       // exactly one session is shown, always
+        // ...and what you write next goes THERE. Choosing a session to look at and
+        // then talking to a different one is the confusing half of this panel.
+        target = id || '';
+        drawTarget();
         closeSessionMenu();
         drawTimeline();
       };
@@ -1232,7 +1275,8 @@
   }
 
   function drawTimeline() {
-    const nodes = [sessionMenu()];
+    tlHead.replaceChildren(sessionMenu());   // fixed: it never scrolls away
+    const nodes = [];
     let seen = null, nth = 0, shown = 0;
     tlRows.forEach((m, i) => {
       // '' is "no session recorded" -- a real key, because null would be indistinguishable
@@ -1259,10 +1303,20 @@
       const id = tlFilter || '';
       note.append(
         el('b', '', 'No Control Room replies from this session'),
-        el('span', '', id ? (tlNames[id] || '') : ''),
-        el('code', '', id ? 'claude --resume ' + id : ''),
-        el('i', '', id ? 'Run that in a terminal to continue it. Its watcher then picks up what you send here.'
-                       : ''));
+        el('span', '', id ? (tlNames[id] || '') : ''));
+      if (id && window.CONTROL_ROOM_HOST === 'extension') {
+        // inside the editor this is a button, because the editor can open a terminal
+        const b = el('button', 'wake', 'Resume it in a terminal');
+        b.type = 'button';
+        b.onclick = () => {
+          fetch('/api/resume', { method: 'POST', body: JSON.stringify({ session: id }) });
+          b.textContent = 'opening a terminal…';
+        };
+        note.append(b, el('i', '', 'It opens beside the editor. You can watch it and type into it there.'));
+      } else if (id) {
+        note.append(el('code', '', 'claude --resume ' + id),
+                    el('i', '', 'Run that in a terminal to continue it, or open this panel inside VS Code, where it is a button.'));
+      }
       nodes.push(note);
     }
     tlEl.replaceChildren(...nodes);
@@ -1274,8 +1328,9 @@
     pinned = null;
     closeSessionMenu();
     restoreLive();
-    tlEl.classList.remove('open');
+    tlBar.classList.remove('open');
     tlEl.replaceChildren();
+    tlHead.replaceChildren();
     tlBtn.classList.remove('on');
     fit();
   }
@@ -1322,8 +1377,9 @@
   });
 
   closeSheet();          // the right pane starts empty, with its prompt
-  poll();
+  loadSessions().then(poll);             // names first, so the "to:" list is never bare
   setInterval(poll, 1000);
+  setInterval(loadSessions, 60000);      // a new session appears within the minute
 </script>
 </body>
 </html>

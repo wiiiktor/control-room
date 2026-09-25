@@ -310,6 +310,11 @@
     user-select: all;
   }
   .tl-empty i { font-style: normal; font-size: 12px; opacity: .55; }
+  .tl-empty .wake {
+    align-self: flex-start; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+    color: var(--on-green); background: var(--green);
+    border: 3px solid var(--ink); border-radius: 12px; padding: 7px 14px;
+  }
 
   .thumb {
     flex: 0 0 auto; width: 150px; cursor: pointer; padding: 0; font: inherit; color: var(--ink);
@@ -1298,10 +1303,20 @@
       const id = tlFilter || '';
       note.append(
         el('b', '', 'No Control Room replies from this session'),
-        el('span', '', id ? (tlNames[id] || '') : ''),
-        el('code', '', id ? 'claude --resume ' + id : ''),
-        el('i', '', id ? 'Run that in a terminal to continue it. Its watcher then picks up what you send here.'
-                       : ''));
+        el('span', '', id ? (tlNames[id] || '') : ''));
+      if (id && window.CONTROL_ROOM_HOST === 'extension') {
+        // inside the editor this is a button, because the editor can open a terminal
+        const b = el('button', 'wake', 'Resume it in a terminal');
+        b.type = 'button';
+        b.onclick = () => {
+          fetch('/api/resume', { method: 'POST', body: JSON.stringify({ session: id }) });
+          b.textContent = 'opening a terminal…';
+        };
+        note.append(b, el('i', '', 'It opens beside the editor. You can watch it and type into it there.'));
+      } else if (id) {
+        note.append(el('code', '', 'claude --resume ' + id),
+                    el('i', '', 'Run that in a terminal to continue it, or open this panel inside VS Code, where it is a button.'));
+      }
       nodes.push(note);
     }
     tlEl.replaceChildren(...nodes);

@@ -5,15 +5,25 @@ extension host reads and writes `chat.jsonl` itself.
 
 ## Install from a .vsix
 
-Download `control-room-0.1.0.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
+Download `control-room-0.2.0.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
 
 ```bash
-code --install-extension control-room-0.1.0.vsix
+code --install-extension control-room-0.2.0.vsix
 ```
 
 or, in the editor: **Extensions ▸ … ▸ Install from VSIX…**
 
 Then run **Control Room: Open panel** from the command palette.
+
+Two commands:
+
+| command | what it does |
+|---|---|
+| `Control Room: Open panel` | the panel, as an editor tab |
+| `Control Room: Resume a Claude session in a terminal` | pick a session, and it opens a terminal running `claude --resume <id>` |
+
+The second one is what the browser version cannot do: a dormant session gets a real
+window you can watch and type into, instead of a headless process answering in the log.
 
 Cursor, Windsurf, VSCodium and other VS Code forks install the same file the same way
 (`cursor --install-extension …`).
@@ -23,7 +33,7 @@ Cursor, Windsurf, VSCodium and other VS Code forks install the same file the sam
 ```bash
 npm install -g @vscode/vsce
 cd extension
-vsce package        # -> control-room-0.1.0.vsix
+vsce package        # -> control-room-0.2.0.vsix
 ```
 
 ## Where it looks for the log

@@ -48,7 +48,7 @@ the yellow `C` in the corner switches it.
 server and no port — the extension host reads and writes `chat.jsonl` itself.
 
 ```bash
-code --install-extension extension/control-room-0.1.0.vsix
+code --install-extension extension/control-room-0.2.0.vsix
 ```
 
 or **Extensions ▸ … ▸ Install from VSIX…**, then run **Control Room: Open panel** from

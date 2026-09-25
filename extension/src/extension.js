@@ -38,6 +38,8 @@ function pageHtml(extensionPath, dir) {
   // Anything else (a real URL) is left to the browser's own fetch.
   (function () {
     const vscodeApi = acquireVsCodeApi();
+    // the page uses this to offer things only the editor can do, like opening a terminal
+    window.CONTROL_ROOM_HOST = 'extension';
     const pending = new Map();
     let seq = 0;
     const realFetch = window.fetch ? window.fetch.bind(window) : null;
@@ -104,6 +106,17 @@ function activate(context) {
           const names = await labels((vscode.workspace.workspaceFolders || [])[0]?.uri.fsPath || dir);
           return reply({ sessions: names, watchers: log.watchers(names) });
         }
+        if (route === '/api/resume') {
+          // Only the editor can do this: give a dormant session a REAL window by
+          // resuming it in a terminal you can watch and type into.
+          const body = JSON.parse(req.body || '{}');
+          const sid = (body.session || '').trim();
+          if (!/^[0-9a-f-]{36}$/.test(sid)) return reply({ error: 'not a session id' });
+          const term = vscode.window.createTerminal({ name: 'claude · ' + sid.slice(0, 8), cwd: dir });
+          term.show(true);
+          term.sendText('claude --resume ' + sid);
+          return reply({ ok: true });
+        }
         if (route === '/api/send') {
           const body = JSON.parse(req.body || '{}');
           const text = (body.text || '').trim();
@@ -118,6 +131,20 @@ function activate(context) {
   };
 
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.open', open));
+
+  // the same thing from the palette, for when the panel is not the place you are looking
+  context.subscriptions.push(vscode.commands.registerCommand('controlRoom.resume', async () => {
+    const dir = logDir();
+    const root = (vscode.workspace.workspaceFolders || [])[0]?.uri.fsPath || dir;
+    const names = await labels(root);
+    const picked = await vscode.window.showQuickPick(
+      Object.entries(names).map(([id, label]) => ({ label: label.slice(0, 80), description: id.slice(0, 8), id })),
+      { placeHolder: 'Which session should be resumed in a terminal?' });
+    if (!picked) return;
+    const term = vscode.window.createTerminal({ name: 'claude · ' + picked.id.slice(0, 8), cwd: dir });
+    term.show(true);
+    term.sendText('claude --resume ' + picked.id);
+  }));
 }
 
 function deactivate() {}
