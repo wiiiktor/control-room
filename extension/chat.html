@@ -222,7 +222,12 @@
   /* Text size, in the footer's own corner. They used to float above it on a runtime
      measurement, which put them "a bit up" and left them overlapping nothing in
      particular; inside the row they are simply the last thing on it. */
-  #zoomers { display: flex; flex-direction: column; gap: 7px; justify-content: flex-end; }
+  /* in the right pane's own corner. Anchored to the stage, not to the pane's contents:
+     inside a scrolling pane they would scroll away from the corner they belong to. */
+  #zoomers {
+    position: absolute; right: 14px; bottom: 12px; z-index: 4;
+    display: flex; flex-direction: column; gap: 7px;
+  }
   #font-up, #font-dn {
     display: grid; place-items: center; padding: 0;
     width: 26px; height: 26px; border-radius: 50%;
@@ -429,6 +434,7 @@
 
   /* two columns: the decision on the left, whatever it opens on the right */
   #stage {
+    position: relative;                 /* the size buttons hang in its bottom corner */
     flex: 1; overflow: hidden; display: grid; gap: 22px; padding: 22px 22px 12px;
     grid-template-columns: 1fr 1fr; align-items: stretch;
   }
@@ -571,6 +577,10 @@
   /* Inline markup carries NO colour and NO box. A tinted chip was foreign to a panel
      made of flat fills and heavy borders, and on a filled badge it landed as a grey
      block on green. The monospace face is the whole signal; weight carries bold. */
+  /* ⛔ `color: inherit` here is not decoration. A VS Code webview injects its own
+     stylesheet, which paints <code> in --vscode-textPreformat-foreground -- an ORANGE in
+     most themes, and orange on corn is what it looked like. Our own ink, explicitly. */
+  code, kbd, pre { color: inherit; }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: .92em; letter-spacing: -.01em; }
   strong { font-weight: 900; }
@@ -714,6 +724,10 @@
   <div id="stage">
     <div id="left"><div id="fit"><div id="screen"></div></div></div>
     <div id="detail" class="empty"></div>
+    <div id="zoomers">
+      <button id="font-up" type="button" title="Bigger text">+</button>
+      <button id="font-dn" type="button" title="Smaller text">−</button>
+    </div>
   </div>
   <footer>
     <form id="form">
@@ -722,10 +736,6 @@
         <div id="to-hint"></div>
       </div>
       <button type="submit">SEND</button>
-      <div id="zoomers">
-        <button id="font-up" type="button" title="Bigger text">+</button>
-        <button id="font-dn" type="button" title="Smaller text">−</button>
-      </div>
     </form>
   </footer>
 
