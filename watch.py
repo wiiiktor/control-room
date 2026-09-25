@@ -36,8 +36,12 @@ def session_id():
     for i, a in enumerate(sys.argv):
         if a == "--session" and i + 1 < len(sys.argv):
             return sys.argv[i + 1]
-    # fallback: the newest transcript that is NOT being driven by resume.py
-    d = Path.home() / ".claude" / "projects" / "-home-wii-Projects-certain"
+    # fallback: the newest transcript that is NOT being driven by resume.py.
+    # ⛔ the project folder was hard-coded to the machine this was written on. Claude Code
+    # names it after the workspace path with every separator turned into a dash, and the
+    # workspace is this room's parent.
+    slug = str(ROOT.parent).replace("/", "-").replace("\\", "-")
+    d = Path.home() / ".claude" / "projects" / slug
     root = Path(__file__).resolve().parent
     try:
         cand = sorted(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)

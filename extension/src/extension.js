@@ -198,8 +198,12 @@ function activate(context) {
     // machinery the reader has not met yet.
     const added = runtime.install(context.extensionPath, dir);
     let hooked = false;
-    if (!hook.installed(workspaceRoot(dir))) {
-      try { hook.install(workspaceRoot(dir)); hooked = true; } catch { /* read-only workspace */ }
+    const hookRoot = workspaceRoot(dir);
+    if (!hook.installed(hookRoot) || !hook.current(hookRoot)) {
+      try {
+        const out = hook.install(hookRoot);
+        hooked = !out.already;                // a refreshed script is not news
+      } catch { /* read-only workspace */ }
     }
     if (added.length || hooked) {
       const said = [];
@@ -306,7 +310,19 @@ function activate(context) {
     return picked || null;
   };
 
-  context.subscriptions.push(vscode.commands.registerCommand('controlRoom.installHook', () => installHook(false)));
+  // ⛔ this called an installHook() that no longer existed -- it was removed when the
+  // hook stopped being offered and started being installed. The command threw.
+  context.subscriptions.push(vscode.commands.registerCommand('controlRoom.installHook', () => {
+    const root = workspaceRoot(instances()[0].dir);
+    try {
+      const out = hook.install(root);
+      vscode.window.showInformationMessage(out.already
+        ? 'Control Room: the session-start hook was already installed; its script was refreshed.'
+        : 'Control Room: session-start hook installed. It takes effect the next time a Claude session starts here.');
+    } catch (err) {
+      vscode.window.showErrorMessage('Control Room: could not install the hook — ' + (err && err.message || err));
+    }
+  }));
 
   // Opening the workspace is enough: the panel is the point of installing this, and a
   // panel nobody opened helps nobody. Off with one setting for people who want it quiet.

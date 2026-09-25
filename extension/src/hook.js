@@ -43,8 +43,12 @@ def main():
     except (json.JSONDecodeError, ValueError):
         sid = ""
 
+    # ⛔ NOT "has a chat.jsonl": that file appears with the FIRST message, so a room
+    # nobody had written in yet was invisible here, no session was ever told to watch
+    # it, and the first message had nobody to reach. reply.py is what makes a room --
+    # the same test the extension itself uses.
     rooms = sorted((d for d in ROOT.glob("control-room*")
-                    if d.is_dir() and (d / "chat.jsonl").exists()),
+                    if d.is_dir() and ((d / "reply.py").exists() or (d / "chat.jsonl").exists())),
                    key=lambda d: len(d.name))
     if not rooms:
         return
@@ -72,6 +76,21 @@ def main():
 
 main()
 `;
+}
+
+/** Is the installed hook SCRIPT the one this version writes?
+ *
+ * ⛔ install() only ran when the hook was absent, so a workspace that had an older,
+ * buggier script kept it for good -- and the bug that mattered (a room with no messages
+ * yet was invisible to it) is exactly the one that leaves someone with a panel that never
+ * connects. The script is ours; when it is out of date, it is replaced.
+ */
+function current(root) {
+  try {
+    return fs.readFileSync(path.join(root, '.claude', 'hooks', SCRIPT), 'utf8') === hookSource(root);
+  } catch {
+    return false;
+  }
 }
 
 /** Is the hook already wired up in this workspace? */
@@ -108,4 +127,4 @@ function install(root) {
   return { script, settings: file, already };
 }
 
-module.exports = { install, installed, hookSource, SCRIPT };
+module.exports = { install, installed, current, hookSource, SCRIPT };
