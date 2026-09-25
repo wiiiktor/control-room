@@ -5,16 +5,21 @@ extension host reads and writes `chat.jsonl` itself.
 
 ## Install in one command
 
-From a clone of this repository:
+On any machine, with no clone of this repository — anyone who can see the repo can run it:
 
 ```bash
-control-room/extension/get.sh          # whatever version is published
-control-room/extension/get.sh 0.9.0    # a particular one
+gh api repos/wiiiktor/control-room/contents/extension/get.sh \
+  -H 'Accept: application/vnd.github.raw' | bash
 ```
 
-It downloads the `.vsix` from GitHub and installs it. The repository is private, so it
-goes through `gh` (already logged in) — `raw.githubusercontent.com` answers 404 for a
-private repo, which reads like a missing file rather than a missing login.
+Add `-s <version>` to pin one: `| bash -s 0.9.0`. From a clone, `extension/get.sh` and
+`extension/get.sh 0.9.0` do the same thing.
+
+It needs `gh`, logged in. The repository is private, so everything goes through it rather
+than a plain URL — `raw.githubusercontent.com` answers 404 for a private repo, which reads
+like a missing file rather than a missing login. The installer picks whichever editor CLI
+the machine has (`code`, `code-insiders`, `cursor`, `codium`, `windsurf`), or the one named
+in `CONTROL_ROOM_CODE`.
 
 ## Install from a .vsix
 
