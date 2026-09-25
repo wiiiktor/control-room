@@ -888,6 +888,13 @@
           picks.append(btn);
           continue;
         }
+        // the two answers to "nobody is there": drop the address, or keep it anyway
+        if (btn.dataset.cmd === '__send_here' || btn.dataset.cmd === '__send_anyway') {
+          const how = btn.dataset.cmd === '__send_here' ? 'here' : 'anyway';
+          btn.onclick = () => { const t = pendingText; pendingText = ''; send(t, how); };
+          picks.append(btn);
+          continue;
+        }
         btn.onclick = () => isFill
           ? (input.value = btn.dataset.cmd + ' ',
              input.focus(),
@@ -958,6 +965,7 @@
   // message ends up somewhere you did not mean
   let target = (() => { try { return localStorage.getItem('ctrl-to') || ''; } catch { return ''; } })();
   let aliveIds = [];
+  let pendingText = '';   // held while we ask who it should go to
 
   function drawTarget() {
     try { target ? localStorage.setItem('ctrl-to', target) : localStorage.removeItem('ctrl-to'); } catch {}
@@ -1009,16 +1017,35 @@
     show([card], false);
   }
 
-  async function send(text) {
+  async function send(text, force) {
     text = (text || '').trim();
     if (!text) return true;
+    // ⛔ A session can be CHOSEN here that is not watching THIS log -- the menu lists every
+    // session in the project, and the rooms are separate files. Addressed that way, the
+    // message is appended, skipped by the only watcher present, and never answered. Say so
+    // before it happens rather than letting it sit.
+    if (!force && target && !aliveIds.includes(target)) {
+      const name = (tlNames[target] || target).slice(0, 48);
+      pendingText = text;
+      show(build([
+        '::ask Nobody there',
+        '::say ' + name + ' is not reading this control room, so a message addressed to it '
+          + 'would sit here unanswered.',
+        '::note Watching this room right now: '
+          + (aliveIds.length ? aliveIds.map(id => (tlNames[id] || id).slice(0, 40)).join(', ')
+                             : 'nobody at all'),
+        '::pick Send it to whoever is here => __send_here',
+        '::pick Send it anyway, addressed to ' + name.slice(0, 24) + ' => __send_anyway',
+      ].join('\n')), false);
+      return true;
+    }
     lastCommand = text;
     waiting();
     try {
       await fetch('/api/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, to: target || '' }),
+        body: JSON.stringify({ text, to: (force === 'here' ? '' : target) || '' }),
       });
       poll();
       return true;
