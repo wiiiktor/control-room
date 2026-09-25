@@ -23,10 +23,10 @@ in `CONTROL_ROOM_CODE`.
 
 ## Install from a .vsix
 
-Download `control-room-0.9.1.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
+Download `control-room-0.9.2.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
 
 ```bash
-code --install-extension control-room-0.9.1.vsix
+code --install-extension control-room-0.9.2.vsix
 ```
 
 or, in the editor: **Extensions ▸ … ▸ Install from VSIX…**
@@ -53,7 +53,7 @@ Cursor, Windsurf, VSCodium and other VS Code forks install the same file the sam
 ```bash
 npm install -g @vscode/vsce
 cd extension
-vsce package        # -> control-room-0.9.1.vsix
+vsce package        # -> control-room-0.9.2.vsix
 ```
 
 ## First open
@@ -72,6 +72,11 @@ one of them: its tab says *"Claude Code stopped responding in this tab…"* and 
 connection drops. That is the install working, not a fault — reopen the conversation from
 the session list, or reload the window. It also ends the watch described below, so expect
 to give the Claude tab one message afterwards.
+
+The Control Room panel comes back on its own: it registers a webview serializer, and each
+panel records which room it belongs to, so VS Code rebuilds it after the restart. That
+only works from the version that registers it onwards — the install that first brings it
+in still needs the tab reopened by hand.
 
 ## Keeping the panel alive
 

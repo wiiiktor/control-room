@@ -78,6 +78,9 @@ function pageHtml(extensionPath, dir, session) {
   // Anything else (a real URL) is left to the browser's own fetch.
   (function () {
     const vscodeApi = acquireVsCodeApi();
+    // VS Code restarts its extension host whenever an extension is installed. This is
+    // what lets the panel come back by itself afterwards instead of dying orphaned.
+    try { vscodeApi.setState({ dir: ${JSON.stringify(dir)} }); } catch (e) {}
     // the page uses this to offer things only the editor can do, like opening a terminal
     window.CONTROL_ROOM_HOST = 'extension';
     const pending = new Map();
@@ -159,20 +162,24 @@ function activate(context) {
       existing.reveal(vscode.ViewColumn.Active);
       return;
     }
-    const dir = inst.dir;
-    const log = new Log(dir);
-    const panel = vscode.window.createWebviewPanel(
+    wire(vscode.window.createWebviewPanel(
       'controlRoom', inst.name, vscode.ViewColumn.Active,
-      { enableScripts: true, retainContextWhenHidden: true });
+      { enableScripts: true, retainContextWhenHidden: true }), inst.dir, inst.name, session);
+  };
+
+  /** Everything a panel needs to work, whether it was just created or restored by VS Code
+   *  after an extension-host restart. Split out for exactly that second case. */
+  const wire = (panel, dir, name, session) => {
+    const log = new Log(dir);
     panels.set(dir, panel);
     panel.webview.html = pageHtml(context.extensionPath, dir, session);
     panel.onDidDispose(() => { panels.delete(dir); }, null, context.subscriptions);
 
     // a panel nobody is watching looks identical to a working one until a message is
     // ignored, so the tab itself says so
-    let title = inst.name;
+    let title = name;
     const retitle = (watchers) => {
-      const want = inst.name + (watchers.length ? '' : ' (no watcher)');
+      const want = name + (watchers.length ? '' : ' (no watcher)');
       if (want !== title) { title = want; panel.title = want; }
     };
 
@@ -290,6 +297,20 @@ function activate(context) {
   if (vscode.workspace.getConfiguration('controlRoom').get('openOnStartup') !== false) {
     const found = instances();
     if (found.length === 1) open(found[0], '');
+  }
+
+  // ⛔ Installing ANY extension restarts VS Code's extension host, and a webview whose
+  // host has gone is dead -- which made every update end with "control room has no
+  // connection" and a tab to close by hand. VS Code will hand the panel back instead, if
+  // the extension says it can rebuild one. The dir comes from the state the page stored.
+  if (vscode.window.registerWebviewPanelSerializer) {
+    context.subscriptions.push(vscode.window.registerWebviewPanelSerializer('controlRoom', {
+      async deserializeWebviewPanel(panel, state) {
+        const dir = (state && state.dir) || instances()[0].dir;
+        if (panels.has(dir)) { panel.dispose(); return; }   // a fresh one already won
+        wire(panel, dir, instanceName(path.basename(dir)), '');
+      },
+    }));
   }
 
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.open', async () => {
