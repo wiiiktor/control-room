@@ -579,18 +579,22 @@
   textarea {
     flex: 1; resize: none; font: inherit; font-size: 19px; font-weight: 650; color: var(--ink);
     background: var(--panel); border: var(--line) solid var(--ink);
-    border-radius: 18px; padding: 16px 18px; min-height: 104px; max-height: 220px;
+    border-radius: 18px; padding: 16px 18px 40px; min-height: 104px; max-height: 220px;
     box-shadow: var(--pop-sm);
   }
   textarea::placeholder { color: var(--ink); opacity: .4; }
   textarea:focus { outline: none; background: var(--yellow-soft); }
-  #compose { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  #compose { flex: 1; position: relative; display: flex; flex-direction: column; min-width: 0; }
+  /* inside the box, bottom right, in the placeholder's own voice: it is a property of
+     what you are about to write, not a separate control */
   #to-hint {
-    display: none; font-size: 13px; font-weight: 800; letter-spacing: .03em;
-    text-transform: uppercase; opacity: .7;
+    display: none; position: absolute; right: 22px; bottom: 14px; max-width: 70%;
+    font: inherit; font-size: 19px; font-weight: 650; color: var(--ink); opacity: .4;
+    text-align: right; pointer-events: none;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   #to-hint.on { display: block; }
-  #to-hint.dead { color: var(--red); opacity: 1; }
+  #to-hint.dead { color: var(--red); opacity: .85; }
 
   form button {
     font: inherit; font-size: 20px; font-weight: 900; height: 104px; padding: 0 34px;
