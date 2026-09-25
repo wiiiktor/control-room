@@ -56,7 +56,7 @@
     --ink: #1f1f1f; --paper: #ffffff; --panel: #f3f3f3;
     --green: #3aa45f; --on-green: #16170f; --green-deep: #1b7a3f; --green-soft: #e6f2ea;
     --yellow: #ffcc33; --on-yellow: #16170f; --yellow-soft: #f2f2ee;
-    --red: #e51400; --on-red: #16170f; --alert: #c62828; --red-soft: #ffe3e0;
+    --red: #e51400; --on-red: #ffffff; --alert: #c62828; --red-soft: #ffe3e0;
     --grey: #c9c9c9; --hair: rgba(31,31,31,.22); --hair-soft: rgba(31,31,31,.12);
     --veil: rgba(255,255,255,.82);
     --ring-green: rgba(58,164,95,.25); --ring-yellow: rgba(255,204,51,.25);
@@ -108,7 +108,7 @@
   }
   :root[data-theme="plum"] {            /* Plum & Citron — split-complementary, 290 vs 70/110 */
     --ink: #ded6e0; --paper: #19131b; --panel: #251b27;
-    --green: #9949df; --on-green: #f8f6f9; --green-deep: #77d864;
+    --green: #9949df; --on-green: #ffffff; --green-deep: #77d864;
     --green-soft: #34283e; --yellow: #ced879; --on-yellow: #180e1b;
     --yellow-soft: #3c3e28; --red: #d86473; --on-red: #180e1b; --alert: #ff92a1;
     --red-soft: #3e282b; --grey: #423546; --hair: #423546;
@@ -121,7 +121,7 @@
     --ink: #3e3028; --paper: #fcf9f8; --panel: #f5f1ef;
     --green: #7051b8; --on-green: #f9f7f6; --green-deep: #279b57;
     --green-soft: #eae6f4; --yellow: #b28638; --on-yellow: #1b130e;
-    --yellow-soft: #f4efe6; --red: #c15033; --on-red: #f9f7f6; --alert: #9c3116;
+    --yellow-soft: #f4efe6; --red: #c15033; --on-red: #ffffff; --alert: #9c3116;
     --red-soft: #f4e9e6; --grey: #e6dfdb; --hair: rgba(0,0,0,.18);
     --hair-soft: rgba(0,0,0,.09); --veil: rgba(255,255,255,.88); --ring-green: #7051b855;
     --ring-yellow: #b2863844; --ring-red: #c1503344; --ring-grey: #e6dfdb44;
@@ -225,15 +225,16 @@
   /* in the right pane's own corner. Anchored to the stage, not to the pane's contents:
      inside a scrolling pane they would scroll away from the corner they belong to. */
   #zoomers {
-    position: absolute; right: 14px; bottom: 12px; z-index: 4;
-    display: flex; flex-direction: column; gap: 7px;
+    position: absolute; right: 18px; bottom: 16px; z-index: 4;
+    display: flex; flex-direction: column; gap: 13px;
   }
+  /* the same button as T and C in the top corner, to the pixel */
   #font-up, #font-dn {
     display: grid; place-items: center; padding: 0;
-    width: 26px; height: 26px; border-radius: 50%;
-    font: 900 14px/1 inherit; color: var(--ink);
+    width: 20px; height: 20px; border-radius: 50%;
+    font: 900 11px/1 inherit; color: var(--ink);
     background: var(--grey); border: 3px solid var(--ink);
-    box-shadow: 0 0 0 3px var(--ring-grey);
+    box-shadow: 0 0 0 4px var(--ring-grey);
     cursor: pointer; opacity: .6; transition: opacity .12s, background .12s;
   }
   #font-up:hover, #font-dn:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
