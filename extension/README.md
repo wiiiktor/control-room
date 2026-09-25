@@ -5,21 +5,22 @@ extension host reads and writes `chat.jsonl` itself.
 
 ## Install from a .vsix
 
-Download `control-room-0.2.0.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
+Download `control-room-0.3.0.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
 
 ```bash
-code --install-extension control-room-0.2.0.vsix
+code --install-extension control-room-0.3.0.vsix
 ```
 
 or, in the editor: **Extensions ▸ … ▸ Install from VSIX…**
 
 Then run **Control Room: Open panel** from the command palette.
 
-Two commands:
+Three commands:
 
 | command | what it does |
 |---|---|
-| `Control Room: Open panel` | the panel, as an editor tab |
+| `Control Room: Open panel` | pick a control room and open it as an editor tab |
+| `Control Room: Open every control room in this workspace` | one tab per instance, in one go |
 | `Control Room: Resume a Claude session in a terminal` | pick a session, and it opens a terminal running `claude --resume <id>` |
 
 The second one is what the browser version cannot do: a dormant session gets a real
@@ -33,13 +34,28 @@ Cursor, Windsurf, VSCodium and other VS Code forks install the same file the sam
 ```bash
 npm install -g @vscode/vsce
 cd extension
-vsce package        # -> control-room-0.2.0.vsix
+vsce package        # -> control-room-0.3.0.vsix
 ```
 
-## Where it looks for the log
+## One panel per session
 
-`<workspace>/control-room/chat.jsonl` if that folder holds a `chat.html`, otherwise
-`<workspace>/chat.jsonl`. Override with the `controlRoom.logPath` setting.
+A workspace can hold several control rooms — one folder per Claude session, each with
+its own `chat.jsonl`:
+
+```
+your-project/
+  control-room/            # session A
+  control-room-medicover/  # session B
+```
+
+Every `control-room*` folder with a log in it is offered as a separate panel, named
+after its suffix (*Control Room · medicover*). Panels are independent: each polls only
+its own log, so two sessions never answer into the same conversation. The picker says
+which session is currently listening to each one, and a panel with no live watcher
+says `(no watcher)` in its tab title rather than letting a message sit unanswered.
+
+Setting `controlRoom.logPath` pins the extension to a single log and turns discovery
+off. With no `control-room*` folder at all it falls back to `<workspace>/chat.jsonl`.
 
 `reply.py`, `status.py` and `watch.py` work unchanged beside it — they are file-based,
 and the extension keeps the same format, including the `.seq` high-water mark.

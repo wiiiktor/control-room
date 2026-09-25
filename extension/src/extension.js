@@ -6,6 +6,10 @@
  * server: the page's `fetch` calls are intercepted in the webview and answered by the
  * extension host, which reads and writes chat.jsonl directly. chat.html is loaded
  * unchanged, so one file serves both front ends.
+ *
+ * One workspace can hold SEVERAL instances -- a folder per Claude session, each with its
+ * own chat.jsonl -- so the panel is per instance, not per window: opening a second one
+ * does not steal the first one's log.
  */
 const fs = require('fs');
 const path = require('path');
@@ -13,15 +17,42 @@ const vscode = require('vscode');
 const { Log } = require('./log');
 const { labels } = require('./sessions');
 
-/** Where the log lives: the setting, else <workspace>/control-room, else <workspace>. */
-function logDir() {
+/** "control-room-medicover" -> "Control Room · medicover"; the plain one keeps its name. */
+function instanceName(folder) {
+  const suffix = folder.replace(/^control-room-?/, '');
+  return suffix ? 'Control Room · ' + suffix : 'Control Room';
+}
+
+/** Every instance in this workspace: a folder of its own with a log in it.
+ *
+ * The setting, when set, names exactly one and nothing is discovered. Otherwise every
+ * `control-room*` folder under the workspace root counts, so a second session's panel
+ * is one command away rather than a settings edit. */
+function instances() {
   const configured = vscode.workspace.getConfiguration('controlRoom').get('logPath');
-  if (configured) return path.dirname(configured);
+  if (configured) return [{ dir: path.dirname(configured), name: 'Control Room' }];
   const folders = vscode.workspace.workspaceFolders || [];
-  if (!folders.length) return process.cwd();
+  if (!folders.length) return [{ dir: process.cwd(), name: 'Control Room' }];
   const root = folders[0].uri.fsPath;
-  const nested = path.join(root, 'control-room');
-  return fs.existsSync(path.join(nested, 'chat.html')) ? nested : root;
+  const out = [];
+  let entries = [];
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch { /* unreadable workspace root */ }
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !entry.name.startsWith('control-room')) continue;
+    const dir = path.join(root, entry.name);
+    // a chat.html may be a symlink to the original; a chat.jsonl never is
+    if (!fs.existsSync(path.join(dir, 'chat.jsonl')) && !fs.existsSync(path.join(dir, 'chat.html'))) continue;
+    out.push({ dir, name: instanceName(entry.name) });
+  }
+  if (!out.length) return [{ dir: root, name: 'Control Room' }];
+  return out.sort((a, b) => a.dir.length - b.dir.length);
+}
+
+/** The transcript folder is a property of the WORKSPACE, not of the instance. */
+function workspaceRoot(fallback) {
+  return (vscode.workspace.workspaceFolders || [])[0]?.uri.fsPath || fallback;
 }
 
 /** The page, with a shim that turns fetch('/api/...') into a postMessage round trip.
@@ -69,41 +100,61 @@ function pageHtml(extensionPath, dir) {
   return html.replace('<script>', shim + '\n<script>', 1);
 }
 
+/** Resume a session in a terminal rooted at the instance it answers for. */
+function resumeIn(dir, sid) {
+  const term = vscode.window.createTerminal({ name: 'claude · ' + sid.slice(0, 8), cwd: dir });
+  term.show(true);
+  term.sendText('claude --resume ' + sid);
+}
+
 function activate(context) {
-  let panel = null;
+  // one panel per instance folder: a second panel must not take over the first one's log
+  const panels = new Map();
   // the page reloads itself when this changes; in a webview the html is fixed for the
   // life of the panel, so a constant is honest and a stat() of a moving file is not
   const BUILD = String(context.extension ? context.extension.packageJSON.version : '0');
 
-  const open = () => {
-    if (panel) { panel.reveal(vscode.ViewColumn.Active); return; }
-    const dir = logDir();
+  const open = (inst) => {
+    const existing = panels.get(inst.dir);
+    if (existing) { existing.reveal(vscode.ViewColumn.Active); return; }
+    const dir = inst.dir;
     const log = new Log(dir);
-    panel = vscode.window.createWebviewPanel(
-      'controlRoom', 'Control Room', vscode.ViewColumn.Active,
+    const panel = vscode.window.createWebviewPanel(
+      'controlRoom', inst.name, vscode.ViewColumn.Active,
       { enableScripts: true, retainContextWhenHidden: true });
+    panels.set(dir, panel);
     panel.webview.html = pageHtml(context.extensionPath, dir);
-    panel.onDidDispose(() => { panel = null; }, null, context.subscriptions);
+    panel.onDidDispose(() => { panels.delete(dir); }, null, context.subscriptions);
+
+    // a panel nobody is watching looks identical to a working one until a message is
+    // ignored, so the tab itself says so
+    let title = inst.name;
+    const retitle = (watchers) => {
+      const want = inst.name + (watchers.length ? '' : ' (no watcher)');
+      if (want !== title) { title = want; panel.title = want; }
+    };
 
     panel.webview.onDidReceiveMessage(async (req) => {
-      const reply = (data) => panel && panel.webview.postMessage({ id: req.id, data });
+      const reply = (data) => panels.get(dir) && panel.webview.postMessage({ id: req.id, data });
       try {
         const [route, query] = String(req.url).split('?');
         if (route === '/api/messages') {
           const since = parseInt(new URLSearchParams(query || '').get('since') || '0', 10) || 0;
           const messages = log.read(since);
-          const names = await labels((vscode.workspace.workspaceFolders || [])[0]?.uri.fsPath || dir);
+          const names = await labels(workspaceRoot(dir));
+          const watchers = log.watchers(names);
+          retitle(watchers);
           return reply({
             messages,
             last: messages.length ? messages[messages.length - 1].id : since,
             build: BUILD,
             status: log.readStatus(),
             watch: log.watchAge(),
-            watchers: log.watchers(names),
+            watchers,
           });
         }
         if (route === '/api/sessions') {
-          const names = await labels((vscode.workspace.workspaceFolders || [])[0]?.uri.fsPath || dir);
+          const names = await labels(workspaceRoot(dir));
           return reply({ sessions: names, watchers: log.watchers(names) });
         }
         if (route === '/api/resume') {
@@ -112,9 +163,7 @@ function activate(context) {
           const body = JSON.parse(req.body || '{}');
           const sid = (body.session || '').trim();
           if (!/^[0-9a-f-]{36}$/.test(sid)) return reply({ error: 'not a session id' });
-          const term = vscode.window.createTerminal({ name: 'claude · ' + sid.slice(0, 8), cwd: dir });
-          term.show(true);
-          term.sendText('claude --resume ' + sid);
+          resumeIn(dir, sid);
           return reply({ ok: true });
         }
         if (route === '/api/send') {
@@ -130,20 +179,46 @@ function activate(context) {
     }, null, context.subscriptions);
   };
 
-  context.subscriptions.push(vscode.commands.registerCommand('controlRoom.open', open));
+  /** Ask which instance, unless there is only one. Each line says whether anyone is
+   *  listening to it, which is the thing you actually want to know before typing. */
+  const pickInstance = async (placeHolder) => {
+    const found = instances();
+    if (found.length === 1) return found[0];
+    const names = await labels(workspaceRoot(found[0].dir));
+    const items = found.map((inst) => {
+      const live = new Log(inst.dir).watchers(names);
+      return {
+        label: inst.name,
+        description: live.length ? '← ' + live.map(w => w.label.slice(0, 40)).join(', ') : 'no watcher',
+        detail: inst.dir,
+        inst,
+      };
+    });
+    const picked = await vscode.window.showQuickPick(items, { placeHolder });
+    return picked && picked.inst;
+  };
+
+  context.subscriptions.push(vscode.commands.registerCommand('controlRoom.open', async () => {
+    const inst = await pickInstance('Which control room?');
+    if (inst) open(inst);
+  }));
+
+  // every instance at once, for the two-session case this was built for
+  context.subscriptions.push(vscode.commands.registerCommand('controlRoom.openAll', () => {
+    for (const inst of instances()) open(inst);
+  }));
 
   // the same thing from the palette, for when the panel is not the place you are looking
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.resume', async () => {
-    const dir = logDir();
-    const root = (vscode.workspace.workspaceFolders || [])[0]?.uri.fsPath || dir;
+    const found = instances();
+    const root = workspaceRoot(found[0].dir);
     const names = await labels(root);
     const picked = await vscode.window.showQuickPick(
       Object.entries(names).map(([id, label]) => ({ label: label.slice(0, 80), description: id.slice(0, 8), id })),
       { placeHolder: 'Which session should be resumed in a terminal?' });
     if (!picked) return;
-    const term = vscode.window.createTerminal({ name: 'claude · ' + picked.id.slice(0, 8), cwd: dir });
-    term.show(true);
-    term.sendText('claude --resume ' + picked.id);
+    const inst = await pickInstance('Which control room should it answer?') || found[0];
+    resumeIn(inst.dir, picked.id);
   }));
 }
 
