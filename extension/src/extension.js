@@ -43,8 +43,13 @@ function instances() {
   for (const entry of entries) {
     if (!entry.isDirectory() || !entry.name.startsWith('control-room')) continue;
     const dir = path.join(root, entry.name);
-    // a chat.html may be a symlink to the original; a chat.jsonl never is
-    if (!fs.existsSync(path.join(dir, 'chat.jsonl')) && !fs.existsSync(path.join(dir, 'chat.html'))) continue;
+    // ⛔ A FRESH CLONE HAS NO LOG. chat.jsonl is per machine and gitignored, and chat.html
+    // moved into extension/ -- so looking only for those made a just-cloned room invisible,
+    // the panel fell back to the workspace root, and it wrote its log next to the folder
+    // holding the watch.py that was supposed to read it. reply.py is what makes a folder
+    // a room; the log is what a room accumulates.
+    const isRoom = ['chat.jsonl', 'chat.html', 'reply.py'].some(f => fs.existsSync(path.join(dir, f)));
+    if (!isRoom) continue;
     out.push({ dir, name: instanceName(entry.name) });
   }
   if (!out.length) return [{ dir: root, name: 'Control Room' }];
