@@ -903,7 +903,7 @@
     const name = tlNames[target] || target;
     const alive = !target || aliveIds.includes(target);
     toHint.textContent = !target ? ''
-      : (alive ? 'talking to: ' + name.slice(0, 40)
+      : (alive ? 'you are talking to session: ' + name.slice(0, 40)
                : 'NOT RUNNING — ' + name.slice(0, 32) + ' · claude --resume ' + target.slice(0, 8));
     toHint.classList.toggle('on', !!target);
     toHint.classList.toggle('dead', !!target && !alive);
