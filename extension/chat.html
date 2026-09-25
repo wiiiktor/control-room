@@ -988,9 +988,10 @@
             btn.disabled = true;
             const how = await openClaudeTab();
             if (how === null) { btn.disabled = false; return; }
+            addressWhoeverAnswers();
             btn.querySelector('span').textContent = how === 'terminal'
               ? 'A terminal is opening — give it a few seconds'
-              : 'Opened — now write anything in the Claude tab';
+              : 'Opened — write anything in it; this panel talks to whoever answers';
           };
           picks.append(btn);
           continue;
@@ -1010,6 +1011,26 @@
               });
               btn.querySelector('span').textContent =
                 'A terminal is opening — write one line in it to connect';
+            } catch {
+              btn.disabled = false;
+            }
+          };
+          picks.append(btn);
+          continue;
+        }
+        if (btn.dataset.cmd === '__open_room') {
+          btn.onclick = async () => {
+            if (!resumeTarget) return;
+            btn.disabled = true;
+            try {
+              const r = await (await fetch('/api/open_room', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session: resumeTarget }),
+              })).json();
+              btn.querySelector('span').textContent = r && r.room
+                ? 'Opened ' + r.room + ' — write there'
+                : 'That room could not be opened';
             } catch {
               btn.disabled = false;
             }
@@ -1104,6 +1125,9 @@
   const seenAlive = new Set();   // ...in THIS room, during this page's life
   let pendingText = '';   // held while we ask who it should go to
   let resumeTarget = '';  // the session a "resume" button on screen would bring back
+  // session id -> the room it IS listening to, when that room is not this one. Absent from
+  // this room's watchers is not the same thing as stopped.
+  let elsewhereIn = {};
 
   function drawTarget() {
     try { target ? localStorage.setItem('ctrl-to', target) : localStorage.removeItem('ctrl-to'); } catch {}
@@ -1120,9 +1144,14 @@
       toHint.classList.remove('on', 'dead');
       return;
     }
+    // ⛔ THREE states, not two. A session can be here, gone, or running in ANOTHER room --
+    // and the third was reported as the second, under a red pill telling you to resume a
+    // session that was answering the whole time, somewhere else.
+    const away = !alive && elsewhereIn[target];
     toHint.textContent = !target ? ''
-      : (alive ? 'you are talking to session: ' + name.slice(0, 40)
-               : 'NOT RUNNING — ' + name.slice(0, 32) + ' · claude --resume ' + target.slice(0, 8));
+      : alive ? 'you are talking to session: ' + name.slice(0, 40)
+      : away  ? 'it is listening in ' + String(away).slice(0, 30) + ' — not here'
+              : 'NOT RUNNING — ' + name.slice(0, 32) + ' · claude --resume ' + target.slice(0, 8);
     toHint.classList.toggle('on', !!target);
     toHint.classList.toggle('dead', !!target && !alive);
   }
@@ -1132,7 +1161,8 @@
   window.CONTROL_ROOM_SET_TARGET = (id) => { target = id || ''; targetGuessed = false; drawTarget(); };
 
   let greeted = false;
-  function drawWatchers(list) {
+  function drawWatchers(list, away) {
+    if (away) elsewhereIn = away;
     aliveIds = list.map(w => w.session);
     aliveIds.forEach(id => seenAlive.add(id));
     drawTarget();
@@ -1141,7 +1171,10 @@
     // ⛔ ...and "nobody" depends on who you are writing to. Addressed to one session, only
     // THAT session counts: the splash used to say the setup was fine because some other
     // session happened to be listening, while the one you had chosen was not running.
-    splashSay(target ? aliveIds.includes(target) : !!aliveIds.length);
+    // ...unless it is running in another room, where "start a session" is the wrong
+    // advice entirely -- the screen says what to do instead, so the splash asks the
+    // room's own question and stays out of it.
+    splashSay(target && !elsewhereIn[target] ? aliveIds.includes(target) : !!aliveIds.length);
   }
 
   function waiting(status) {
@@ -1236,7 +1269,7 @@
       lamp.title = 'Connected';
       // the watcher touches .watch every 30s; 3 missed beats means the watch is gone
       lastWatchAge = data.watch;
-      drawWatchers(data.watchers || []);
+      drawWatchers(data.watchers || [], data.elsewhere);
       const dead = lastWatchAge === null || lastWatchAge === undefined || lastWatchAge > 90;
       deaf.classList.toggle('on', dead);
       lamp.classList.toggle('hidden', dead);    // one light, one answer
@@ -1474,11 +1507,28 @@
     hint.textContent = 'Copied.';
     setTimeout(() => { hint.textContent = said; }, 1600);
   };
+  /** You asked for a NEW session, so stop addressing the old one.
+   *
+   *  ⛔ Opening a fresh tab left the composer pointed at the dead session that made you
+   *  open it. The new session armed the watch, said hello, and every message you sent was
+   *  addressed to a session id it does not have -- so its watcher skipped all of them and
+   *  the bridge never formed, with a green panel and a live session on either side of it.
+   *  Asking for somebody new means talking to whoever turns up. */
+  function addressWhoeverAnswers() {
+    if (!target) return;
+    target = '';
+    targetGuessed = false;
+    tlChosen = false;
+    try { localStorage.removeItem('ctrl-to'); } catch {}
+    drawTarget();
+  }
+
   splashGo.onclick = async () => {
     splashGo.disabled = true;
     const how = await openClaudeTab();
     splashGo.disabled = false;
     if (how === null) return;
+    addressWhoeverAnswers();
     splashWaiting = true;
     splashGo.textContent = how === 'terminal'
       ? 'I am waiting for a signal from Claude — the terminal connects by itself'
@@ -1563,8 +1613,23 @@
     if (id && !aliveIds.includes(id)) {
       resumeTarget = id;
       lastCommand = '';
-      splashAgain();
       const who = String(tlNames[id] || id).replace(/\s+/g, ' ').slice(0, 48);
+      // Running, just not here. Resuming it would start a second copy and a fresh tab is
+      // beside the point: the move that works is opening the room it is reading.
+      if (elsewhereIn[id]) {
+        lastCommand = '';
+        show(build([
+          '::warn Listening in ' + String(elsewhereIn[id]).slice(0, 40) + ', not here',
+          '::say ' + who + ' is running and answering — in another control room. A session '
+            + 'reads one log, and it is not this one, so anything you send it from here '
+            + 'would sit unread.',
+          '::pick Open that control room => __open_room',
+          '::note It opens as its own panel, already addressed to this session. This one '
+            + 'stays where it is.',
+        ].join('\n')), false);
+        return;
+      }
+      splashAgain();
       show(build([
         '::warn Not running — ' + who,
         '::say A session listens only while it is running. Bring this one back, or start a '

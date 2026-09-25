@@ -197,6 +197,25 @@ function activate(context) {
       if (want !== title) { title = want; panel.title = want; }
     };
 
+    /** Sessions with a live watch in some OTHER room of this workspace.
+     *
+     *  ⛔ A session listens to ONE room. The menu here lists every session that has ever
+     *  written in this log -- including one the mirror put there by mistake -- so a
+     *  session belonging to another room could be chosen as the recipient, and every
+     *  message addressed to it was skipped by the only watcher present. The panel could
+     *  not say so, because it only ever knew who was in its own room. Now it knows where
+     *  the others are, and can offer the one thing that helps: that room. */
+    const elsewhere = (names, here) => {
+      const out = {};
+      for (const inst of instances()) {
+        if (inst.dir === dir) continue;
+        for (const w of new Log(inst.dir).watchers(names)) {
+          if (!here.some(h => h.session === w.session)) out[w.session] = inst.name;
+        }
+      }
+      return out;
+    };
+
     panel.webview.onDidReceiveMessage(async (req) => {
       const reply = (data) => panels.get(dir) && panel.webview.postMessage({ id: req.id, data });
       try {
@@ -214,11 +233,13 @@ function activate(context) {
             status: log.readStatus(),
             watch: log.watchAge(),
             watchers,
+            elsewhere: elsewhere(names, watchers),
           });
         }
         if (route === '/api/sessions') {
           const names = await labels(workspaceRoot(dir));
-          return reply({ sessions: names, watchers: log.watchers(names) });
+          const here = log.watchers(names);
+          return reply({ sessions: names, watchers: here, elsewhere: elsewhere(names, here) });
         }
         if (route === '/api/resume') {
           // Only the editor can do this: give a dormant session a REAL window by
@@ -228,6 +249,21 @@ function activate(context) {
           if (!/^[0-9a-f-]{36}$/.test(sid)) return reply({ error: 'not a session id' });
           resumeIn(dir, sid);
           return reply({ ok: true });
+        }
+        // Open the room a session IS listening to, addressed to it. The panel cannot
+        // reach it from here; this is the move that works.
+        if (route === '/api/open_room') {
+          const sid = (JSON.parse(req.body || '{}').session || '').trim();
+          if (!/^[0-9a-f-]{36}$/.test(sid)) return reply({ error: 'not a session id' });
+          const names = await labels(workspaceRoot(dir));
+          for (const inst of instances()) {
+            if (inst.dir === dir) continue;
+            if (new Log(inst.dir).watchers(names).some(w => w.session === sid)) {
+              open(inst, sid);
+              return reply({ ok: true, room: inst.name });
+            }
+          }
+          return reply({ error: 'no room is listening for that session' });
         }
         if (route === '/api/start') {
           // A TAB, not a terminal: the terminal session is a different animal from the one
