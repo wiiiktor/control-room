@@ -1071,13 +1071,32 @@
   // the chosen session survives a reload, like the palette: losing it silently is how a
   // message ends up somewhere you did not mean
   let target = (() => { try { return localStorage.getItem('ctrl-to') || ''; } catch { return ''; } })();
+  // ⛔ localStorage is shared by every Control Room panel in this window, so the session
+  // chosen in one ROOM is restored in the next -- and a session that watches another room
+  // is not watching this one, so the composer wore a permanent red NOT RUNNING while the
+  // room's own session answered perfectly. A target that arrives from storage is a guess
+  // until this room's watchers confirm it; one chosen here or handed over by the palette
+  // is a decision, and is never dropped.
+  let targetGuessed = !!target;
   let aliveIds = [];
+  const seenAlive = new Set();   // ...in THIS room, during this page's life
   let pendingText = '';   // held while we ask who it should go to
 
   function drawTarget() {
     try { target ? localStorage.setItem('ctrl-to', target) : localStorage.removeItem('ctrl-to'); } catch {}
     const name = tlNames[target] || target;
     const alive = !target || aliveIds.includes(target);
+    // Never seen here, somebody else is: it was another room's choice. Say nothing rather
+    // than accuse a session of being down -- the warning is for one that died in front of
+    // you, which is why it takes seenAlive and not merely "absent".
+    if (!alive && targetGuessed && !seenAlive.has(target) && aliveIds.length) {
+      target = '';
+      targetGuessed = false;
+      try { localStorage.removeItem('ctrl-to'); } catch {}
+      toHint.textContent = '';
+      toHint.classList.remove('on', 'dead');
+      return;
+    }
     toHint.textContent = !target ? ''
       : (alive ? 'you are talking to session: ' + name.slice(0, 40)
                : 'NOT RUNNING — ' + name.slice(0, 32) + ' · claude --resume ' + target.slice(0, 8));
@@ -1087,11 +1106,12 @@
 
   // The VS Code extension asks WHICH SESSION in the command palette, before this page
   // exists, so the choice has to arrive from outside. The browser version never calls it.
-  window.CONTROL_ROOM_SET_TARGET = (id) => { target = id || ''; drawTarget(); };
+  window.CONTROL_ROOM_SET_TARGET = (id) => { target = id || ''; targetGuessed = false; drawTarget(); };
 
   let greeted = false;
   function drawWatchers(list) {
     aliveIds = list.map(w => w.session);
+    aliveIds.forEach(id => seenAlive.add(id));
     drawTarget();
     // Nobody reading the log: say so in the MIDDLE of the screen. A line inside a card
     // is no use when the panel is blank, which is exactly when this matters.
@@ -1581,6 +1601,7 @@
         // ...and what you write next goes THERE. Choosing a session to look at and
         // then talking to a different one is the confusing half of this panel.
         target = id || '';
+        targetGuessed = false;   // chosen here, on purpose: report it dead if it is
         drawTarget();
         closeSessionMenu();
         drawTimeline();

@@ -12,8 +12,8 @@ const path = require('path');
 const SCRIPT = 'control-room-watch.py';
 const MIRROR = 'control-room-mirror.py';
 
-/** The mirror hook, rooted at this workspace and pointed at one room's chatlog. */
-function mirrorSource(root, room) {
+/** The mirror hook, rooted at this workspace. It finds its own room per session. */
+function mirrorSource(root) {
   return `#!/usr/bin/env python3
 """UserPromptSubmit + Stop hook: copy the editor conversation into the panel.
 
@@ -25,13 +25,29 @@ request (answering one would answer it twice, and the answer would be mirrored i
 Installed by the Control Room extension; turn it off with controlRoom.mirrorEditorChat.
 """
 import json
+import os
 import sys
 import time
 from pathlib import Path
 
 ROOT = Path(${JSON.stringify(root)})
-ROOM = Path(${JSON.stringify(room)})
-sys.path.insert(0, str(ROOM))
+
+
+def room_for(sid):
+    """The room THIS session belongs to.
+
+    ⛔ This used to be one path baked in at install time -- the room whose panel
+    happened to be open when the hook was written. Every session in the workspace then
+    mirrored into that one room, so a second session's conversation appeared in the
+    first one's panel, addressed to a session that panel has never seen listening. Ask
+    the same question the watch hook asks: whose heartbeat is in which room.
+    """
+    rooms = sorted((d for d in ROOT.glob("control-room*")
+                    if d.is_dir() and ((d / "reply.py").exists() or (d / "chat.jsonl").exists())),
+                   key=lambda d: len(d.name))
+    if not rooms:
+        return None
+    return next((d for d in rooms if sid and (d / (".watch." + sid)).exists()), rooms[0])
 
 
 def last_assistant_text(transcript):
@@ -92,6 +108,13 @@ def main():
     event = data.get("hook_event_name") or ""
     sid = data.get("session_id") or ""
 
+    room = room_for(sid)
+    if room is None:
+        return
+    # chatlog reads this to decide WHICH log it writes; set it before the import, which
+    # is where the module makes up its mind.
+    os.environ["CONTROL_ROOM_DIR"] = str(room)
+    sys.path.insert(0, str(room))
     from chatlog import append_message, LOG
 
     if event == "UserPromptSubmit":
@@ -233,7 +256,7 @@ function install(root, room) {
   // Both events point at the same script, which tells them apart by hook_event_name.
   if (room) {
     const mirror = path.join(hooks, MIRROR);
-    fs.writeFileSync(mirror, mirrorSource(root, room), { mode: 0o755 });
+    fs.writeFileSync(mirror, mirrorSource(root), { mode: 0o755 });
     for (const event of ['UserPromptSubmit', 'Stop']) {
       const list = settings.hooks[event] = settings.hooks[event] || [];
       if (!list.some(g => (g.hooks || []).some(h => String(h.command || '').includes(MIRROR)))) {

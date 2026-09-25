@@ -78,13 +78,38 @@ class Log {
     try { fs.unlinkSync(this.status); } catch { /* already gone */ }
   }
 
-  /** Seconds since a watcher last checked in, or null if none ever has. */
+  /** Seconds since a watcher last checked in, or null if none ever has.
+   *
+   *  ⛔ ONE question, ONE answer. This used to read `.watch` alone while the panel's other
+   *  indicators read the per-session `.watch.<id>` files, so the two could disagree about
+   *  whether anybody was listening -- and they did: a room whose session was answering
+   *  normally went on wearing the red "not watching" pill. Take the freshest beat of
+   *  either kind. A session heartbeat is proof somebody is reading; so is the room one,
+   *  which is all a watcher with no session id can write.
+   */
   watchAge() {
+    const ages = [];
+    const age = (f) => {
+      try {
+        return Math.round((Date.now() - fs.statSync(f).mtimeMs) / 1000);
+      } catch {
+        return null;
+      }
+    };
+    const room = age(this.watch);
+    if (room !== null) ages.push(room);
+    let names;
     try {
-      return Math.round((Date.now() - fs.statSync(this.watch).mtimeMs) / 1000);
+      names = fs.readdirSync(this.dir);
     } catch {
-      return null;
+      names = [];
     }
+    for (const n of names) {
+      if (!n.startsWith('.watch.')) continue;
+      const a = age(path.join(this.dir, n));
+      if (a !== null) ages.push(a);
+    }
+    return ages.length ? Math.min(...ages) : null;
   }
 
   /** Sessions with a live watch: one .watch.<id> file each, touched every 30s. */
