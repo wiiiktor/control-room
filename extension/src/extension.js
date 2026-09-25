@@ -90,8 +90,6 @@ function pageHtml(extensionPath, dir, session) {
     // VS Code restarts its extension host whenever an extension is installed. This is
     // what lets the panel come back by itself afterwards instead of dying orphaned.
     try { vscodeApi.setState({ dir: ${JSON.stringify(dir)} }); } catch (e) {}
-    // the page uses this to offer things only the editor can do, like opening a terminal
-    window.CONTROL_ROOM_HOST = 'extension';
     const pending = new Map();
     let seq = 0;
     const realFetch = window.fetch ? window.fetch.bind(window) : null;

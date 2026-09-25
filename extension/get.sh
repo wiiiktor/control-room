@@ -56,12 +56,29 @@ echo "downloaded $NAME ($(stat -c%s "$OUT" 2>/dev/null || stat -f%z "$OUT") byte
 # this scrolls past under vsce's own output otherwise. Colour only when a terminal is reading.
 if [ -t 1 ]; then B=$(printf '\033[1m'); D=$(printf '\033[2m'); Y=$(printf '\033[1;33m'); R=$(printf '\033[0m')
 else B=; D=; Y=; R=; fi
+
+# The panel itself needs no Python -- the extension host reads and writes the log. ANSWERING
+# needs it, so a machine without python3 gets a panel that accepts messages and can never be
+# replied to. That is indistinguishable from a broken bridge, so say it here, at install time,
+# rather than leaving it to be discovered as silence.
+PY_NOTE=""
+if PY_V=$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null); then
+  PY_NOTE="  ${D}python3 ${PY_V} found — replies will work${R}"
+else
+  PY_NOTE="  ${Y}⚠ no python3 on PATH${R}${D} — the panel will accept messages and nothing can answer them.
+     Install Python 3 (macOS: ${R}${B}brew install python3${R}${D}, Debian/Ubuntu: ${R}${B}sudo apt install python3${R}${D}).${R}"
+fi
+
 cat <<MSG
 
 ${Y}▸ ${NAME} installed${R}
 
+${PY_NOTE}
+
   ${B}1.${R} A reload was requested automatically. If the window did not reload:
      ${D}Ctrl+Shift+P → Developer: Reload Window${R}
-  ${B}2.${R} Open the panel: ${D}Ctrl+Shift+P${R} → ${B}Control Room${R}
+  ${B}2.${R} Start a Claude Code tab and send it any message — that is what opens the
+     two-way link; a tab with no session is not listening.
+  ${B}3.${R} Open the panel: ${D}Ctrl+Shift+P${R} → ${B}Control Room${R}
 
 MSG

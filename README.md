@@ -19,6 +19,42 @@ panel  ────────►  chat.jsonl  ──►  Claude Code session
 The panel needs no server and no dependencies. Answering needs Python 3 (standard library
 only) on the same machine as the session.
 
+## Every command, in one place
+
+Four things you ever have to do. Each is one line; the rest of this file is why.
+
+```bash
+# 1. INSTALL, or update to the newest build — same command, run it again any time
+gh api repos/wiiiktor/control-room/contents/extension/get.sh \
+  -H 'Accept: application/vnd.github.raw' | bash
+
+# 2. IS PYTHON THERE?  the panel does not need it; answering does
+python3 -c 'import sys, fcntl, json; print("python", sys.version.split()[0], "— replies will work")'
+
+# 3. RELOAD the running window, instead of hunting through a menu
+code --open-url "vscode://wiiiktor.control-room/reload"
+
+# 4. WHAT IS BROKEN — python, hook, room or session, named
+code --open-url "vscode://wiiiktor.control-room/diagnose"
+```
+
+Give step 1 a name, so an update is one word:
+
+```bash
+echo "alias control-room-update=\"gh api repos/wiiiktor/control-room/contents/extension/get.sh -H 'Accept: application/vnd.github.raw' | bash\"" >> ~/.bashrc
+# zsh (macOS default): >> ~/.zshrc instead. Then: source ~/.bashrc
+```
+
+Then **opening the two-way link**, which is the step that is not a command:
+
+1. Open a **Claude Code tab** and send it *any* message. A session begins when it is given
+   something to do, not when its tab is opened. Nothing below works before this.
+2. **Ctrl+Shift+P → Control Room** and pick that session.
+3. Type in the panel. The splash button turns green when the session answers.
+
+Anything typed in the Claude tab from then on appears in the panel too, and so does its
+answer — see [The panel holds both sides](#the-panel-holds-both-sides).
+
 ## Install
 
 Needs [`gh`](https://cli.github.com), logged in (`gh auth login`). The repository is
@@ -32,7 +68,7 @@ gh api repos/wiiiktor/control-room/contents/extension/get.sh \
   -H 'Accept: application/vnd.github.raw' | bash
 ```
 
-Pin a version with `| bash -s 0.12.0`. From a clone, `extension/get.sh` does the same. It
+Pin a version with `| bash -s 0.12.1`. From a clone, `extension/get.sh` does the same. It
 installs with whichever editor CLI the machine has — `code`, `code-insiders`, `cursor`,
 `codium`, `windsurf` — or the one named in `CONTROL_ROOM_CODE`.
 
@@ -44,7 +80,7 @@ archive):
 
 ```bat
 gh api repos/wiiiktor/control-room/contents/extension --jq ".[].name" | findstr .vsix
-cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.12.0.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
+cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.12.1.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
 code --install-extension %TEMP%\cr.vsix --force
 ```
 
@@ -89,6 +125,32 @@ Nothing here is Linux-specific: the paths come from the workspace, the timestamp
 local, and `fcntl` locking works on macOS. What is *not* portable is the conversation —
 `chat.jsonl` is per machine and deliberately not in the repository, so a fresh clone gives
 you the extension and an empty room.
+
+### Checking Python
+
+The extension host reads and writes the log itself, so the panel opens, renders and accepts
+messages on a machine with no Python at all. What needs it is the *answering* half. Missing,
+it looks exactly like a broken bridge: the panel takes your message and nothing ever comes
+back.
+
+```bash
+python3 -c 'import sys, fcntl, json; print("python", sys.version.split()[0], "— replies will work")'
+```
+
+The imports are the point — `fcntl` is what serialises two writers into one log, and it is
+absent on Windows Python, where the room has to run under WSL or Git Bash. Any Python 3.8 or
+newer will do; there are no third-party packages to install, now or ever.
+
+If the command prints nothing:
+
+| | |
+|---|---|
+| macOS | `brew install python3` (or Xcode command line tools) |
+| Debian / Ubuntu | `sudo apt install python3` |
+| Fedora | `sudo dnf install python3` |
+
+The installer runs this check for you and says which of the two answers it got. So does
+**Control Room: Diagnose the bridge**.
 
 ## The panel holds both sides
 

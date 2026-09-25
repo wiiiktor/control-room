@@ -1095,9 +1095,7 @@
     drawTarget();
     // Nobody reading the log: say so in the MIDDLE of the screen. A line inside a card
     // is no use when the panel is blank, which is exactly when this matters.
-    if (window.CONTROL_ROOM_HOST === 'extension') {
-      splashSay(!!aliveIds.length);
-    }
+    splashSay(!!aliveIds.length);
   }
 
   function waiting(status) {
@@ -1120,29 +1118,19 @@
 
   /** The only time words appear about the connection: when it is broken.
    *
-   *  ⛔ The two hosts break DIFFERENTLY and the advice is not interchangeable. In a browser
-   *  the server has stopped and can be restarted. In the editor there is no server: the
-   *  extension host restarted -- which is exactly what installing an update does -- and
-   *  this webview is orphaned for good. Telling that reader to run chat_server.py sends
-   *  them to fix a thing that was never running. */
+   *  ⛔ There is no server to restart. The extension host restarted -- which is exactly
+   *  what installing an update does -- and this webview is orphaned for good, so the only
+   *  fix is a new tab. Advice to restart something sends the reader to fix a thing that
+   *  was never running. */
   function showOffline() {
     const card = el('div', 'fixit');
-    if (window.CONTROL_ROOM_HOST === 'extension') {
-      card.append(
-        el('h1', '', 'This tab lost the editor'),
-        el('p', '', 'VS Code restarted its extensions — installing an update does that — and '
-          + 'this panel cannot be reconnected.'),
-        el('p', '', 'Close this tab and open the panel again: Ctrl+Shift+P → Control Room: Open panel.'),
-        el('p', '', 'Nothing is lost. Everything written here is on disk and the new tab shows it all.'),
-      );
-    } else {
-      card.append(
-        el('h1', '', 'The panel is switched off'),
-        el('p', '', 'The little program that runs this page has stopped. Open the terminal and type this:'),
-        el('code', '', 'python3 chat_server.py'),
-        el('p', '', 'This page turns itself back on within a second. Nothing is lost.'),
-      );
-    }
+    card.append(
+      el('h1', '', 'This tab lost the editor'),
+      el('p', '', 'VS Code restarted its extensions — installing an update does that — and '
+        + 'this panel cannot be reconnected.'),
+      el('p', '', 'Close this tab and open the panel again: Ctrl+Shift+P → Control Room: Open panel.'),
+      el('p', '', 'Nothing is lost. Everything written here is on disk and the new tab shows it all.'),
+    );
     show([card], false);
   }
 
@@ -1652,8 +1640,8 @@
       note.append(
         el('b', '', 'No Control Room replies from this session'),
         el('span', '', id ? (tlNames[id] || '') : ''));
-      if (id && window.CONTROL_ROOM_HOST === 'extension') {
-        // inside the editor this is a button, because the editor can open a terminal
+      if (id) {
+        // a button, not a command to copy: the editor can open the terminal itself
         const b = el('button', 'wake', 'Resume it in a terminal');
         b.type = 'button';
         b.onclick = () => {
@@ -1661,9 +1649,6 @@
           b.textContent = 'opening a terminal…';
         };
         note.append(b, el('i', '', 'It opens beside the editor. You can watch it and type into it there.'));
-      } else if (id) {
-        note.append(el('code', '', 'claude --resume ' + id),
-                    el('i', '', 'Run that in a terminal to continue it, or open this panel inside VS Code, where it is a button.'));
       }
       nodes.push(note);
     }
@@ -1695,18 +1680,16 @@
       { type: 'note', body: age === null || age === undefined
           ? 'The watcher has never checked in since this server started.'
           : 'Last heartbeat: ' + age + ' seconds ago. Anything over 90 means the watch is gone.' },
-      { type: 'note', body: 'The green lamp only means this page can reach the panel server. That is a different thing from a Claude session reading what you send.' },
+      { type: 'note', body: 'Reaching the editor is a different thing from a Claude session reading what you send. This page can be perfectly healthy with nobody at the other end.' },
       { type: 'say', body: 'What this button can rule out' },
       { type: 'pick', body: 'Reload the page => __reload' },
       { type: 'note', body: 'Use it if the page has been open a long time: a stale tab can report an old heartbeat.' },
       { type: 'say', body: 'What only you can fix' },
     ];
-    if (window.CONTROL_ROOM_HOST === 'extension') {
-      blocks.push({ type: 'pick', body: 'Open a Claude tab => __start_session' });
-    }
+    blocks.push({ type: 'pick', body: 'Open a Claude tab => __start_session' });
     blocks.push(...[
       { type: 'note', body: 'The watch lives inside a Claude Code session. If that session ended, say anything in the Claude panel in VS Code — the session re-arms the watch on its next turn and picks up everything waiting here.' },
-      { type: 'note', body: 'If the panel itself is dead rather than unwatched, the lamp goes red and tells you the command to restart it.' },
+      { type: 'note', body: 'If the panel itself is dead rather than unwatched, close the tab and open it again: Ctrl+Shift+P → Control Room.' },
     ]);
     openSheet('Nobody is watching', blocks, null);
   };

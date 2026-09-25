@@ -1,6 +1,5 @@
 # the conversation and its runtime state: per machine, never shared
 chat.jsonl
-access.log
 .seq
 .status
 .watch
