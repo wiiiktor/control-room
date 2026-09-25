@@ -74,6 +74,11 @@ def mine(msg):
     """Is this a user message this session should answer?"""
     if msg.get("role") != "user":
         return False
+    # ⛔ a mirrored line is the editor conversation written down, not a message to the
+    # panel. Answering it would answer the question a second time, and my own answer
+    # would be mirrored back in turn.
+    if msg.get("mirror"):
+        return False
     # addressed mail: a message sent "to" another session is not ours to answer, and
     # printing it would notify BOTH sessions -- the exact thing the selector prevents
     to = (msg.get("to") or "").strip()

@@ -10,6 +10,108 @@ const fs = require('fs');
 const path = require('path');
 
 const SCRIPT = 'control-room-watch.py';
+const MIRROR = 'control-room-mirror.py';
+
+/** The mirror hook, rooted at this workspace and pointed at one room's chatlog. */
+function mirrorSource(root, room) {
+  return `#!/usr/bin/env python3
+"""UserPromptSubmit + Stop hook: copy the editor conversation into the panel.
+
+What you type in the Claude tab never reaches the panel, and what Claude says back only
+arrives there if it was sent with reply.py -- so the panel shows half a conversation. This
+copies both sides in, marked \`mirror\` so watch.py knows they are a record rather than a
+request (answering one would answer it twice, and the answer would be mirrored in turn).
+
+Installed by the Control Room extension; turn it off with controlRoom.mirrorEditorChat.
+"""
+import json
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(${JSON.stringify(root)})
+ROOM = Path(${JSON.stringify(room)})
+sys.path.insert(0, str(ROOM))
+
+
+def last_assistant_text(transcript):
+    """The reply Claude just finished, out of its own transcript."""
+    try:
+        lines = Path(transcript).read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+    for line in reversed(lines):
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        m = d.get("message") or {}
+        if m.get("role") != "assistant":
+            continue
+        c = m.get("content")
+        if isinstance(c, str):
+            return c.strip()
+        if isinstance(c, list):
+            out = " ".join(b.get("text", "") for b in c if isinstance(b, dict) and b.get("type") == "text")
+            if out.strip():
+                return out.strip()
+    return ""
+
+
+def already_answered(log):
+    """Did reply.py just write the same answer into the panel?
+
+    When a panel message is answered properly, the reply is already there in markup. The
+    tab's plain-text copy of it would be the same thing twice, so a very recent assistant
+    line means this Stop has nothing to add.
+    """
+    try:
+        lines = log.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    for line in reversed(lines):
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if d.get("role") != "assistant" or d.get("mirror"):
+            return False
+        try:
+            when = time.mktime(time.strptime(d.get("ts", ""), "%Y-%m-%dT%H:%M:%S"))
+        except ValueError:
+            return False
+        return (time.time() - when) < 120
+    return False
+
+
+def main():
+    try:
+        data = json.load(sys.stdin) or {}
+    except (json.JSONDecodeError, ValueError):
+        return
+    event = data.get("hook_event_name") or ""
+    sid = data.get("session_id") or ""
+
+    from chatlog import append_message, LOG
+
+    if event == "UserPromptSubmit":
+        text = (data.get("prompt") or "").strip()
+        if text:
+            append_message("user", text, to=sid or None, mirror=True)
+        return
+
+    if event == "Stop":
+        if already_answered(LOG):
+            return
+        text = last_assistant_text(data.get("transcript_path") or "")
+        if text:
+            append_message("assistant", text[:4000], session=sid or None, mirror=True)
+
+
+main()
+`;
+}
+
 
 /** The hook script, rooted at this workspace. It routes each session to the control room
  *  that session has watched before, so two sessions never answer each other's mail. */
@@ -104,8 +206,11 @@ function installed(root) {
   }
 }
 
-/** Write the script and merge the hook into .claude/settings.json, preserving the rest. */
-function install(root) {
+/** Write the scripts and merge the hooks into .claude/settings.json, preserving the rest.
+ *
+ * `room` is only needed for the mirror, which has to know which log to copy into; pass
+ * null to install the watch hook alone. */
+function install(root, room) {
   const claude = path.join(root, '.claude');
   const hooks = path.join(claude, 'hooks');
   fs.mkdirSync(hooks, { recursive: true });
@@ -123,8 +228,22 @@ function install(root) {
   if (!already) {
     starts.push({ hooks: [{ type: 'command', command: `python3 ${script}`, timeout: 10 }] });
   }
+
+  // The two-way mirror: what you type in the editor, and what Claude answers there.
+  // Both events point at the same script, which tells them apart by hook_event_name.
+  if (room) {
+    const mirror = path.join(hooks, MIRROR);
+    fs.writeFileSync(mirror, mirrorSource(root, room), { mode: 0o755 });
+    for (const event of ['UserPromptSubmit', 'Stop']) {
+      const list = settings.hooks[event] = settings.hooks[event] || [];
+      if (!list.some(g => (g.hooks || []).some(h => String(h.command || '').includes(MIRROR)))) {
+        list.push({ hooks: [{ type: 'command', command: `python3 ${mirror}`, timeout: 10 }] });
+      }
+    }
+  }
+
   fs.writeFileSync(file, JSON.stringify(settings, null, 2) + '\n');
   return { script, settings: file, already };
 }
 
-module.exports = { install, installed, current, hookSource, SCRIPT };
+module.exports = { install, installed, current, hookSource, mirrorSource, SCRIPT, MIRROR };

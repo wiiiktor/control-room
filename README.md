@@ -32,7 +32,7 @@ gh api repos/wiiiktor/control-room/contents/extension/get.sh \
   -H 'Accept: application/vnd.github.raw' | bash
 ```
 
-Pin a version with `| bash -s 0.11.8`. From a clone, `extension/get.sh` does the same. It
+Pin a version with `| bash -s 0.12.0`. From a clone, `extension/get.sh` does the same. It
 installs with whichever editor CLI the machine has — `code`, `code-insiders`, `cursor`,
 `codium`, `windsurf` — or the one named in `CONTROL_ROOM_CODE`.
 
@@ -44,7 +44,7 @@ archive):
 
 ```bat
 gh api repos/wiiiktor/control-room/contents/extension --jq ".[].name" | findstr .vsix
-cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.11.8.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
+cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.12.0.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
 code --install-extension %TEMP%\cr.vsix --force
 ```
 
@@ -89,6 +89,18 @@ Nothing here is Linux-specific: the paths come from the workspace, the timestamp
 local, and `fcntl` locking works on macOS. What is *not* portable is the conversation —
 `chat.jsonl` is per machine and deliberately not in the repository, so a fresh clone gives
 you the extension and an empty room.
+
+## The panel holds both sides
+
+What you type in the Claude tab never reaches the panel, and what Claude answers there
+only arrives if it was sent with `reply.py` — so the panel shows half a conversation. The
+extension installs two more hooks, `UserPromptSubmit` and `Stop`, that copy both sides in.
+
+Mirrored lines are marked `mirror` in the log and `watch.py` ignores them: they are a
+record, not a request, so nothing is answered twice and no answer is mirrored back in
+turn. A `Stop` that follows a `reply.py` answer within two minutes adds nothing, since
+that answer is already in the panel, in markup. Turn it off with
+`controlRoom.mirrorEditorChat`.
 
 ## When the bridge does not work
 

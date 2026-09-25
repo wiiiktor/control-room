@@ -254,8 +254,11 @@ function activate(context) {
       const added = runtime.install(context.extensionPath, dir);
       let hooked = false;
       const hookRoot = workspaceRoot(dir);
-      if (!hook.installed(hookRoot) || !hook.current(hookRoot)) {
-        const out = hook.install(hookRoot);
+      // the mirror copies the editor conversation into this room, so the panel is the
+      // whole exchange rather than half of it; one setting turns it off
+      const mirror = vscode.workspace.getConfiguration('controlRoom').get('mirrorEditorChat') !== false;
+      if (!hook.installed(hookRoot) || !hook.current(hookRoot) || mirror) {
+        const out = hook.install(hookRoot, mirror ? dir : null);
         hooked = !out.already;                // a refreshed script is not news
       }
       if (added.length || hooked) {

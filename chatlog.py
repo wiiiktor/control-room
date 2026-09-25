@@ -42,7 +42,7 @@ def read_messages(since=0):
     return out
 
 
-def append_message(role, text, session=None, to=None):
+def append_message(role, text, session=None, to=None, mirror=False):
     # LOCK guards threads inside this process; flock guards the other processes writing
     # the same log (the extension host and reply.py).
     with LOCK, LOG.open("a+", encoding="utf-8") as handle:
@@ -68,6 +68,10 @@ def append_message(role, text, session=None, to=None):
             msg["session"] = session
         if to:                                # addressed to ONE watcher; absent = anyone
             msg["to"] = to
+        # copied from the editor conversation rather than written here. watch.py ignores
+        # these: they are a record, not a request, and answering them would loop.
+        if mirror:
+            msg["mirror"] = True
         handle.write(json.dumps(msg, ensure_ascii=False) + "\n")
         handle.flush()
         fcntl.flock(handle, fcntl.LOCK_UN)
