@@ -581,7 +581,13 @@
   /* ⛔ `color: inherit` here is not decoration. A VS Code webview injects its own
      stylesheet, which paints <code> in --vscode-textPreformat-foreground -- an ORANGE in
      most themes, and orange on corn is what it looked like. Our own ink, explicitly. */
-  code, kbd, pre { color: inherit; }
+  /* ...and the same stylesheet gives <code> a BACKGROUND (--vscode-textCodeBlock-background,
+     dark in a dark editor theme) plus its own padding and radius. Inline code here is a
+     change of voice, not a box: strip all of it. The splash's prompt block sets its own
+     background further down, with the specificity to keep it. */
+  code, kbd, pre {
+    color: inherit; background: none; padding: 0; border: 0; border-radius: 0;
+  }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: .92em; letter-spacing: -.01em; }
   strong { font-weight: 900; }
