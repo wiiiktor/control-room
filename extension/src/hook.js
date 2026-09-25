@@ -175,7 +175,21 @@ def main():
             append_message("assistant", text[:4000], session=sid or None, mirror=True)
 
 
-main()
+# \u26d4 A HOOK THAT RAISES IS A HOOK THAT VANISHES. A room holding an older chatlog.py
+# made every mirrored line die in a TypeError that reached nobody: the panel just never
+# heard what was typed, which is indistinguishable from the feature not existing. Write the
+# reason down where the diagnosis can find it, and never let it become the user's problem.
+try:
+    main()
+except Exception:
+    import traceback
+    try:
+        for d in sorted(ROOT.glob("control-room*")):
+            if d.is_dir() and (d / "chat.jsonl").exists():
+                (d / ".mirror-error").write_text(traceback.format_exc(), encoding="utf-8")
+                break
+    except OSError:
+        pass
 `;
 }
 

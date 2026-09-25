@@ -55,6 +55,13 @@ function report({ version, root, rooms, runtimeFiles, hookInstalled, hookPath })
     for (const w of watchers) {
       L.push(`    ${w.slice('.watch.'.length, '.watch.'.length + 8)}  last beat ${ageOf(path.join(dir, w))}`);
     }
+    // ⛔ A crashed mirror hook is silent by nature -- Claude Code swallows what a hook
+    // prints on stderr -- so the room keeps a note of the last failure and it is read here.
+    try {
+      const err = fs.readFileSync(path.join(dir, '.mirror-error'), 'utf8').trim().split('\n');
+      L.push('  MIRROR HOOK FAILED — the editor conversation is not reaching this room:');
+      for (const line of err.slice(-3)) L.push('    ' + line.slice(0, 110));
+    } catch { /* no failure recorded, which is the normal case */ }
     // the tail says whether the panel is writing where the watch is reading
     try {
       const lines = fs.readFileSync(path.join(dir, 'chat.jsonl'), 'utf8').trim().split('\n');
@@ -75,6 +82,8 @@ function report({ version, root, rooms, runtimeFiles, hookInstalled, hookPath })
   L.push('  hook NOT INSTALLED    a session will not arm the watch by itself');
   L.push('  watchers NONE         open a Claude tab in THIS window and send it any message');
   L.push('  messages in the wrong room   the panel is writing somewhere else; reopen the panel');
+  L.push('  MIRROR HOOK FAILED    almost always an out-of-date chatlog.py in that room;');
+  L.push('                        reopening the panel refreshes it');
   return L.join('\n');
 }
 
