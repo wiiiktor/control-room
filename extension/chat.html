@@ -1066,15 +1066,31 @@
     show(kids);
   }
 
-  /** The only time words appear about the connection: when it is broken. */
+  /** The only time words appear about the connection: when it is broken.
+   *
+   *  ⛔ The two hosts break DIFFERENTLY and the advice is not interchangeable. In a browser
+   *  the server has stopped and can be restarted. In the editor there is no server: the
+   *  extension host restarted -- which is exactly what installing an update does -- and
+   *  this webview is orphaned for good. Telling that reader to run chat_server.py sends
+   *  them to fix a thing that was never running. */
   function showOffline() {
     const card = el('div', 'fixit');
-    card.append(
-      el('h1', '', 'The panel is switched off'),
-      el('p', '', 'The little program that runs this page has stopped. Open the terminal and type this:'),
-      el('code', '', 'python3 chat_server.py'),
-      el('p', '', 'This page turns itself back on within a second. Nothing is lost.'),
-    );
+    if (window.CONTROL_ROOM_HOST === 'extension') {
+      card.append(
+        el('h1', '', 'This tab lost the editor'),
+        el('p', '', 'VS Code restarted its extensions — installing an update does that — and '
+          + 'this panel cannot be reconnected.'),
+        el('p', '', 'Close this tab and open the panel again: Ctrl+Shift+P → Control Room: Open panel.'),
+        el('p', '', 'Nothing is lost. Everything written here is on disk and the new tab shows it all.'),
+      );
+    } else {
+      card.append(
+        el('h1', '', 'The panel is switched off'),
+        el('p', '', 'The little program that runs this page has stopped. Open the terminal and type this:'),
+        el('code', '', 'python3 chat_server.py'),
+        el('p', '', 'This page turns itself back on within a second. Nothing is lost.'),
+      );
+    }
     show([card], false);
   }
 
