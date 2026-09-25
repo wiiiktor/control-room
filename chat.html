@@ -308,6 +308,7 @@
     display: flex; flex-direction: column; text-align: left;
   }
   .thumb:hover, .thumb.on { background: var(--yellow-soft); }
+  .thumb.pending { border-style: dashed; }
   .thumb.on { box-shadow: 0 0 0 var(--ink); transform: translate(4px, 4px); }
   /* the page itself, rendered at full width and scaled down -- a real screen, not a picture of one */
   .thumb .page {
@@ -580,6 +581,12 @@
     font-size: 13px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; opacity: .7;
   }
   #to-wrap.on { display: flex; }
+  #to-hint {
+    display: none; font-size: 13px; font-weight: 800; letter-spacing: .03em;
+    text-transform: uppercase; opacity: .7;
+  }
+  #to-hint.on { display: block; }
+  #to-hint.dead { color: var(--red); opacity: 1; }
   #to {
     font: inherit; font-size: 14px; font-weight: 700; color: var(--ink);
     background: var(--panel); border: 3px solid var(--ink); border-radius: 10px;
@@ -614,6 +621,7 @@
         <label id="to-wrap" for="to"><span>to</span>
           <select id="to"><option value="">whoever is listening</option></select>
         </label>
+        <div id="to-hint"></div>
       </div>
       <button type="submit">SEND</button>
     </form>
@@ -628,6 +636,7 @@
   const lamp  = document.getElementById('lamp');
   const toSel = document.getElementById('to');
   const toWrap = document.getElementById('to-wrap');
+  const toHint = document.getElementById('to-hint');
   const deaf  = document.getElementById('deaf');
   let since = 0, fails = 0, offline = false, lastCommand = '';
   let waitingNow = false, lastStatusSig = '', lastWatchAge = null, lastWatcherSig = '';
@@ -886,7 +895,22 @@
 
   /** The "to:" list is the sessions with a LIVE watch. One watcher is the normal case and
       needs no choice, so the control only appears once there are two. */
+  let target = '';                          // session the composer is addressed at
+  let aliveIds = [];
+
+  function drawTarget() {
+    toSel.value = target;
+    const name = tlNames[target] || target;
+    const alive = !target || aliveIds.includes(target);
+    toHint.textContent = !target ? ''
+      : (alive ? 'talking to: ' + name.slice(0, 40)
+               : 'NOT RUNNING — ' + name.slice(0, 32) + ' · claude --resume ' + target.slice(0, 8));
+    toHint.classList.toggle('on', !!target);
+    toHint.classList.toggle('dead', !!target && !alive);
+  }
+
   function drawWatchers(list) {
+    aliveIds = list.map(w => w.session);
     const sig = list.map(w => w.session).join(',');
     if (sig !== lastWatcherSig) {
       lastWatcherSig = sig;
@@ -900,7 +924,7 @@
       if ([...toSel.options].some(o => o.value === keep)) toSel.value = keep;
     }
     toWrap.classList.toggle('on', list.length > 1);
-    if (list.length < 2) toSel.value = '';
+    drawTarget();
   }
 
   function waiting(status) {
@@ -942,7 +966,7 @@
       await fetch('/api/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, to: toSel.value || '' }),
+        body: JSON.stringify({ text, to: target || toSel.value || '' }),
       });
       poll();
       return true;
@@ -1058,6 +1082,8 @@
     palEl.append(b);
   });
 
+  toSel.onchange = () => { target = toSel.value || ''; drawTarget(); };
+
   palBtn.onclick = () => {
     const open = palEl.classList.toggle('open');
     palBtn.classList.toggle('on', open);
@@ -1133,6 +1159,7 @@
     when.append(el('span', '', clock(msg.ts)), el('i', '', '#' + n));
     btn.append(page, when);
 
+    if (msg.pending) btn.classList.add('pending');
     btn.onmouseenter = () => { if (!pinned) { showArchived(msg); markThumb(btn); } };
     btn.onmouseleave = () => { if (!pinned) { restoreLive(); markThumb(null); } };
     btn.onclick = () => {
@@ -1158,10 +1185,21 @@
     const replies = [];
     let asked = [];
     for (const m of msgs) {
-      if (m.role === 'user') { asked.push(m.text); continue; }
+      if (m.role === 'user') {
+        asked.push(m.text);
+        // a question ADDRESSED to a session belongs in that session's strip, answered
+        // or not -- otherwise choosing a session and writing to it shows nothing
+        if (m.to) replies.push({ ...m, session: m.to, asked: m.text, pending: true });
+        continue;
+      }
       replies.push({ ...m, asked: asked.join(JOIN) });
       asked = [];
     }
+    // an addressed question that a reply followed is no longer pending
+    replies.forEach((r, i) => {
+      if (!r.pending) return;
+      r.pending = !replies.slice(i + 1).some(x => !x.pending && x.session === r.session);
+    });
     if (!replies.length) return tlEl.replaceChildren(el('p', 'empty-note', 'no replies yet'));
     tlRows = replies;
     // never a mixed strip: default to the session of the NEWEST reply
@@ -1203,6 +1241,10 @@
       b.classList.toggle('empty', !withReplies.has(id));
       b.onclick = () => {
         tlFilter = id;                       // exactly one session is shown, always
+        // ...and what you write next goes THERE. Choosing a session to look at and
+        // then talking to a different one is the confusing half of this panel.
+        target = id || '';
+        drawTarget();
         closeSessionMenu();
         drawTimeline();
       };
