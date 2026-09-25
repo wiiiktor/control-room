@@ -256,6 +256,16 @@
     box-shadow: var(--pop); transition: transform .08s, box-shadow .08s;
   }
   #splash .go:active { transform: translate(5px, 5px); box-shadow: 0 0 0 var(--ink); }
+  /* green the instant a session is reading the log: the panel's own answer to "is this
+     thing on", in the one place you are already looking */
+  #splash .go.live { background: var(--green); color: var(--on-green); }
+  #splash .go.pulse { animation: cr-answered .6s ease-out; }
+  @keyframes cr-answered {
+    0% { transform: none; }
+    35% { transform: scale(1.045); }
+    100% { transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { #splash .go.pulse { animation: none; } }
   #splash .wrap { position: relative; display: inline-block; }
   #splash .x {
     position: absolute; top: -12px; right: -12px;
@@ -1346,7 +1356,15 @@
     if (watching && splashWaiting) {
       splashWaiting = false;
       splashGo.textContent = 'Claude answered — close this and start writing';
+      splashGo.classList.add('pulse');          // the moment itself, once
+      setTimeout(() => splashGo.classList.remove('pulse'), 600);
+    } else if (watching && splashWatching !== watching) {
+      // already listening when the panel opened: the words must not still ask for it
+      splashGo.textContent = 'Claude is listening — close this and start writing';
     }
+    // ⭐ the COLOUR is the state, and the words only explain it: yellow asks for something,
+    // green means the bridge answered. It is the difference you see from across the room.
+    splashGo.classList.toggle('live', !!watching);
     splashWatching = watching;
     splash.classList.toggle('on', !splashDismissed);
   }
