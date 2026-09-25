@@ -39,6 +39,13 @@ malformed.
   choices. `Esc` closes the card.
 - Clicking a choice is identical to typing it: same `POST /api/send`, same entry
   in `chat.jsonl`.
+- Inside any line, `**bold**`, `` `code` `` and `*italic*` are rendered. They are
+  built as nodes, never as HTML, so a message can carry asterisks without being able
+  to inject markup — `::html` is the one way in. Italics need a non-space on both
+  sides, so `2 * 3 * 4` survives.
+- `code` wears no box and no colour of its own: it inherits whatever it sits on. In
+  a VS Code webview the editor's own stylesheet paints and boxes `<code>`, and the
+  page overrides both.
 
 ## Example
 
