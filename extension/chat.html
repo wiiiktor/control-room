@@ -1613,16 +1613,25 @@
     if (id && !aliveIds.includes(id)) {
       resumeTarget = id;
       lastCommand = '';
-      const who = String(tlNames[id] || id).replace(/\s+/g, ' ').slice(0, 48);
+      const full = String(tlNames[id] || id).replace(/\s+/g, ' ');
+      const who = full.length > 44 ? full.slice(0, 44) + '…' : full;
       // Running, just not here. Resuming it would start a second copy and a fresh tab is
       // beside the point: the move that works is opening the room it is reading.
       if (elsewhereIn[id]) {
         lastCommand = '';
+        // ⛔ AND THE SPLASH HAS TO GO. It asks "is anybody reading this room", which is
+        // true -- so it covered this screen with a green "Session ok" and the instruction
+        // to open a Claude tab and write. Doing that writes into the OTHER room and
+        // nothing happens here, which is exactly the dead end this screen exists to
+        // prevent. Its advice is wrong in this one case, so it stands down.
+        dismissSplash();
         show(build([
           '::warn Listening in ' + String(elsewhereIn[id]).slice(0, 40) + ', not here',
-          '::say ' + who + ' is running and answering — in another control room. A session '
-            + 'reads one log, and it is not this one, so anything you send it from here '
-            + 'would sit unread.',
+          '::say That session is running and answering — in another control room.',
+          '::note ' + who,
+          '::say A session reads one log, and it is not this one. Anything you send it from '
+            + 'here would sit unread, and writing in its Claude tab appears in that room, '
+            + 'not this one.',
           '::pick Open that control room => __open_room',
           '::note It opens as its own panel, already addressed to this session. This one '
             + 'stays where it is.',
