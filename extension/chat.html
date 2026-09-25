@@ -1217,8 +1217,15 @@
       // Walk the batch in order: questions pile up until a reply answers them all.
       for (const m of data.messages) {
         if (m.role === 'user') pendingAsk.push(m.text);
-        else { if (pendingAsk.length) lastCommand = pendingAsk.join(JOIN); pendingAsk = []; }
+        else {
+          if (pendingAsk.length) lastCommand = pendingAsk.join(JOIN);
+          pendingAsk = [];
+          // ⛔ not on the first poll: that batch is the whole history, and yesterday's
+          // replies say nothing about whether anyone is listening now.
+          if (splashPrimed) splashAnswered();
+        }
       }
+      splashPrimed = true;
 
       // A command with no answer yet must keep showing "working" — never fall
       // back to the previous card, which reads as "nothing happened".
@@ -1345,28 +1352,35 @@
   let splashDismissed = false;
   let splashWatching = null;
   let splashWaiting = false;   // pressed, and now watching for the session to appear
+  let splashLive = false;      // a reply has actually arrived: the only thing that is proof
+  let splashPrimed = false;    // the first poll is history, not news
 
   function splashSay(watching) {
     // the watch dying is news: the splash comes back, saying the original thing again
     if (splashWatching && !watching) {
-      splashDismissed = false; splashWaiting = false; splashGo.textContent = SPLASH_TEXT;
+      splashDismissed = false; splashWaiting = false; splashLive = false;
+      splashGo.classList.remove('live');
+      splashGo.textContent = SPLASH_TEXT;
     }
-    // ...and when the signal arrives it SAYS SO and stays up. Closing itself would hide
-    // the one moment the whole screen exists to report; the X is how you leave.
-    if (watching && splashWaiting) {
-      splashWaiting = false;
-      splashGo.textContent = 'Claude answered — close this and start writing';
-      splashGo.classList.add('pulse');          // the moment itself, once
-      setTimeout(() => splashGo.classList.remove('pulse'), 600);
-    } else if (watching && splashWatching !== watching) {
-      // already listening when the panel opened: the words must not still ask for it
-      splashGo.textContent = 'Claude is listening — close this and start writing';
+    // ⛔ A HEARTBEAT IS NOT AN ANSWER. `.watch.<id>` stays fresh for up to 90 seconds after
+    // the watch behind it has died, and a watch armed a moment ago has not yet proved it
+    // can reply -- so going green on a watcher turned the light on before the bridge
+    // worked. Only a reply in the log turns it green; see splashAnswered().
+    if (watching && splashWaiting && !splashLive) {
+      splashGo.textContent = 'A session is listening — waiting for its first reply';
     }
-    // ⭐ the COLOUR is the state, and the words only explain it: yellow asks for something,
-    // green means the bridge answered. It is the difference you see from across the room.
-    splashGo.classList.toggle('live', !!watching);
     splashWatching = watching;
     splash.classList.toggle('on', !splashDismissed);
+  }
+
+  /** A reply landed in the log: the round trip is real, and that is what green means. */
+  function splashAnswered() {
+    if (splashLive) return;
+    splashLive = true;
+    splashWaiting = false;
+    splashGo.textContent = 'Claude answered — close this and start writing';
+    splashGo.classList.add('live', 'pulse');
+    setTimeout(() => splashGo.classList.remove('pulse'), 600);
   }
 
   const dismissSplash = () => { splashDismissed = true; splash.classList.remove('on'); };
