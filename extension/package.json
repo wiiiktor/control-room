@@ -2,7 +2,7 @@
   "name": "control-room",
   "displayName": "Control Room",
   "description": "A big-button control panel for driving Claude Code from inside the editor.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "wiiiktor",
   "license": "MIT",
   "repository": {
@@ -21,7 +21,7 @@
     "commands": [
       {
         "command": "controlRoom.open",
-        "title": "Control Room: Open panel"
+        "title": "Control Room: Open panel for a session"
       },
       {
         "command": "controlRoom.openAll",

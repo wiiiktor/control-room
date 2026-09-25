@@ -5,10 +5,10 @@ extension host reads and writes `chat.jsonl` itself.
 
 ## Install from a .vsix
 
-Download `control-room-0.3.0.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
+Download `control-room-0.4.0.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
 
 ```bash
-code --install-extension control-room-0.3.0.vsix
+code --install-extension control-room-0.4.0.vsix
 ```
 
 or, in the editor: **Extensions ▸ … ▸ Install from VSIX…**
@@ -19,7 +19,7 @@ Three commands:
 
 | command | what it does |
 |---|---|
-| `Control Room: Open panel` | pick a control room and open it as an editor tab |
+| `Control Room: Open panel for a session` | pick a **session** by name; opens the control room it is listening to, already addressed to it |
 | `Control Room: Open every control room in this workspace` | one tab per instance, in one go |
 | `Control Room: Resume a Claude session in a terminal` | pick a session, and it opens a terminal running `claude --resume <id>` |
 
@@ -34,7 +34,7 @@ Cursor, Windsurf, VSCodium and other VS Code forks install the same file the sam
 ```bash
 npm install -g @vscode/vsce
 cd extension
-vsce package        # -> control-room-0.3.0.vsix
+vsce package        # -> control-room-0.4.0.vsix
 ```
 
 ## One panel per session
@@ -49,7 +49,11 @@ your-project/
 ```
 
 Every `control-room*` folder with a log in it is offered as a separate panel, named
-after its suffix (*Control Room · medicover*). Panels are independent: each polls only
+after its suffix (*Control Room · medicover*). You never have to think in folders,
+though: the palette asks which **session** you want to talk to, listing each live one
+under the name its transcript carries — the same name Claude Code's own session picker
+shows — and opens the right control room with that session already selected as the
+recipient. A room nobody is listening to is still listed, marked `no session listening`. Panels are independent: each polls only
 its own log, so two sessions never answer into the same conversation. The picker says
 which session is currently listening to each one, and a panel with no live watcher
 says `(no watcher)` in its tab title rather than letting a message sit unanswered.

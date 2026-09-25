@@ -59,11 +59,19 @@ function workspaceRoot(fallback) {
  *
  * The extension ships its own chat.html so it works in any workspace; a copy sitting
  * beside the log wins, because that is the one being edited while developing. */
-function pageHtml(extensionPath, dir) {
+function pageHtml(extensionPath, dir, session) {
   const local = path.join(dir, 'chat.html');
   const bundled = path.join(extensionPath, 'chat.html');
   let html = fs.readFileSync(fs.existsSync(local) ? local : bundled, 'utf8');
   const shim = `
+<script>
+  // The session was chosen in the command palette, before the page existed. The page
+  // reads this key on load, so writing it here is the whole handover.
+  try {
+    const picked = ${JSON.stringify(session || '')};
+    if (picked) localStorage.setItem('ctrl-to', picked);
+  } catch (e) { /* storage can be blocked; the page then asks in its own selector */ }
+</script>
 <script>
   // The webview has no server to talk to, so /api/* is answered by the extension host.
   // Anything else (a real URL) is left to the browser's own fetch.
@@ -89,6 +97,8 @@ function pageHtml(extensionPath, dir) {
     };
     window.addEventListener('message', function (e) {
       const m = e.data;
+      // the palette can re-point an already-open panel at another session
+      if (m && m.setTarget && window.CONTROL_ROOM_SET_TARGET) return window.CONTROL_ROOM_SET_TARGET(m.setTarget);
       if (!m || typeof m.id !== 'number' || !pending.has(m.id)) return;
       const p = pending.get(m.id);
       pending.delete(m.id);
@@ -114,16 +124,22 @@ function activate(context) {
   // life of the panel, so a constant is honest and a stat() of a moving file is not
   const BUILD = String(context.extension ? context.extension.packageJSON.version : '0');
 
-  const open = (inst) => {
+  const open = (inst, session) => {
     const existing = panels.get(inst.dir);
-    if (existing) { existing.reveal(vscode.ViewColumn.Active); return; }
+    if (existing) {
+      // already open: point it at the session just picked rather than opening a second
+      // panel on the same log, which would be two views of one conversation
+      if (session) existing.webview.postMessage({ setTarget: session });
+      existing.reveal(vscode.ViewColumn.Active);
+      return;
+    }
     const dir = inst.dir;
     const log = new Log(dir);
     const panel = vscode.window.createWebviewPanel(
       'controlRoom', inst.name, vscode.ViewColumn.Active,
       { enableScripts: true, retainContextWhenHidden: true });
     panels.set(dir, panel);
-    panel.webview.html = pageHtml(context.extensionPath, dir);
+    panel.webview.html = pageHtml(context.extensionPath, dir, session);
     panel.onDidDispose(() => { panels.delete(dir); }, null, context.subscriptions);
 
     // a panel nobody is watching looks identical to a working one until a message is
@@ -179,28 +195,46 @@ function activate(context) {
     }, null, context.subscriptions);
   };
 
-  /** Ask which instance, unless there is only one. Each line says whether anyone is
-   *  listening to it, which is the thing you actually want to know before typing. */
-  const pickInstance = async (placeHolder) => {
+  /** Ask which SESSION, the way Claude Code's own picker asks: by what the session
+   *  opened with. A control room is a folder on disk, which is not what anyone has in
+   *  mind when they open this -- they want to talk to a particular Claude. Each live
+   *  session is listed under the name its transcript carries, and picking one opens the
+   *  control room that session is listening to, already addressed to it. */
+  const pickSession = async (placeHolder) => {
     const found = instances();
-    if (found.length === 1) return found[0];
     const names = await labels(workspaceRoot(found[0].dir));
-    const items = found.map((inst) => {
+    const items = [];
+    for (const inst of found) {
       const live = new Log(inst.dir).watchers(names);
-      return {
-        label: inst.name,
-        description: live.length ? '← ' + live.map(w => w.label.slice(0, 40)).join(', ') : 'no watcher',
-        detail: inst.dir,
-        inst,
-      };
-    });
-    const picked = await vscode.window.showQuickPick(items, { placeHolder });
-    return picked && picked.inst;
+      for (const w of live) {
+        items.push({
+          label: (names[w.session] || w.label || w.session).slice(0, 70),
+          description: inst.name,
+          detail: w.session.slice(0, 8) + ' · listening, last seen ' + w.age + 's ago',
+          inst,
+          session: w.session,
+        });
+      }
+      // a room nobody is listening to is still worth opening -- to read it, or to
+      // resume the session from inside it -- but it must not look like a live one
+      if (!live.length) {
+        items.push({
+          label: inst.name,
+          description: 'no session listening',
+          detail: inst.dir,
+          inst,
+          session: '',
+        });
+      }
+    }
+    if (items.length === 1) return items[0];
+    const picked = await vscode.window.showQuickPick(items, { placeHolder, matchOnDescription: true });
+    return picked || null;
   };
 
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.open', async () => {
-    const inst = await pickInstance('Which control room?');
-    if (inst) open(inst);
+    const picked = await pickSession('Which session do you want to talk to?');
+    if (picked) open(picked.inst, picked.session);
   }));
 
   // every instance at once, for the two-session case this was built for
@@ -217,8 +251,8 @@ function activate(context) {
       Object.entries(names).map(([id, label]) => ({ label: label.slice(0, 80), description: id.slice(0, 8), id })),
       { placeHolder: 'Which session should be resumed in a terminal?' });
     if (!picked) return;
-    const inst = await pickInstance('Which control room should it answer?') || found[0];
-    resumeIn(inst.dir, picked.id);
+    const room = await pickSession('Which control room should it answer?');
+    resumeIn((room && room.inst.dir) || found[0].dir, picked.id);
   }));
 }
 

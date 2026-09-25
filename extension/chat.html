@@ -914,6 +914,10 @@
     toHint.classList.toggle('dead', !!target && !alive);
   }
 
+  // The VS Code extension asks WHICH SESSION in the command palette, before this page
+  // exists, so the choice has to arrive from outside. The browser version never calls it.
+  window.CONTROL_ROOM_SET_TARGET = (id) => { target = id || ''; drawTarget(); };
+
   function drawWatchers(list) {
     aliveIds = list.map(w => w.session);
     drawTarget();

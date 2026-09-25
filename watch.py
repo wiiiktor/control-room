@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Filter for `tail -F chat.jsonl`: print one line per new user message.
 
+On startup it first announces anything left unanswered, so a message that arrived while
+no watch was running is not lost between one watch and the next.
+
 It also touches `.watch` every 30 seconds while it runs. That file is the ONLY evidence
 the panel has that a session is actually reading the log -- the connection lamp says the
 server is up, which is a different thing. The heartbeat lives in this process on purpose:
@@ -63,16 +66,10 @@ def _beat():
 
 threading.Thread(target=_beat, daemon=True).start()
 
-for line in sys.stdin:
-    line = line.strip()
-    if not line:
-        continue
-    try:
-        msg = json.loads(line)
-    except json.JSONDecodeError:
-        continue
+def mine(msg):
+    """Is this a user message this session should answer?"""
     if msg.get("role") != "user":
-        continue
+        return False
     # addressed mail: a message sent "to" another session is not ours to answer, and
     # printing it would notify BOTH sessions -- the exact thing the selector prevents
     to = (msg.get("to") or "").strip()
@@ -82,6 +79,49 @@ for line in sys.stdin:
     # with an <option> whose value defaulted to its own text.
     looks_like_session = len(to) == 36 and to.count("-") == 4
     if to and SID and looks_like_session and to != SID:
-        continue
+        return False
+    return True
+
+
+def emit(msg, missed=False):
     text = " ".join(msg.get("text", "").split())
-    print(f"[web chat #{msg.get('id')}]{' (to me)' if to else ''} {text}", flush=True)
+    tag = " (missed)" if missed else (" (to me)" if (msg.get("to") or "").strip() else "")
+    print(f"[web chat #{msg.get('id')}]{tag} {text}", flush=True)
+
+
+def catch_up():
+    """Announce anything still unanswered when the watch starts.
+
+    A watch only ever sees lines that arrive AFTER it -- so a message sent while the
+    session was between watches (a monitor expiring, a restart, a re-arm) sat in the log
+    forever and looked to the sender like it had been ignored. Everything after the last
+    assistant reply is, by definition, not yet answered.
+    """
+    try:
+        lines = (ROOT / "chat.jsonl").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return
+    msgs = []
+    for line in lines:
+        try:
+            msgs.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    last_reply = max((m.get("id", 0) for m in msgs if m.get("role") == "assistant"), default=0)
+    for m in msgs:
+        if m.get("id", 0) > last_reply and mine(m):
+            emit(m, missed=True)
+
+
+catch_up()
+
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        msg = json.loads(line)
+    except json.JSONDecodeError:
+        continue
+    if mine(msg):
+        emit(msg)
