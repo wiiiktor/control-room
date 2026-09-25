@@ -320,8 +320,11 @@
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   /* one row: what you asked on the left, when this answer landed on the right */
-  .head { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
-  .head .crumb { align-self: center; min-width: 0; }
+  .head { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; }
+  /* The slot holds the row's height; the crumb floats inside it, so unfolding grows
+     DOWNWARD over the reply instead of pushing everything below it further down. */
+  .head .slot { position: relative; flex: 1 1 auto; min-width: 0; height: 38px; }
+  .head .crumb { position: absolute; top: 0; left: 0; max-width: 100%; z-index: 20; }
   .stamp {
     flex: none; font-size: 15px; font-weight: 800; letter-spacing: .02em;
     opacity: .55; cursor: default; font-variant-numeric: tabular-nums;
@@ -331,8 +334,8 @@
      hover already shows the whole thing */
   .crumb { cursor: pointer; }
   .crumb:hover, .crumb.open {
-    white-space: normal; overflow: visible; border-radius: 18px; max-width: 100%;
-    background: var(--yellow-soft);
+    white-space: normal; overflow: visible; border-radius: 18px;
+    background: var(--yellow-soft); box-shadow: var(--pop-sm);
   }
 
   .badge {
@@ -569,8 +572,10 @@
       const head = el('div', 'head');
       if (crumb && lastCommand) {
         const c = el('div', 'crumb', lastCommand);
-        c.onclick = () => { c.classList.toggle('open'); fit(); };
-        head.append(c);
+        c.onclick = () => c.classList.toggle('open');   // no fit(): the row keeps its height
+        const slot = el('div', 'slot');
+        slot.append(c);
+        head.append(slot);
       }
       if (stamp) head.append(stamp);
       kids.push(head);
@@ -936,8 +941,10 @@
     const head = el('div', 'head');
     if (msg.asked) {
       const c = el('div', 'crumb', msg.asked);
-      c.onclick = () => { c.classList.toggle('open'); fit(); };
-      head.append(c);
+      c.onclick = () => c.classList.toggle('open');
+      const slot = el('div', 'slot');
+      slot.append(c);
+      head.append(slot);
     }
     const st = stampOf(msg.ts);
     if (st) head.append(st);
