@@ -25,7 +25,9 @@ Python 3 standard library only. No dependencies, no build step.
 | `chat_server.py` | HTTP server on `localhost:8000`: serves the page, reads and appends to `chat.jsonl` |
 | `chat.html` | The panel: renders the markup, sends messages, polls for replies |
 | `reply.py` | Posts an assistant reply into the log |
-| `resume.py` | Opt-in: answers messages addressed to ONE dormant session by resuming it (`claude --resume`) |
+| `resume.py` | Answers messages addressed to ONE dormant session by resuming it (`claude --resume`) |
+| `autoresume.py` | Starts a `resume.py` on demand for whichever session you write to from the panel |
+| `control-room-autoresume.service` | systemd user unit for the waker |
 | `sessions.py` | Lists this project's Claude Code sessions: id, time, size, opening message |
 | `control-room.service` | systemd user unit: starts the panel at login and restarts it if it dies |
 | `status.py` | Says what is happening WHILE working; shows under "Working on it…" and is cleared when the reply lands |
@@ -119,10 +121,10 @@ message as a notification, so no polling loop is needed.
   is too late to tell you there is more below.
 - **Local only.** The server binds to `127.0.0.1` on port 8111, so nothing is exposed
   to the internet and nothing collides with the usual 8000.
-- **Address a message to one session.** When more than one session has a live watch,
-  a "to:" selector appears in the composer listing them. `watch.py` ignores anything
-  addressed elsewhere, so only the chosen session is notified; with one watcher the
-  control stays hidden and every message goes to whoever is listening.
+- **Address a message to one session.** The timeline's session menu picks who you are
+  writing to; `watch.py` ignores anything addressed elsewhere, so only that session is
+  notified. Choose a session that is not running and `autoresume.py` wakes it with
+  `claude --resume` so it can answer — one real Claude run per message.
 - **It says when nobody is listening.** The page is connected to the server, but that
   is not the same as Claude reading the log. The watcher touches `.watch` every 30s and
   the page shows a "not watching" pill when that goes stale — a message sent then will

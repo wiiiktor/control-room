@@ -585,22 +585,12 @@
   textarea::placeholder { color: var(--ink); opacity: .4; }
   textarea:focus { outline: none; background: var(--yellow-soft); }
   #compose { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-  #to-wrap {
-    display: none; align-items: center; gap: 8px;
-    font-size: 13px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; opacity: .7;
-  }
-  #to-wrap.on { display: flex; }
   #to-hint {
     display: none; font-size: 13px; font-weight: 800; letter-spacing: .03em;
     text-transform: uppercase; opacity: .7;
   }
   #to-hint.on { display: block; }
   #to-hint.dead { color: var(--red); opacity: 1; }
-  #to {
-    font: inherit; font-size: 14px; font-weight: 700; color: var(--ink);
-    background: var(--panel); border: 3px solid var(--ink); border-radius: 10px;
-    padding: 4px 8px; max-width: 60%;
-  }
 
   form button {
     font: inherit; font-size: 20px; font-weight: 900; height: 104px; padding: 0 34px;
@@ -627,9 +617,6 @@
     <form id="form">
       <div id="compose">
         <textarea id="input" rows="3" placeholder="Type here…" autofocus></textarea>
-        <label id="to-wrap" for="to"><span>to</span>
-          <select id="to"><option value="">whoever is listening</option></select>
-        </label>
         <div id="to-hint"></div>
       </div>
       <button type="submit">SEND</button>
@@ -643,8 +630,6 @@
   const input = document.getElementById('input');
   const form  = document.getElementById('form');
   const lamp  = document.getElementById('lamp');
-  const toSel = document.getElementById('to');
-  const toWrap = document.getElementById('to-wrap');
   const toHint = document.getElementById('to-hint');
   const deaf  = document.getElementById('deaf');
   let since = 0, fails = 0, offline = false, lastCommand = '';
@@ -911,7 +896,6 @@
 
   function drawTarget() {
     try { target ? localStorage.setItem('ctrl-to', target) : localStorage.removeItem('ctrl-to'); } catch {}
-    toSel.value = target;
     const name = tlNames[target] || target;
     const alive = !target || aliveIds.includes(target);
     toHint.textContent = !target ? ''
@@ -923,29 +907,6 @@
 
   function drawWatchers(list) {
     aliveIds = list.map(w => w.session);
-    // DORMANT sessions belong in the list too: you cannot address one that is not shown,
-    // and "not running" is a thing to be told, not a reason to hide it
-    const dormant = Object.keys(tlNames).filter(id => !aliveIds.includes(id));
-    const sig = aliveIds.join(',') + '|' + dormant.join(',');
-    if (sig !== lastWatcherSig) {
-      lastWatcherSig = sig;
-      const keep = target;
-      // ⛔ an <option> with no value attribute uses its TEXT as its value, so this one
-      // was sending to="whoever is listening" -- a target no watcher matches, which
-      // watch.py then filtered out. Every message picked that way went nowhere.
-      const any = el('option', '', 'whoever is listening');
-      any.value = '';
-      toSel.replaceChildren(any);
-      const add = (id, label, suffix) => {
-        const o = el('option', '', (label || id).slice(0, 44) + suffix);
-        o.value = id;
-        toSel.append(o);
-      };
-      list.forEach(w => add(w.session, w.label, ''));
-      dormant.forEach(id => add(id, tlNames[id], '  — not running'));
-      if ([...toSel.options].some(o => o.value === keep)) toSel.value = keep;
-    }
-    toWrap.classList.toggle('on', true);
     drawTarget();
   }
 
@@ -988,7 +949,7 @@
       await fetch('/api/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, to: target || toSel.value || '' }),
+        body: JSON.stringify({ text, to: target || '' }),
       });
       poll();
       return true;
@@ -1110,13 +1071,6 @@
     b.onclick = () => { applyTheme(t.id); palEl.classList.remove('open'); palBtn.classList.remove('on'); };
     palEl.append(b);
   });
-
-  toSel.onchange = () => {
-    target = toSel.value || '';
-    drawTarget();
-    // the strip follows the composer, as the composer follows the strip: one choice
-    if (tlOpen && target) { tlFilter = target; drawTimeline(); }
-  };
 
   palBtn.onclick = () => {
     const open = palEl.classList.toggle('open');

@@ -40,7 +40,11 @@ def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     sid = sys.argv[1]
+    # --from lets a supervisor hand over the message that triggered the wake-up, which
+    # would otherwise be skipped as "already in the log when I started"
     seen = max([m["id"] for m in messages()], default=0)
+    if "--from" in sys.argv:
+        seen = int(sys.argv[sys.argv.index("--from") + 1]) - 1
     print(f"[resume] watching for messages addressed to {sid[:8]} (from #{seen + 1})", flush=True)
     while True:
         time.sleep(5)
