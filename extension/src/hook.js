@@ -33,21 +33,65 @@ from pathlib import Path
 ROOT = Path(${JSON.stringify(root)})
 
 
+def pick_room(rooms, sid):
+    """Which of the workspace's rooms this session belongs to.
+
+    Four questions, in order, and the order is the whole point:
+
+    1. its own heartbeat -- a .watch.<id> file is proof, and it is proof in ONE room;
+    2. a binding written the first time this session was placed, so every later hook
+       agrees with the first one and a watch that has not started yet cannot change the
+       answer;
+    3. \u26d4 the room that ASKED for it. A session that has never run has no heartbeat,
+       so this used to fall through to the first room by name -- and a fresh tab opened
+       from any other panel attached itself to that one, wrote its turns there, and left
+       the panel you started it from silent. A panel touches .expect when it opens a tab;
+       the newest unclaimed one, within fifteen minutes, is that request;
+    4. failing all of it, the plain room.
+    """
+    for d in rooms:
+        if sid and (d / (".watch." + sid)).exists():
+            return d
+    for d in rooms:
+        if sid and (d / (".session." + sid)).exists():
+            return d
+    best, when, now = None, 0.0, time.time()
+    for d in rooms:
+        try:
+            m = (d / ".expect").stat().st_mtime
+        except OSError:
+            continue
+        if now - m < 900 and m > when:
+            best, when = d, m
+    if best is not None and sid:
+        # claim it, so the next hook for this session reads the binding instead of racing
+        # the watch, and a second new session does not inherit the same request
+        try:
+            (best / (".session." + sid)).touch()
+        except OSError:
+            pass
+        try:
+            (best / ".expect").unlink()
+        except OSError:
+            pass
+        return best
+    return rooms[0]
+
+
 def room_for(sid):
-    """The room THIS session belongs to.
+    """The room THIS session mirrors into.
 
     ⛔ This used to be one path baked in at install time -- the room whose panel
     happened to be open when the hook was written. Every session in the workspace then
     mirrored into that one room, so a second session's conversation appeared in the
-    first one's panel, addressed to a session that panel has never seen listening. Ask
-    the same question the watch hook asks: whose heartbeat is in which room.
+    first one's panel, addressed to a session that panel has never seen listening.
     """
     rooms = sorted((d for d in ROOT.glob("control-room*")
                     if d.is_dir() and ((d / "reply.py").exists() or (d / "chat.jsonl").exists())),
                    key=lambda d: len(d.name))
     if not rooms:
         return None
-    return next((d for d in rooms if sid and (d / (".watch." + sid)).exists()), rooms[0])
+    return pick_room(rooms, sid)
 
 
 def last_assistant_text(transcript):
@@ -147,9 +191,55 @@ with it; this runs early enough to have it started again, before anything else.
 """
 import json
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(${JSON.stringify(root)})
+
+
+def pick_room(rooms, sid):
+    """Which of the workspace's rooms this session belongs to.
+
+    Four questions, in order, and the order is the whole point:
+
+    1. its own heartbeat -- a .watch.<id> file is proof, and it is proof in ONE room;
+    2. a binding written the first time this session was placed, so every later hook
+       agrees with the first one and a watch that has not started yet cannot change the
+       answer;
+    3. \u26d4 the room that ASKED for it. A session that has never run has no heartbeat,
+       so this used to fall through to the first room by name -- and a fresh tab opened
+       from any other panel attached itself to that one, wrote its turns there, and left
+       the panel you started it from silent. A panel touches .expect when it opens a tab;
+       the newest unclaimed one, within fifteen minutes, is that request;
+    4. failing all of it, the plain room.
+    """
+    for d in rooms:
+        if sid and (d / (".watch." + sid)).exists():
+            return d
+    for d in rooms:
+        if sid and (d / (".session." + sid)).exists():
+            return d
+    best, when, now = None, 0.0, time.time()
+    for d in rooms:
+        try:
+            m = (d / ".expect").stat().st_mtime
+        except OSError:
+            continue
+        if now - m < 900 and m > when:
+            best, when = d, m
+    if best is not None and sid:
+        # claim it, so the next hook for this session reads the binding instead of racing
+        # the watch, and a second new session does not inherit the same request
+        try:
+            (best / (".session." + sid)).touch()
+        except OSError:
+            pass
+        try:
+            (best / ".expect").unlink()
+        except OSError:
+            pass
+        return best
+    return rooms[0]
 
 
 def unanswered(log):
@@ -178,8 +268,7 @@ def main():
     if not rooms:
         return
 
-    # the instance this session has watched before wins; otherwise the plain one
-    mine = next((d for d in rooms if sid and (d / (".watch." + sid)).exists()), rooms[0])
+    mine = pick_room(rooms, sid)
     waiting = unanswered(mine / "chat.jsonl")
 
     lines = [

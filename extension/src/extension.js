@@ -271,6 +271,12 @@ function activate(context) {
           return reply({ error: 'no room is listening for that session' });
         }
         if (route === '/api/start') {
+          // ⛔ SAY WHICH ROOM ASKED. A session that has never run has no heartbeat, so the
+          // hooks fall back to the first room by name -- and a fresh tab opened from any
+          // other panel attached itself to that one instead, wrote its turns there, and
+          // left the panel you started it from silent. This file is the request: the newest
+          // one still unclaimed wins, and only for a few minutes.
+          try { fs.writeFileSync(path.join(dir, '.expect'), ''); } catch { /* read-only room */ }
           // A TAB, not a terminal: the terminal session is a different animal from the one
           // the editor keeps, and it is not where anyone wants to carry on the conversation.
           const how = await openClaudeTab(dir);

@@ -4,6 +4,8 @@ chat.jsonl
 .status
 .watch
 .watch.*
+.expect
+.session.*
 .resume.*
 __pycache__/
 *.pyc
