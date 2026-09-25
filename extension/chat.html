@@ -1138,7 +1138,10 @@
     drawTarget();
     // Nobody reading the log: say so in the MIDDLE of the screen. A line inside a card
     // is no use when the panel is blank, which is exactly when this matters.
-    splashSay(!!aliveIds.length);
+    // ⛔ ...and "nobody" depends on who you are writing to. Addressed to one session, only
+    // THAT session counts: the splash used to say the setup was fine because some other
+    // session happened to be listening, while the one you had chosen was not running.
+    splashSay(target ? aliveIds.includes(target) : !!aliveIds.length);
   }
 
   function waiting(status) {
@@ -1427,6 +1430,21 @@
     setTimeout(() => splashGo.classList.remove('pulse'), 600);
   }
 
+  /** You just addressed a session that is not running.
+   *
+   *  The splash is the panel's loudest way of saying "give a session something to do", and
+   *  it is the thing to say here -- so it comes back, saying the original sentence. A
+   *  dismissal belonged to the session that WAS chosen, not to this one, which is why it is
+   *  cleared: pretending it still applies is how the hint goes missing exactly when it is
+   *  needed. Routed through splashSay's "the watch went away" branch, so there is one
+   *  place that decides what the button says. */
+  function splashAgain() {
+    // the press belonged to the session you were on before; this one has not been asked for
+    splashWaiting = false;
+    splashWatching = true;
+    splashSay(false);
+  }
+
   const dismissSplash = () => { splashDismissed = true; splash.classList.remove('on'); };
   splash.onclick = (e) => { if (e.target === splash) dismissSplash(); };
   splash.querySelector('.x').onclick = dismissSplash;
@@ -1545,6 +1563,7 @@
     if (id && !aliveIds.includes(id)) {
       resumeTarget = id;
       lastCommand = '';
+      splashAgain();
       const who = String(tlNames[id] || id).replace(/\s+/g, ' ').slice(0, 48);
       show(build([
         '::warn Not running — ' + who,
