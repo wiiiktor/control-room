@@ -9,6 +9,15 @@
 const fs = require('fs');
 const path = require('path');
 
+/** The log's timestamps are LOCAL, because chat_server.py writes them that way and the
+ *  panel prints them as a wall clock. toISOString() is UTC, which stamped every message
+ *  sent from the editor two hours behind the replies to it. */
+function localStamp(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` +
+         `T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
 class Log {
   constructor(dir) {
     this.dir = dir;
@@ -48,7 +57,7 @@ class Log {
     const last = existing.length ? existing[existing.length - 1].id : 0;
     const id = Math.max(high, last) + 1;
     fs.writeFileSync(this.seq, String(id));
-    const msg = { id, role, text, ts: new Date().toISOString().slice(0, 19) };
+    const msg = { id, role, text, ts: localStamp() };
     if (to) msg.to = to;
     fs.appendFileSync(this.file, JSON.stringify(msg) + '\n');
     this.clearStatus();
