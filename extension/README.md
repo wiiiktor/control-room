@@ -5,23 +5,24 @@ extension host reads and writes `chat.jsonl` itself.
 
 ## Install from a .vsix
 
-Download `control-room-0.4.1.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
+Download `control-room-0.5.0.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
 
 ```bash
-code --install-extension control-room-0.4.1.vsix
+code --install-extension control-room-0.5.0.vsix
 ```
 
 or, in the editor: **Extensions ▸ … ▸ Install from VSIX…**
 
 Then run **Control Room: Open panel** from the command palette.
 
-Three commands:
+Four commands:
 
 | command | what it does |
 |---|---|
 | `Control Room: Open panel for a session` | pick a **session** by name; opens the control room it is listening to, already addressed to it |
 | `Control Room: Open every control room in this workspace` | one tab per instance, in one go |
 | `Control Room: Resume a Claude session in a terminal` | pick a session, and it opens a terminal running `claude --resume <id>` |
+| `Control Room: Install the session-start watch hook` | writes the hook below, so Claude starts watching the panel by itself |
 
 The second one is what the browser version cannot do: a dormant session gets a real
 window you can watch and type into, instead of a headless process answering in the log.
@@ -34,8 +35,21 @@ Cursor, Windsurf, VSCodium and other VS Code forks install the same file the sam
 ```bash
 npm install -g @vscode/vsce
 cd extension
-vsce package        # -> control-room-0.4.1.vsix
+vsce package        # -> control-room-0.5.0.vsix
 ```
+
+## Keeping the panel alive
+
+What reads the log is a watch running *inside* a Claude session, so it dies whenever that
+session restarts — and nothing else can start it again. Until it is back, messages you
+type sit in `chat.jsonl` unread, which looks exactly like the panel being broken.
+
+The extension can install a `SessionStart` hook that fixes this: it writes
+`.claude/hooks/control-room-watch.py` and merges one entry into `.claude/settings.json`,
+so every Claude session in the workspace is told at startup to arm the watch — on the
+control room *that* session belongs to — and how many messages are waiting. Run
+**Control Room: Install the session-start watch hook**, or say yes when the panel offers
+it on first open. Existing settings are preserved and installing twice is a no-op.
 
 ## One panel per session
 

@@ -500,6 +500,11 @@
   .raw img, .raw svg { max-width: 100%; height: auto; }
 
   /* two across on any reasonable width, one across on a narrow pane */
+  /* inline markup: **bold** is weight, `code` is a different mouth -- neither is a colour */
+  .say code, .note code, .plain code, .stat code, .badge code, .ask code,
+  .cards button code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .92em; padding: 1px 5px; border-radius: 5px;
+    background: color-mix(in srgb, var(--ink) 12%, transparent); }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
   .cards button {
     text-align: left; font: inherit; cursor: pointer; color: var(--ink);
@@ -656,6 +661,30 @@
     return n;
   };
 
+  /** Inline markup inside one line: **bold**, `code`, *italic*.
+      Built as NODES, never by assigning HTML -- ::html is the way to inject real markup,
+      and everything that arrives as text stays text. */
+  // the \S guards keep arithmetic out of it: "2 * 3 * 4" is not an italic run
+  const INLINE = /(\*\*(?=\S)[^*]+(?<=\S)\*\*|`[^`]+`|\*(?=\S)[^*]+(?<=\S)\*)/;
+  function inline(node, text) {
+    for (const part of String(text).split(INLINE)) {
+      if (!part) continue;
+      if (part.length > 4 && part.startsWith('**') && part.endsWith('**')) {
+        node.append(el('strong', '', part.slice(2, -2)));
+      } else if (part.length > 2 && part.startsWith('`') && part.endsWith('`')) {
+        node.append(el('code', '', part.slice(1, -1)));
+      } else if (part.length > 2 && part.startsWith('*') && part.endsWith('*')) {
+        node.append(el('em', '', part.slice(1, -1)));
+      } else {
+        node.append(document.createTextNode(part));
+      }
+    }
+    return node;
+  }
+
+  /** el(), but the text is read for inline markup. */
+  const rich = (tag, cls, text) => inline(el(tag, cls), text === undefined ? '' : text);
+
   /** Shrink the card until it fits the stage, but not past MIN_SCALE — below that the
       text stops being readable from across the room, which is the whole point of this
       panel, so the column scrolls instead. */
@@ -808,7 +837,7 @@
         if (!cards) { cards = el('div', 'cards'); nodes.push(cards); }
         const tile = el('button');
         tile.type = 'button';
-        tile.append(el('b', '', b.body), el('span', 'more', 'open ▸'));
+        tile.append(rich('b', '', b.body), el('span', 'more', 'open ▸'));
         tile.onclick = () => openSheet(b.body, inner, tile);
         cards.append(tile);
         continue;
@@ -824,7 +853,7 @@
         btn.type = 'button';
         btn.dataset.cmd = cmd || label;
         btn.append(el('kbd', '', isFill ? '✎' : String(picks.children.length + 1)));
-        btn.append(el('span', '', label));
+        btn.append(rich('span', '', label));
         // a prefill is the START of a sentence, so it ends with a space and the caret
         // sits after it -- the point is to keep typing, not to edit what landed
         if (btn.dataset.cmd === '__reload') {
@@ -845,7 +874,7 @@
         if (!stats) { stats = el('div', 'stats'); nodes.push(stats); }
         const [k, ...rest] = b.body.split('=');
         const box = el('div', 'stat');
-        box.append(el('b', '', (k || '').trim()), el('span', '', rest.join('=').trim()));
+        box.append(rich('b', '', (k || '').trim()), rich('span', '', rest.join('=').trim()));
         stats.append(box);
         continue;
       }
@@ -866,13 +895,13 @@
       }
       if (b.type === 'endhtml') continue;
       switch (b.type) {
-        case 'ask':  nodes.push(el('h1', 'ask', b.body)); break;
-        case 'say':  nodes.push(el('p', 'say', b.body)); break;
-        case 'note': nodes.push(el('p', 'note', b.body)); break;
+        case 'ask':  nodes.push(rich('h1', 'ask', b.body)); break;
+        case 'say':  nodes.push(rich('p', 'say', b.body)); break;
+        case 'note': nodes.push(rich('p', 'note', b.body)); break;
         case 'ok': case 'warn': case 'err':
-          nodes.push(el('div', 'badge ' + b.type, b.body)); break;
-        case 'wait': nodes.push(el('div', 'badge wait', b.body)); break;
-        default: nodes.push(el('p', 'plain', b.body));
+          nodes.push(rich('div', 'badge ' + b.type, b.body)); break;
+        case 'wait': nodes.push(rich('div', 'badge wait', b.body)); break;
+        default: nodes.push(rich('p', 'plain', b.body));
       }
     }
     return nodes;

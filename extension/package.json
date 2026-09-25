@@ -2,7 +2,7 @@
   "name": "control-room",
   "displayName": "Control Room",
   "description": "A big-button control panel for driving Claude Code from inside the editor.",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "publisher": "wiiiktor",
   "license": "MIT",
   "repository": {
@@ -30,6 +30,10 @@
       {
         "command": "controlRoom.resume",
         "title": "Control Room: Resume a Claude session in a terminal"
+      },
+      {
+        "command": "controlRoom.installHook",
+        "title": "Control Room: Install the session-start watch hook"
       }
     ],
     "configuration": {

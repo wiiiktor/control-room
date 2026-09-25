@@ -16,6 +16,7 @@ const path = require('path');
 const vscode = require('vscode');
 const { Log } = require('./log');
 const { labels } = require('./sessions');
+const hook = require('./hook');
 
 /** "control-room-medicover" -> "Control Room · medicover"; the plain one keeps its name. */
 function instanceName(folder) {
@@ -150,6 +151,16 @@ function activate(context) {
       if (want !== title) { title = want; panel.title = want; }
     };
 
+    // asked once per workspace: a panel with nothing watching it is the failure people
+    // report as "I write and nothing happens"
+    if (!hook.installed(workspaceRoot(dir)) && !context.globalState.get('hookOffered:' + dir)) {
+      context.globalState.update('hookOffered:' + dir, true);
+      vscode.window.showInformationMessage(
+        'Control Room: install a session-start hook so Claude starts watching this panel by itself?',
+        'Install', 'Not now',
+      ).then(choice => { if (choice === 'Install') installHook(false); });
+    }
+
     panel.webview.onDidReceiveMessage(async (req) => {
       const reply = (data) => panels.get(dir) && panel.webview.postMessage({ id: req.id, data });
       try {
@@ -231,6 +242,24 @@ function activate(context) {
     const picked = await vscode.window.showQuickPick(items, { placeHolder, matchOnDescription: true });
     return picked || null;
   };
+
+  /** Write the SessionStart hook that re-arms the watch. Without it the panel goes
+   *  quiet after every Claude restart and only a human notices. */
+  const installHook = async (quiet) => {
+    const root = workspaceRoot(instances()[0].dir);
+    try {
+      const out = hook.install(root);
+      vscode.window.showInformationMessage(out.already
+        ? 'Control Room: the session-start hook was already installed; its script was refreshed.'
+        : 'Control Room: session-start hook installed. It takes effect the next time a Claude session starts in this workspace.');
+      return out;
+    } catch (err) {
+      if (!quiet) vscode.window.showErrorMessage('Control Room: could not install the hook — ' + (err && err.message || err));
+      return null;
+    }
+  };
+
+  context.subscriptions.push(vscode.commands.registerCommand('controlRoom.installHook', () => installHook(false)));
 
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.open', async () => {
     const picked = await pickSession('Which session do you want to talk to?');
