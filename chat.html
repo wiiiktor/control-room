@@ -914,24 +914,29 @@
 
   function drawWatchers(list) {
     aliveIds = list.map(w => w.session);
-    const sig = list.map(w => w.session).join(',');
+    // DORMANT sessions belong in the list too: you cannot address one that is not shown,
+    // and "not running" is a thing to be told, not a reason to hide it
+    const dormant = Object.keys(tlNames).filter(id => !aliveIds.includes(id));
+    const sig = aliveIds.join(',') + '|' + dormant.join(',');
     if (sig !== lastWatcherSig) {
       lastWatcherSig = sig;
-      const keep = toSel.value;
+      const keep = target;
       // ⛔ an <option> with no value attribute uses its TEXT as its value, so this one
       // was sending to="whoever is listening" -- a target no watcher matches, which
       // watch.py then filtered out. Every message picked that way went nowhere.
       const any = el('option', '', 'whoever is listening');
       any.value = '';
       toSel.replaceChildren(any);
-      list.forEach(w => {
-        const o = el('option', '', (w.label || w.session).slice(0, 48));
-        o.value = w.session;
+      const add = (id, label, suffix) => {
+        const o = el('option', '', (label || id).slice(0, 44) + suffix);
+        o.value = id;
         toSel.append(o);
-      });
+      };
+      list.forEach(w => add(w.session, w.label, ''));
+      dormant.forEach(id => add(id, tlNames[id], '  — not running'));
       if ([...toSel.options].some(o => o.value === keep)) toSel.value = keep;
     }
-    toWrap.classList.toggle('on', list.length > 1 || !!target);
+    toWrap.classList.toggle('on', true);
     drawTarget();
   }
 
@@ -982,6 +987,13 @@
       showOffline();
       return false;
     }
+  }
+
+  async function loadSessions() {
+    try {
+      tlNames = (await (await fetch('/api/sessions', { cache: 'no-store' })).json()).sessions || {};
+      lastWatcherSig = '';                 // force the "to:" list to rebuild with names
+    } catch { /* offline; the poll will try again with the next name it needs */ }
   }
 
   async function poll() {
@@ -1212,9 +1224,7 @@
     tlRows = replies;
     // never a mixed strip: default to the session of the NEWEST reply
     tlFilter = replies.length ? (replies[replies.length - 1].session || '') : null;
-    try {
-      tlNames = (await (await fetch('/api/sessions', { cache: 'no-store' })).json()).sessions || {};
-    } catch { tlNames = {}; }
+    await loadSessions();
     drawTimeline();
     tlEl.scrollLeft = tlEl.scrollWidth;      // newest first to the eye, at the right edge
     fit();
@@ -1372,8 +1382,9 @@
   });
 
   closeSheet();          // the right pane starts empty, with its prompt
-  poll();
+  loadSessions().then(poll);             // names first, so the "to:" list is never bare
   setInterval(poll, 1000);
+  setInterval(loadSessions, 60000);      // a new session appears within the minute
 </script>
 </body>
 </html>
