@@ -1351,6 +1351,7 @@
   const splash = document.getElementById('splash');
   const splashGo = splash.querySelector('.go');
   const SPLASH_TEXT = 'Open the Claude session and write Hello in there to start connection';
+  const WAITING_TEXT = 'I am waiting for a signal from Claude — write Hello in the tab that just opened';
   let splashDismissed = false;
   let splashWatching = null;
   let splashWaiting = false;   // pressed, and now watching for the session to appear
@@ -1360,9 +1361,13 @@
   function splashSay(watching) {
     // the watch dying is news: the splash comes back, saying the original thing again
     if (splashWatching && !watching) {
-      splashDismissed = false; splashWaiting = false; splashLive = false;
+      // ⛔ do NOT forget that you pressed the button. A heartbeat goes stale 90 seconds
+      // after its watch stops, and an unrelated watch dying while you were on your way to
+      // the Claude tab used to wipe "I am waiting" and ask you to start over -- as if the
+      // press had never happened. Only the colour and the claim are withdrawn.
+      splashDismissed = false; splashLive = false;
       splashGo.classList.remove('live');
-      splashGo.textContent = SPLASH_TEXT;
+      splashGo.textContent = splashWaiting ? WAITING_TEXT : SPLASH_TEXT;
     }
     // ⚠️ A heartbeat is not an answer -- `.watch.<id>` stays fresh for up to 90 seconds
     // after the watch behind it has died -- but it IS the setup being right, so it goes
@@ -1424,7 +1429,7 @@
     splashWaiting = true;
     splashGo.textContent = how === 'terminal'
       ? 'I am waiting for a signal from Claude — the terminal connects by itself'
-      : 'I am waiting for a signal from Claude — write Hello in the tab that just opened';
+      : WAITING_TEXT;
   };
   splash.classList.add('on');          // before the first poll: a blank panel looks broken
 
