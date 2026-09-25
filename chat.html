@@ -1299,8 +1299,12 @@
     if (splashWatching && !watching) {
       splashDismissed = false; splashWaiting = false; splashGo.textContent = SPLASH_TEXT;
     }
-    // ...and once the signal it was waiting for arrives, it has nothing left to say
-    if (watching && splashWaiting) { splashWaiting = false; dismissSplash(); }
+    // ...and when the signal arrives it SAYS SO and stays up. Closing itself would hide
+    // the one moment the whole screen exists to report; the X is how you leave.
+    if (watching && splashWaiting) {
+      splashWaiting = false;
+      splashGo.textContent = 'Claude answered — close this and start writing';
+    }
     splashWatching = watching;
     splash.classList.toggle('on', !splashDismissed);
   }
@@ -1315,8 +1319,8 @@
     if (how === null) return;
     splashWaiting = true;
     splashGo.textContent = how === 'terminal'
-      ? 'Write nothing — the terminal connects by itself. I am waiting for a signal from Claude…'
-      : 'Write Hello in the Claude tab. I am waiting for a signal from Claude…';
+      ? 'I am waiting for a signal from Claude — the terminal connects by itself'
+      : 'I am waiting for a signal from Claude — write Hello in the tab that just opened';
   };
   splash.classList.add('on');          // before the first poll: a blank panel looks broken
 

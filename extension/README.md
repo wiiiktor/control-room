@@ -23,10 +23,10 @@ in `CONTROL_ROOM_CODE`.
 
 ## Install from a .vsix
 
-Download `control-room-0.9.5.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
+Download `control-room-0.9.6.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
 
 ```bash
-code --install-extension control-room-0.9.5.vsix
+code --install-extension control-room-0.9.6.vsix
 ```
 
 or, in the editor: **Extensions ▸ … ▸ Install from VSIX…**
@@ -53,7 +53,7 @@ Cursor, Windsurf, VSCodium and other VS Code forks install the same file the sam
 ```bash
 npm install -g @vscode/vsce
 cd extension
-vsce package        # -> control-room-0.9.5.vsix
+vsce package        # -> control-room-0.9.6.vsix
 ```
 
 ## First open
