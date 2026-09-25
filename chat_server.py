@@ -33,6 +33,46 @@ def build_id():
         return "0"
 
 
+SESSIONS = Path.home() / ".claude" / "projects" / "-home-wii-Projects-certain"
+
+
+def session_labels():
+    """id -> what the session opened with, which is all Claude Code gives us as a name.
+
+    Only the head of each transcript is read: the opening user message is in the first
+    few lines, and one of these files is 450 MB.
+    """
+    out = {}
+    try:
+        files = sorted(SESSIONS.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return out
+    for p in files:
+        label = ""
+        try:
+            with p.open(encoding="utf-8", errors="replace") as fh:
+                for i, line in enumerate(fh):
+                    if i > 40:
+                        break
+                    try:
+                        d = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if d.get("type") == "summary" and d.get("summary"):
+                        label = d["summary"]
+                        break
+                    m = d.get("message", {})
+                    if m.get("role") == "user" and not label:
+                        c = m.get("content")
+                        label = c if isinstance(c, str) else (
+                            c[0].get("text", "") if isinstance(c, list) and c else "")
+                        break
+        except OSError:
+            pass
+        out[p.stem] = " ".join((label or "").split())[:90] or "(empty)"
+    return out
+
+
 def read_status():
     """Progress lines written by `status.py` while a reply is being worked on.
 
@@ -155,6 +195,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, "chat.html is missing", "text/plain; charset=utf-8")
             html = PAGE.read_text(encoding="utf-8").replace("__BUILD__", build_id())
             return self._send(200, html, "text/html; charset=utf-8")
+        if url.path == "/api/sessions":
+            return self._json(200, {"sessions": session_labels()})
         if url.path == "/api/messages":
             try:
                 since = int(parse_qs(url.query).get("since", ["0"])[0])

@@ -73,6 +73,10 @@ message as a notification, so no polling loop is needed.
   text and an archived one shows when it landed. A reply too tall for the column is shrunk to fit,
   down to a floor where the text is still readable, and only then does the column
   scroll. The "you said" breadcrumb is cut to one line and opens on hover or click.
+- **Grouped by session.** Each reply records the Claude session that wrote it, so the
+  timeline draws a divider per session — labelled with what that session opened with,
+  since Claude Code does not name sessions — and clicking a divider shows only that
+  session's replies.
 - **The timeline is the scrollback.** The yellow `T` in the corner opens a strip of
   every past reply, each one re-rendered by the same builder rather than stored as an
   image. Hover a thumbnail to read that screen full size on the left; click to pin it

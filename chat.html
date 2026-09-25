@@ -244,9 +244,22 @@
     justify-content: center; gap: 2px; padding: 0 10px 0 4px;
     border-left: 3px dashed var(--hair);
   }
+  .tl-sep {
+    width: 150px; cursor: pointer; text-align: left; font: inherit; color: var(--ink);
+    background: none;
+  }
   .tl-sep b { font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; opacity: .75; }
+  .tl-sep i { font-style: normal; font-size: 11px; font-weight: 700; line-height: 1.25; opacity: .6; }
   .tl-sep span { font-size: 10px; font-weight: 700; opacity: .45; font-family: ui-monospace, monospace; }
+  .tl-sep:hover b, .tl-sep.on b { opacity: 1; }
+  .tl-sep.on { background: var(--yellow-soft); }
   .tl-sep.first { border-left: none; }
+  .tl-all {
+    flex: 0 0 auto; align-self: center; font: inherit; font-size: 13px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .04em; cursor: pointer; color: var(--on-yellow);
+    background: var(--yellow); border: 3px solid var(--ink); border-radius: 999px;
+    padding: 6px 14px; white-space: nowrap;
+  }
 
   .thumb {
     flex: 0 0 auto; width: 150px; cursor: pointer; padding: 0; font: inherit; color: var(--ink);
@@ -357,7 +370,7 @@
     font-size: 15px; font-weight: 800; letter-spacing: .02em;
     opacity: .55; cursor: default; font-variant-numeric: tabular-nums; z-index: 20;
   }
-  .stamp .date { display: none; font-size: 13px; font-weight: 700; opacity: .8; }
+  .stamp .date { display: none; }        /* same font as the hour; it only appears */
   /* no darkening on hover -- it is a label; only the date appears */
   .stamp:hover .date, .stamp.open .date { display: block; }
   .crumb::before { content: "YOU SAID: "; font-size: 12px; letter-spacing: .05em; opacity: .55; }
@@ -962,6 +975,7 @@
      left column; the live screen is held aside and put back on the way out. A click
      pins it, so you can open its cards. ------------------------------------------ */
   const tlEl = document.getElementById('timeline');
+  let tlFilter = null, tlRows = [], tlNames = {};
   const tlBtn = document.getElementById('tl-btn');
   let tlOpen = false, held = null, pinned = null;
 
@@ -1054,30 +1068,58 @@
       asked = [];
     }
     if (!replies.length) return tlEl.replaceChildren(el('p', 'empty-note', 'no replies yet'));
-    // group by session: a divider wherever the session id changes, so the ribbon reads
-    // as "what happened in each working session" rather than one endless strip
-    const nodes = [];
-    let seen = null, nth = 0;
-    replies.forEach((m, i) => {
-      const sid = m.session || null;
-      if (i === 0 || sid !== seen) {
-        nth++;
-        const sep = el('div', 'tl-sep' + (i === 0 ? ' first' : ''));
-        sep.append(el('b', '', 'session ' + nth), el('span', '', sid ? sid.slice(0, 8) : 'unknown'));
-        if (sid) sep.title = 'Claude session ' + sid + '\n~/.claude/projects/-home-wii-Projects-certain/' + sid + '.jsonl';
-        nodes.push(sep);
-        seen = sid;
-      }
-      nodes.push(thumbOf(m, i + 1));
-    });
-    tlEl.replaceChildren(...nodes);
+    tlRows = replies;
+    try {
+      tlNames = (await (await fetch('/api/sessions', { cache: 'no-store' })).json()).sessions || {};
+    } catch { tlNames = {}; }
+    drawTimeline();
     tlEl.scrollLeft = tlEl.scrollWidth;      // newest first to the eye, at the right edge
     fit();
+  }
+
+  /** Draw the strip, grouped by session, optionally showing only one of them.
+      Claude Code does not name a session, so the label is what it opened with — the
+      same string its own picker shows. */
+  function drawTimeline() {
+    const nodes = [];
+    let seen = null, nth = 0, shown = 0;
+    tlRows.forEach((m, i) => {
+      // '' is "no session recorded" -- a real key, because null would be indistinguishable
+      // from tlFilter === null, which means "no filter at all"
+      const sid = m.session || '';
+      const isNew = (i === 0 || sid !== seen);
+      if (isNew) { nth++; seen = sid; }
+      if (tlFilter !== null && sid !== tlFilter) return;
+      if (isNew) {
+        const n = nth;
+        const sep = el('button', 'tl-sep' + (nodes.length === 0 ? ' first' : '') +
+                                 (tlFilter === sid ? ' on' : ''));
+        sep.type = 'button';
+        sep.append(el('b', '', 'session ' + n),
+                   el('i', '', sid ? (tlNames[sid] || '(transcript gone)').slice(0, 60)
+                                   : 'before sessions were recorded'),
+                   el('span', '', sid ? sid.slice(0, 8) : '—'));
+        sep.title = (sid ? 'Claude session ' + sid : 'session unknown') +
+                    '\nclick to show only this session';
+        sep.onclick = () => { tlFilter = (tlFilter === sid ? null : sid); drawTimeline(); };
+        nodes.push(sep);
+      }
+      shown++;
+      nodes.push(thumbOf(m, i + 1));
+    });
+    const all = el('button', 'tl-all');
+    all.type = 'button';
+    all.textContent = 'show all (' + tlRows.length + ')';
+    all.onclick = () => { tlFilter = null; drawTimeline(); };
+    if (tlFilter !== null) nodes.unshift(all);
+    tlEl.replaceChildren(...nodes);
+    if (tlFilter === null) tlEl.scrollLeft = tlEl.scrollWidth;
   }
 
   function closeTimeline() {
     tlOpen = false;
     pinned = null;
+    tlFilter = null;
     restoreLive();
     tlEl.classList.remove('open');
     tlEl.replaceChildren();
