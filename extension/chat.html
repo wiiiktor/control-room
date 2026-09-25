@@ -995,6 +995,28 @@
           picks.append(btn);
           continue;
         }
+        // ⛔ The panel used to NAME this problem and stop there: a red NOT RUNNING with a
+        // `claude --resume <id>` to copy into a terminal you had to open yourself. The
+        // editor can open the terminal, so it does.
+        if (btn.dataset.cmd === '__resume') {
+          btn.onclick = async () => {
+            if (!resumeTarget) return;
+            btn.disabled = true;
+            try {
+              await fetch('/api/resume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session: resumeTarget }),
+              });
+              btn.querySelector('span').textContent =
+                'A terminal is opening — write one line in it to connect';
+            } catch {
+              btn.disabled = false;
+            }
+          };
+          picks.append(btn);
+          continue;
+        }
         // the two answers to "nobody is there": drop the address, or keep it anyway
         if (btn.dataset.cmd === '__send_here' || btn.dataset.cmd === '__send_anyway') {
           const how = btn.dataset.cmd === '__send_here' ? 'here' : 'anyway';
@@ -1081,6 +1103,7 @@
   let aliveIds = [];
   const seenAlive = new Set();   // ...in THIS room, during this page's life
   let pendingText = '';   // held while we ask who it should go to
+  let resumeTarget = '';  // the session a "resume" button on screen would bring back
 
   function drawTarget() {
     try { target ? localStorage.setItem('ctrl-to', target) : localStorage.removeItem('ctrl-to'); } catch {}
@@ -1516,6 +1539,27 @@
     const last = rows[rows.length - 1];
     pinned = null;
     markThumb(null);
+
+    // A session you cannot reach needs an ACTION, not a diagnosis. Choosing one from the
+    // menu is exactly the moment to offer the two things that fix it.
+    if (id && !aliveIds.includes(id)) {
+      resumeTarget = id;
+      lastCommand = '';
+      const who = String(tlNames[id] || id).replace(/\s+/g, ' ').slice(0, 48);
+      show(build([
+        '::warn Not running — ' + who,
+        '::say A session listens only while it is running. Bring this one back, or start a '
+          + 'fresh one: the panel talks to whichever answers.',
+        '::pick Resume this session in a terminal => __resume',
+        '::pick Open a fresh Claude tab => __start_session',
+        '::note Resuming keeps this conversation and everything it knows. A fresh tab starts '
+          + 'a new one. Either way, one message is what arms the watch.',
+        last ? '::note Its last reply here is still in the strip below.'
+             : '::note It has never written in this control room.',
+      ].join('\n')), false);
+      return;
+    }
+
     if (!last) {
       // a session with a transcript but nothing in this room. Leaving someone else's
       // reply up would read as this session's answer.

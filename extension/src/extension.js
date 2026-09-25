@@ -123,7 +123,15 @@ function pageHtml(extensionPath, dir, session) {
 
 /** Resume a session in a terminal rooted at the instance it answers for. */
 function resumeIn(dir, sid) {
-  const term = vscode.window.createTerminal({ name: 'claude · ' + sid.slice(0, 8), cwd: dir });
+  // ⛔ NOT the room folder. Claude Code files a session under the directory it was
+  // started in, and every session this panel lists was read out of the WORKSPACE's
+  // project folder -- so `--resume` run from control-room/ looks for the id somewhere it
+  // was never written, and finds nothing. The room is still where the log is; the
+  // session-start hook finds it by heartbeat, not by cwd.
+  const term = vscode.window.createTerminal({
+    name: 'claude · ' + sid.slice(0, 8),
+    cwd: workspaceRoot(dir),
+  });
   term.show(true);
   term.sendText('claude --resume ' + sid);
 }
