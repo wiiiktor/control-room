@@ -25,6 +25,8 @@ Python 3 standard library only. No dependencies, no build step.
 | `chat_server.py` | HTTP server on `localhost:8000`: serves the page, reads and appends to `chat.jsonl` |
 | `chat.html` | The panel: renders the markup, sends messages, polls for replies |
 | `reply.py` | Posts an assistant reply into the log |
+| `answer_agent.py` | Fallback: answers a panel message with a headless `claude -p` when no live session has picked it up within 3 minutes |
+| `control-room-answer.service` | systemd user unit for the fallback answerer |
 | `control-room.service` | systemd user unit: starts the panel at login and restarts it if it dies |
 | `status.py` | Says what is happening WHILE working; shows under "Working on it…" and is cleared when the reply lands |
 | `watch.py` | Filter for `tail -F chat.jsonl`: one line per new user message |
@@ -99,6 +101,9 @@ message as a notification, so no polling loop is needed.
   is too late to tell you there is more below.
 - **Local only.** The server binds to `127.0.0.1` on port 8111, so nothing is exposed
   to the internet and nothing collides with the usual 8000.
+- **Someone always answers.** A session's watch on the log dies with the session. The
+  fallback agent waits 3 minutes, checks that no watcher is alive, and only then runs a
+  headless Claude to reply — briefly, handing real work back to the main session.
 - **It says when nobody is listening.** The page is connected to the server, but that
   is not the same as Claude reading the log. The watcher touches `.watch` every 30s and
   the page shows a "not watching" pill when that goes stale — a message sent then will

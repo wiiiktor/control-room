@@ -97,7 +97,7 @@ def read_messages(since=0):
     return out
 
 
-def append_message(role, text):
+def append_message(role, text, session=None):
     # LOCK guards threads inside this process; flock guards the other processes
     # writing the same log (the web server and reply.py).
     with LOCK, LOG.open("a+", encoding="utf-8") as handle:
@@ -117,6 +117,10 @@ def append_message(role, text):
             "text": text,
             "ts": datetime.now().isoformat(timespec="seconds"),
         }
+        # which Claude session produced this reply; absent on user messages and on
+        # anything written before 2026-09-25, so the page must tolerate it missing
+        if session:
+            msg["session"] = session
         handle.write(json.dumps(msg, ensure_ascii=False) + "\n")
         handle.flush()
         fcntl.flock(handle, fcntl.LOCK_UN)
