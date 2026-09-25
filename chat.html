@@ -1044,7 +1044,7 @@
     // Nobody reading the log: say so in the MIDDLE of the screen. A line inside a card
     // is no use when the panel is blank, which is exactly when this matters.
     if (window.CONTROL_ROOM_HOST === 'extension') {
-      splash.classList.toggle('on', !aliveIds.length && !splashDismissed);
+      splashSay(aliveIds.length ? (tlNames[aliveIds[0]] || aliveIds[0]) : '');
     }
   }
 
@@ -1284,22 +1284,54 @@
     }
   }
 
+  /* The splash greets every open, not only a broken one. Two reasons it is not just an
+     alarm: waiting two minutes for a stale heartbeat to prove a point is no way to find a
+     button, and the editor's own Claude tab does things this panel does not, so it is
+     worth offering either way. It says which of the two situations you are in, and one
+     click dismisses it -- until the watch dies, which un-dismisses it again. */
   const splash = document.getElementById('splash');
   let splashDismissed = false;
+  let splashWatcher = null;            // what was last shown, so it is not rewritten every second
+
+  function splashSay(watcher) {
+    if (splashWatcher && !watcher) splashDismissed = false;   // the watch dying is news
+    splash.classList.toggle('on', !splashDismissed);
+    if (watcher === splashWatcher) return;
+    splashWatcher = watcher;
+    const h = splash.querySelector('h2'), p = splash.querySelector('p');
+    const go = splash.querySelector('.go'), skip = splash.querySelector('.skip');
+    go.style.display = '';
+    go.textContent = 'Open a Claude tab';
+    if (watcher) {
+      h.textContent = 'Ready when you are';
+      p.textContent = 'A session is listening: ' + String(watcher).slice(0, 60)
+        + '. Open a Claude tab as well if you want the editor\u2019s own conversation — it does '
+        + 'things this panel does not.';
+      skip.textContent = 'Start writing';
+    } else {
+      h.textContent = 'Nobody is listening yet';
+      p.textContent = 'Start the Claude extension and write anything in there, to start your '
+        + 'working session.';
+      skip.textContent = 'I will do it myself';
+    }
+  }
+
   splash.querySelector('.skip').onclick = () => { splashDismissed = true; splash.classList.remove('on'); };
   splash.querySelector('.go').onclick = async (e) => {
-    const b = e.currentTarget;
-    b.disabled = true;
+    const btn = e.currentTarget;
+    btn.disabled = true;
     const how = await openClaudeTab();
-    b.disabled = false;
+    btn.disabled = false;
     if (how === null) return;
+    splashWatcher = '\u0000';         // whatever the next poll reports, rewrite the box
     splash.querySelector('h2').textContent = how === 'terminal' ? 'A terminal is opening' : 'A Claude tab is open';
     splash.querySelector('p').textContent = how === 'terminal'
       ? 'The Claude extension did not answer, so a session is starting in a terminal instead. It arms the watch by itself — give it a few seconds.'
-      : 'Now write anything in it. A session does not exist until it is given something to do, and that first message is what starts it.';
-    b.style.display = 'none';
+      : 'Write anything in it to start a session there. This panel keeps working either way.';
+    btn.style.display = 'none';
     splash.querySelector('.skip').textContent = 'Close this';
   };
+  splash.classList.add('on');          // before the first poll: a blank panel looks broken
 
   document.getElementById('font-up').onclick = () => stepZoom(ZOOM_STEP);
   document.getElementById('font-dn').onclick = () => stepZoom(-ZOOM_STEP);

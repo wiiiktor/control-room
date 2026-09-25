@@ -41,4 +41,18 @@ gh api "repos/$REPO/contents/extension/$NAME" -H "Accept: application/vnd.github
 echo "downloaded $NAME ($(stat -c%s "$OUT" 2>/dev/null || stat -f%z "$OUT") bytes)"
 [ "${CONTROL_ROOM_NO_INSTALL:-}" = 1 ] && { echo "$OUT"; exit 0; }
 "$EDITOR_CLI" --install-extension "$OUT" --force
-echo "installed with $EDITOR_CLI — reload the window, then close and reopen the Control Room tab"
+
+# Two steps people get wrong: they reload the WINDOW (which is not enough to pick up a new
+# extension build) and then look for the panel in a menu. Say both, and say them in bold --
+# this scrolls past under vsce's own output otherwise. Colour only when a terminal is reading.
+if [ -t 1 ]; then B=$(printf '\033[1m'); D=$(printf '\033[2m'); Y=$(printf '\033[1;33m'); R=$(printf '\033[0m')
+else B=; D=; Y=; R=; fi
+cat <<MSG
+
+${Y}▸ ${NAME} installed${R}
+
+  ${B}1.${R} Reload the extensions: ${B}Extensions${R} view ${D}(Ctrl+Shift+X)${R}, then ${B}Reload${R}
+     ${D}— or Ctrl+Shift+P → Developer: Reload Window${R}
+  ${B}2.${R} Open the panel: ${D}Ctrl+Shift+P${R} → ${B}Control Room${R}
+
+MSG

@@ -23,10 +23,10 @@ in `CONTROL_ROOM_CODE`.
 
 ## Install from a .vsix
 
-Download `control-room-0.9.2.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
+Download `control-room-0.9.3.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
 
 ```bash
-code --install-extension control-room-0.9.2.vsix
+code --install-extension control-room-0.9.3.vsix
 ```
 
 or, in the editor: **Extensions ▸ … ▸ Install from VSIX…**
@@ -53,7 +53,7 @@ Cursor, Windsurf, VSCodium and other VS Code forks install the same file the sam
 ```bash
 npm install -g @vscode/vsce
 cd extension
-vsce package        # -> control-room-0.9.2.vsix
+vsce package        # -> control-room-0.9.3.vsix
 ```
 
 ## First open
@@ -84,7 +84,13 @@ What reads the log is a watch running *inside* a Claude session, so it dies when
 session restarts — and nothing else can start it again. Until it is back, messages you
 type sit in `chat.jsonl` unread, which looks exactly like the panel being broken.
 
-When nothing is listening, the panel puts a splash over the screen — *start the Claude
+The panel opens on a splash every time, not only when something is wrong — waiting two
+minutes for a stale heartbeat is no way to find a button, and the editor's own Claude tab
+is worth opening anyway. It says which of the two situations you are in: a session is
+listening, or none is. Either way the same button opens a Claude tab, and one click
+dismisses it. When the watch dies later, it comes back.
+
+Historically, when nothing was listening, the panel put a splash over the screen — *start the Claude
 extension and write anything in there, to start your working session* — with one button on
 it. It offers **Open a Claude tab** — it runs the Claude
 Code extension's own open command, so the session lands in an editor tab rather than a
