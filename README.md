@@ -75,8 +75,9 @@ message as a notification, so no polling loop is needed.
   scroll. The "you said" breadcrumb is cut to one line and opens on hover or click.
 - **Grouped by session.** Each reply records the Claude session that wrote it, so the
   timeline draws a divider per session — labelled with what that session opened with,
-  since Claude Code does not name sessions — and clicking a divider shows only that
-  session's replies.
+  since Claude Code does not name sessions — and the strip shows exactly ONE session at a
+  time, chosen from a "session:" menu at its head (or by clicking the divider) — never
+  two mixed together. It opens on the newest session.
 - **The timeline is the scrollback.** The yellow `T` in the corner opens a strip of
   every past reply, each one re-rendered by the same builder rather than stored as an
   image. Hover a thumbnail to read that screen full size on the left; click to pin it

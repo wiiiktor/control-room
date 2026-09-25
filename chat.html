@@ -264,29 +264,26 @@
     letter-spacing: .04em; cursor: pointer; color: var(--ink); white-space: nowrap;
     background: var(--panel); border: 3px solid var(--ink); border-radius: 999px; padding: 6px 14px;
   }
-  .tl-menu .list {
-    display: none; position: absolute; top: 40px; left: 0; z-index: 8;
+  /* ⚠️ the strip scrolls (overflow-x: auto), which CLIPS anything positioned inside it.
+     The list is fixed and lives on <body>, so it floats over the whole page. */
+  .tl-list {
+    display: none; position: fixed; z-index: 60;
     flex-direction: column; gap: 6px; padding: 10px; max-height: 320px; overflow-y: auto;
     background: var(--panel); border: 3px solid var(--ink); box-shadow: var(--pop-sm);
     width: 420px; max-width: 70vw;
   }
-  .tl-menu.open .list { display: flex; }
-  .tl-menu .list button {
+  .tl-list.open { display: flex; }
+  .tl-list button {
     font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer;
     color: var(--ink); background: var(--paper); border: 3px solid var(--ink);
     border-radius: 10px; padding: 7px 10px; display: flex; gap: 10px; align-items: baseline;
   }
-  .tl-menu .list button:hover { background: var(--yellow-soft); }
-  .tl-menu .list button.on { background: var(--green-soft); }
-  .tl-menu .list button em { font-style: normal; font-size: 11px; opacity: .5; font-family: ui-monospace, monospace; }
-  .tl-menu .list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tl-list button:hover { background: var(--yellow-soft); }
+  .tl-list button.on { background: var(--green-soft); }
+  .tl-list button:disabled { opacity: .45; cursor: default; }
+  .tl-list button em { font-style: normal; font-size: 11px; opacity: .5; font-family: ui-monospace, monospace; }
+  .tl-list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 
-  .tl-all {
-    flex: 0 0 auto; align-self: center; font: inherit; font-size: 13px; font-weight: 800;
-    text-transform: uppercase; letter-spacing: .04em; cursor: pointer; color: var(--on-yellow);
-    background: var(--yellow); border: 3px solid var(--ink); border-radius: 999px;
-    padding: 6px 14px; white-space: nowrap;
-  }
 
   .thumb {
     flex: 0 0 auto; width: 150px; cursor: pointer; padding: 0; font: inherit; color: var(--ink);
@@ -998,6 +995,10 @@
   });
 
   window.addEventListener('resize', fit);
+  document.addEventListener('click', (e) => {
+    if (menuList && !e.target.closest('.tl-menu') && !e.target.closest('.tl-menu .list')
+        && !menuList.contains(e.target)) closeSessionMenu();
+  }, true);
 
   /* ---- PALETTE -------------------------------------------------------------
      Three token sets in the stylesheet; this only stamps data-theme on <html> and
@@ -1141,6 +1142,8 @@
     }
     if (!replies.length) return tlEl.replaceChildren(el('p', 'empty-note', 'no replies yet'));
     tlRows = replies;
+    // never a mixed strip: default to the session of the NEWEST reply
+    tlFilter = replies.length ? (replies[replies.length - 1].session || '') : null;
     try {
       tlNames = (await (await fetch('/api/sessions', { cache: 'no-store' })).json()).sessions || {};
     } catch { tlNames = {}; }
@@ -1152,11 +1155,18 @@
   /** Draw the strip, grouped by session, optionally showing only one of them.
       Claude Code does not name a session, so the label is what it opened with — the
       same string its own picker shows. */
+  let menuList = null;                       // the floating panel, parked on <body>
+
+  function closeSessionMenu() {
+    if (menuList) menuList.classList.remove('open');
+  }
+
   function sessionMenu() {
     const wrap = el('div', 'tl-menu');
-    const btn = el('button', '', 'sessions ▾');
+    const cur = tlNames[tlFilter] || (tlFilter === '' ? 'before sessions were recorded' : '');
+    const btn = el('button', '', 'session: ' + (cur ? cur.slice(0, 28) : '—') + ' ▾');
     btn.type = 'button';
-    const list = el('div', 'list');
+    const list = el('div', 'tl-list');
     const ids = [...new Set(tlRows.map(m => m.session || ''))];
     // every session that HAS a transcript, newest first, plus any in the log without one
     Object.keys(tlNames).forEach(id => { if (!ids.includes(id)) ids.push(id); });
@@ -1170,14 +1180,25 @@
                el('em', '', n ? n + ' here' : 'not in this log'));
       b.disabled = !withReplies.has(id);
       b.onclick = () => {
-        tlFilter = (tlFilter === id ? null : id);
-        wrap.classList.remove('open');
+        tlFilter = id;                       // exactly one session is shown, always
+        closeSessionMenu();
         drawTimeline();
       };
       list.append(b);
     });
-    btn.onclick = () => wrap.classList.toggle('open');
-    wrap.append(btn, list);
+    btn.onclick = () => {
+      const open = !list.classList.contains('open');
+      closeSessionMenu();
+      if (!open) return;
+      const r = btn.getBoundingClientRect();
+      list.style.left = Math.round(r.left) + 'px';
+      list.style.top = Math.round(r.bottom + 6) + 'px';
+      list.classList.add('open');
+    };
+    if (menuList) menuList.remove();
+    menuList = list;
+    document.body.append(list);              // out of the strip, so nothing clips it
+    wrap.append(btn);
     return wrap;
   }
 
@@ -1208,11 +1229,6 @@
       shown++;
       nodes.push(thumbOf(m, i + 1));
     });
-    const all = el('button', 'tl-all');
-    all.type = 'button';
-    all.textContent = 'show all (' + tlRows.length + ')';
-    all.onclick = () => { tlFilter = null; drawTimeline(); };
-    if (tlFilter !== null) nodes.splice(1, 0, all);
     tlEl.replaceChildren(...nodes);
     if (tlFilter === null) tlEl.scrollLeft = tlEl.scrollWidth;
   }
@@ -1220,7 +1236,7 @@
   function closeTimeline() {
     tlOpen = false;
     pinned = null;
-    tlFilter = null;
+    closeSessionMenu();
     restoreLive();
     tlEl.classList.remove('open');
     tlEl.replaceChildren();
