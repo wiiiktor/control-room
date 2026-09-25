@@ -17,6 +17,7 @@ const vscode = require('vscode');
 const { Log } = require('./log');
 const { labels } = require('./sessions');
 const hook = require('./hook');
+const runtime = require('./runtime');
 
 /** "control-room-medicover" -> "Control Room · medicover"; the plain one keeps its name. */
 function instanceName(folder) {
@@ -52,7 +53,9 @@ function instances() {
     if (!isRoom) continue;
     out.push({ dir, name: instanceName(entry.name) });
   }
-  if (!out.length) return [{ dir: root, name: 'Control Room' }];
+  // Nothing here yet: name the folder the room WILL live in. Writing the log at the
+  // workspace root instead scatters chat.jsonl and four .py files over someone's project.
+  if (!out.length) return [{ dir: path.join(root, 'control-room'), name: 'Control Room' }];
   return out.sort((a, b) => a.dir.length - b.dir.length);
 }
 
@@ -188,14 +191,21 @@ function activate(context) {
       if (want !== title) { title = want; panel.title = want; }
     };
 
-    // asked once per workspace: a panel with nothing watching it is the failure people
-    // report as "I write and nothing happens"
-    if (!hook.installed(workspaceRoot(dir)) && !context.globalState.get('hookOffered:' + dir)) {
-      context.globalState.update('hookOffered:' + dir, true);
+    // A panel with nothing watching it is the failure people report as "I write and
+    // nothing happens", and both halves of the cure are things only this extension can
+    // do. They are done, not offered: a question at this moment is a question about
+    // machinery the reader has not met yet.
+    const added = runtime.install(context.extensionPath, dir);
+    let hooked = false;
+    if (!hook.installed(workspaceRoot(dir))) {
+      try { hook.install(workspaceRoot(dir)); hooked = true; } catch { /* read-only workspace */ }
+    }
+    if (added.length || hooked) {
+      const said = [];
+      if (added.length) said.push('wrote ' + added.join(', ') + ' into ' + path.basename(dir));
+      if (hooked) said.push('installed the session-start hook');
       vscode.window.showInformationMessage(
-        'Control Room: install a session-start hook so Claude starts watching this panel by itself?',
-        'Install', 'Not now',
-      ).then(choice => { if (choice === 'Install') installHook(false); });
+        'Control Room ' + said.join(' and ') + '. Open a Claude tab and send it any message to connect.');
     }
 
     panel.webview.onDidReceiveMessage(async (req) => {

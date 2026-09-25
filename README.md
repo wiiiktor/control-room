@@ -32,7 +32,7 @@ gh api repos/wiiiktor/control-room/contents/extension/get.sh \
   -H 'Accept: application/vnd.github.raw' | bash
 ```
 
-Pin a version with `| bash -s 0.10.5`. From a clone, `extension/get.sh` does the same. It
+Pin a version with `| bash -s 0.11.0`. From a clone, `extension/get.sh` does the same. It
 installs with whichever editor CLI the machine has — `code`, `code-insiders`, `cursor`,
 `codium`, `windsurf` — or the one named in `CONTROL_ROOM_CODE`.
 
@@ -44,9 +44,14 @@ archive):
 
 ```bat
 gh api repos/wiiiktor/control-room/contents/extension --jq ".[].name" | findstr .vsix
-cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.10.5.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
+cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.11.0.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
 code --install-extension %TEMP%\cr.vsix --force
 ```
+
+No clone is needed: the .vsix carries the room's Python side (`watch.py`, `reply.py`,
+`status.py`, `chatlog.py`) and writes it into `<workspace>/control-room/` the first time
+the panel opens, along with the session-start hook. It never overwrites files that are
+already there, so a clone's own copies win.
 
 Then, on every platform: reload the extensions (**Extensions** view, `Ctrl+Shift+X`, then
 **Reload**), and **Ctrl+Shift+P → Control Room**.
@@ -85,11 +90,11 @@ that session — and nothing else can start it again. Until it is back, messages
 in `chat.jsonl` unread, which looks exactly like the panel being broken. The panel says so:
 the corner pill goes **NOT WATCHING** and the tab title gains `(no watcher)`.
 
-The extension can install a `SessionStart` hook that closes most of this gap: it writes
+The extension installs a `SessionStart` hook that closes most of this gap, the first time
+a panel opens — no prompt, because it is machinery you have not met yet. It writes
 `.claude/hooks/control-room-watch.py` and merges one entry into `.claude/settings.json`, so
 every Claude session in the workspace is told at startup to arm the watch — on the room
-*that* session belongs to — and how many messages are waiting. Run **Control Room: Install
-the session-start watch hook**, or say yes when the panel offers it on first open. Existing
+*that* session belongs to — and how many messages are waiting. To redo it by hand, run **Control Room: Install the session-start watch hook**. Existing
 settings are preserved and installing twice is a no-op.
 
 ## Permissions: letting Claude work without a prompt per action
