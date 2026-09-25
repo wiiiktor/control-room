@@ -604,9 +604,13 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   #to-hint.on { display: block; }
-  /* --red is a FILL (it carries --on-red); as TEXT on a light paper it was orange
-     on corn at 2.76:1. --alert is the same alarm picked to be read, per theme. */
-  #to-hint.dead { color: var(--alert); opacity: 1; font-weight: 800; }
+  /* An alarm must not depend on what is behind it. The textarea turns corn when it has
+     focus, so the dead hint carries its OWN fill: --alert, with --paper as the text on
+     it -- a pairing that is high contrast in every theme by construction (worst 5.62). */
+  #to-hint.dead {
+    color: var(--paper); background: var(--alert); opacity: 1; font-weight: 800;
+    padding: 3px 12px; border-radius: 999px; right: 16px; bottom: 12px;
+  }
 
   form button {
     font: inherit; font-size: 20px; font-weight: 900; height: 104px; padding: 0 34px;
