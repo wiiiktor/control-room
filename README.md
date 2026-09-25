@@ -68,7 +68,7 @@ gh api repos/wiiiktor/control-room/contents/extension/get.sh \
   -H 'Accept: application/vnd.github.raw' | bash
 ```
 
-Pin a version with `| bash -s 0.12.11`. From a clone, `extension/get.sh` does the same. It
+Pin a version with `| bash -s 0.12.12`. From a clone, `extension/get.sh` does the same. It
 installs with whichever editor CLI the machine has — `code`, `code-insiders`, `cursor`,
 `codium`, `windsurf` — or the one named in `CONTROL_ROOM_CODE`.
 
@@ -80,7 +80,7 @@ archive):
 
 ```bat
 gh api repos/wiiiktor/control-room/contents/extension --jq ".[].name" | findstr .vsix
-cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.12.11.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
+cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.12.12.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
 code --install-extension %TEMP%\cr.vsix --force
 ```
 

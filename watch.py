@@ -98,6 +98,9 @@ def emit(msg, missed=False):
     print(f"[web chat #{msg.get('id')}]{tag} {text}", flush=True)
 
 
+SEEN = 0   # the highest id already accounted for; see the guard below
+
+
 def catch_up():
     """Announce anything still unanswered when the watch starts.
 
@@ -116,6 +119,8 @@ def catch_up():
             msgs.append(json.loads(line))
         except json.JSONDecodeError:
             continue
+    global SEEN
+    SEEN = max((m.get("id", 0) for m in msgs), default=0)
     last_reply = max((m.get("id", 0) for m in msgs if m.get("role") == "assistant"), default=0)
     for m in msgs:
         if m.get("id", 0) > last_reply and mine(m):
@@ -132,5 +137,16 @@ for line in sys.stdin:
         msg = json.loads(line)
     except json.JSONDecodeError:
         continue
+    # ⛔ ONLY WHAT IS NEW. `tail -F` re-reads a file from the top when it is truncated or
+    # rotated, so anything that rewrites chat.jsonl in place replays the whole history into
+    # here -- eleven old questions arriving as if they had just been asked. That is not
+    # merely noise: one of them was "delete ~/medicover-monitor/profile", and a replay is a
+    # request to do it again. An id that is not higher than the highest already accounted
+    # for has been seen, whatever the pipe says.
+    mid = msg.get("id", 0)
+    if mid and mid <= SEEN:
+        continue
+    if mid:
+        SEEN = mid
     if mine(msg):
         emit(msg)
