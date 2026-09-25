@@ -196,6 +196,14 @@ function activate(context) {
           resumeIn(dir, sid);
           return reply({ ok: true });
         }
+        if (route === '/api/start') {
+          // The step nobody guesses: a session exists once it has been given something to
+          // do. Do it for them -- the SessionStart hook does the rest.
+          const term = vscode.window.createTerminal({ name: 'claude · control room', cwd: dir });
+          term.show(true);
+          term.sendText("claude 'watch this control room and answer me in the panel'");
+          return reply({ ok: true });
+        }
         if (route === '/api/send') {
           const body = JSON.parse(req.body || '{}');
           const text = (body.text || '').trim();
@@ -256,6 +264,13 @@ function activate(context) {
   };
 
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.installHook', () => installHook(false)));
+
+  // Opening the workspace is enough: the panel is the point of installing this, and a
+  // panel nobody opened helps nobody. Off with one setting for people who want it quiet.
+  if (vscode.workspace.getConfiguration('controlRoom').get('openOnStartup') !== false) {
+    const found = instances();
+    if (found.length === 1) open(found[0], '');
+  }
 
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.open', async () => {
     const picked = await pickSession('Which session do you want to talk to?');

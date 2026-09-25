@@ -5,10 +5,10 @@ extension host reads and writes `chat.jsonl` itself.
 
 ## Install from a .vsix
 
-Download `control-room-0.7.1.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
+Download `control-room-0.8.0.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
 
 ```bash
-code --install-extension control-room-0.7.1.vsix
+code --install-extension control-room-0.8.0.vsix
 ```
 
 or, in the editor: **Extensions ▸ … ▸ Install from VSIX…**
@@ -35,8 +35,17 @@ Cursor, Windsurf, VSCodium and other VS Code forks install the same file the sam
 ```bash
 npm install -g @vscode/vsce
 cd extension
-vsce package        # -> control-room-0.7.1.vsix
+vsce package        # -> control-room-0.8.0.vsix
 ```
+
+## First open
+
+The panel opens by itself when the workspace opens (`controlRoom.openOnStartup`, on by
+default, for a workspace with a single control room). If nothing is reading the log yet
+it says so and offers one button, **Start a Claude session for this room**, which opens a
+terminal running `claude` with a first instruction — because a Claude session exists once
+it has been given something to do, not when its tab is opened. That is the one step in
+this whole setup that nobody guesses.
 
 ## Installing an update restarts the extension host
 

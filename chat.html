@@ -888,6 +888,21 @@
           picks.append(btn);
           continue;
         }
+        // only the editor can start a session; in a browser this pick is not offered
+        if (btn.dataset.cmd === '__start_session') {
+          btn.onclick = () => {
+            btn.disabled = true;
+            fetch('/api/start', { method: 'POST', body: '{}' })
+              .then(() => show(build([
+                '::ask Starting',
+                '::say A terminal is opening with a Claude session in it. It arms the watch on '
+                  + 'this room by itself — give it a few seconds, then write here.',
+              ].join('\n')), false))
+              .catch(() => { btn.disabled = false; });
+          };
+          picks.append(btn);
+          continue;
+        }
         // the two answers to "nobody is there": drop the address, or keep it anyway
         if (btn.dataset.cmd === '__send_here' || btn.dataset.cmd === '__send_anyway') {
           const how = btn.dataset.cmd === '__send_here' ? 'here' : 'anyway';
@@ -982,9 +997,24 @@
   // exists, so the choice has to arrive from outside. The browser version never calls it.
   window.CONTROL_ROOM_SET_TARGET = (id) => { target = id || ''; drawTarget(); };
 
+  let greeted = false;
   function drawWatchers(list) {
     aliveIds = list.map(w => w.session);
     drawTarget();
+    // First open with nobody reading the log: the screen would otherwise be blank and the
+    // panel would look broken, when what is missing is one step nobody guesses.
+    if (!greeted && window.CONTROL_ROOM_HOST === 'extension'
+        && !aliveIds.length && !screenEl.children.length) {
+      greeted = true;
+      show(build([
+        '::ask Nobody is listening yet',
+        '::say A Claude session reads what you write here — and a session starts when it is '
+          + 'given something to do, not when its tab is opened.',
+        '::pick Start a Claude session for this room => __start_session',
+        '::note Or open the Claude Code tab yourself and send it any message; it arms the '
+          + 'watch on its own and picks up everything waiting here.',
+      ].join('\n')), false);
+    }
   }
 
   function waiting(status) {
@@ -1461,9 +1491,14 @@
       { type: 'pick', body: 'Reload the page => __reload' },
       { type: 'note', body: 'Use it if the page has been open a long time: a stale tab can report an old heartbeat.' },
       { type: 'say', body: 'What only you can fix' },
+    ];
+    if (window.CONTROL_ROOM_HOST === 'extension') {
+      blocks.push({ type: 'pick', body: 'Start a Claude session for this room => __start_session' });
+    }
+    blocks.push(...[
       { type: 'note', body: 'The watch lives inside a Claude Code session. If that session ended, say anything in the Claude panel in VS Code — the session re-arms the watch on its next turn and picks up everything waiting here.' },
       { type: 'note', body: 'If the panel itself is dead rather than unwatched, the lamp goes red and tells you the command to restart it.' },
-    ];
+    ]);
     openSheet('Nobody is watching', blocks, null);
   };
 
