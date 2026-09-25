@@ -104,6 +104,10 @@ message as a notification, so no polling loop is needed.
   is too late to tell you there is more below.
 - **Local only.** The server binds to `127.0.0.1` on port 8111, so nothing is exposed
   to the internet and nothing collides with the usual 8000.
+- **Address a message to one session.** When more than one session has a live watch,
+  a "to:" selector appears in the composer listing them. `watch.py` ignores anything
+  addressed elsewhere, so only the chosen session is notified; with one watcher the
+  control stays hidden and every message goes to whoever is listening.
 - **It says when nobody is listening.** The page is connected to the server, but that
   is not the same as Claude reading the log. The watcher touches `.watch` every 30s and
   the page shows a "not watching" pill when that goes stale — a message sent then will

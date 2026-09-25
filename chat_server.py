@@ -99,6 +99,26 @@ def add_status(line):
         fh.write(line.strip() + "\n")
 
 
+def watchers():
+    """Sessions with a LIVE watch: one .watch.<id> file each, touched every 30s.
+
+    This is what the composer's "to:" list is built from. A session that has gone is
+    simply a stale file, which is why the age is reported rather than a boolean.
+    """
+    labels = session_labels()
+    out = []
+    for f in ROOT.glob(".watch.*"):
+        sid = f.name[len(".watch."):]
+        try:
+            age = round(time.time() - f.stat().st_mtime)
+        except OSError:
+            continue
+        if age > 90:
+            continue
+        out.append({"session": sid, "age": age, "label": labels.get(sid, "(no transcript)")})
+    return sorted(out, key=lambda r: r["age"])
+
+
 def watch_age():
     """Seconds since the watcher last said it was alive, or None if it never has.
 
@@ -137,7 +157,7 @@ def read_messages(since=0):
     return out
 
 
-def append_message(role, text, session=None):
+def append_message(role, text, session=None, to=None):
     # LOCK guards threads inside this process; flock guards the other processes
     # writing the same log (the web server and reply.py).
     with LOCK, LOG.open("a+", encoding="utf-8") as handle:
@@ -161,6 +181,9 @@ def append_message(role, text, session=None):
         # anything written before 2026-09-25, so the page must tolerate it missing
         if session:
             msg["session"] = session
+        # addressed to ONE session's watcher; absent means "whoever is listening"
+        if to:
+            msg["to"] = to
         handle.write(json.dumps(msg, ensure_ascii=False) + "\n")
         handle.flush()
         fcntl.flock(handle, fcntl.LOCK_UN)
@@ -196,7 +219,7 @@ class Handler(BaseHTTPRequestHandler):
             html = PAGE.read_text(encoding="utf-8").replace("__BUILD__", build_id())
             return self._send(200, html, "text/html; charset=utf-8")
         if url.path == "/api/sessions":
-            return self._json(200, {"sessions": session_labels()})
+            return self._json(200, {"sessions": session_labels(), "watchers": watchers()})
         if url.path == "/api/messages":
             try:
                 since = int(parse_qs(url.query).get("since", ["0"])[0])
@@ -205,7 +228,8 @@ class Handler(BaseHTTPRequestHandler):
             msgs = read_messages(since)
             last = msgs[-1]["id"] if msgs else since
             return self._json(200, {"messages": msgs, "last": last, "build": build_id(),
-                                    "status": read_status(), "watch": watch_age()})
+                                    "status": read_status(), "watch": watch_age(),
+                                    "watchers": watchers()})
         return self._send(404, "not found", "text/plain; charset=utf-8")
 
     def do_POST(self):
@@ -219,7 +243,8 @@ class Handler(BaseHTTPRequestHandler):
         text = (data.get("text") or "").strip()
         if not text:
             return self._json(400, {"error": "empty message"})
-        return self._json(200, append_message("user", text))
+        to = (data.get("to") or "").strip()
+        return self._json(200, append_message("user", text, to=to or None))
 
 
 if __name__ == "__main__":

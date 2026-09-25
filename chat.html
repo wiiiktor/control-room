@@ -241,19 +241,46 @@
   /* a session boundary: the strip is one ribbon, this says where a working session began */
   .tl-sep {
     flex: 0 0 auto; align-self: stretch; display: flex; flex-direction: column;
-    justify-content: center; gap: 2px; padding: 0 10px 0 4px;
-    border-left: 3px dashed var(--hair);
+    justify-content: center; gap: 2px;
   }
+  /* the divider line is its own element, so selecting a session can draw a full rim
+     without the dashed border eating one side of it */
+  .tl-rule { flex: 0 0 auto; align-self: stretch; border-left: 3px dashed var(--hair); }
   .tl-sep {
     width: 150px; cursor: pointer; text-align: left; font: inherit; color: var(--ink);
-    background: none;
+    background: none; border: 3px solid transparent; border-radius: 12px;
+    padding: 6px 10px; margin-left: 4px;
   }
   .tl-sep b { font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; opacity: .75; }
   .tl-sep i { font-style: normal; font-size: 11px; font-weight: 700; line-height: 1.25; opacity: .6; }
   .tl-sep span { font-size: 10px; font-weight: 700; opacity: .45; font-family: ui-monospace, monospace; }
   .tl-sep:hover b, .tl-sep.on b { opacity: 1; }
-  .tl-sep.on { background: var(--yellow-soft); }
+  .tl-sep.on { background: var(--yellow-soft); border-color: var(--ink); }
   .tl-sep.first { border-left: none; }
+  /* every session in one menu, including ones with no replies in the strip */
+  .tl-menu { flex: 0 0 auto; align-self: center; position: relative; }
+  .tl-menu > button {
+    font: inherit; font-size: 13px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .04em; cursor: pointer; color: var(--ink); white-space: nowrap;
+    background: var(--panel); border: 3px solid var(--ink); border-radius: 999px; padding: 6px 14px;
+  }
+  .tl-menu .list {
+    display: none; position: absolute; top: 40px; left: 0; z-index: 8;
+    flex-direction: column; gap: 6px; padding: 10px; max-height: 320px; overflow-y: auto;
+    background: var(--panel); border: 3px solid var(--ink); box-shadow: var(--pop-sm);
+    width: 420px; max-width: 70vw;
+  }
+  .tl-menu.open .list { display: flex; }
+  .tl-menu .list button {
+    font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer;
+    color: var(--ink); background: var(--paper); border: 3px solid var(--ink);
+    border-radius: 10px; padding: 7px 10px; display: flex; gap: 10px; align-items: baseline;
+  }
+  .tl-menu .list button:hover { background: var(--yellow-soft); }
+  .tl-menu .list button.on { background: var(--green-soft); }
+  .tl-menu .list button em { font-style: normal; font-size: 11px; opacity: .5; font-family: ui-monospace, monospace; }
+  .tl-menu .list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
   .tl-all {
     flex: 0 0 auto; align-self: center; font: inherit; font-size: 13px; font-weight: 800;
     text-transform: uppercase; letter-spacing: .04em; cursor: pointer; color: var(--on-yellow);
@@ -286,12 +313,16 @@
 
   /* Claude's watch on the log is a separate thing from the server being up: the page
      can be perfectly connected while nothing is reading what you send. */
+  /* It stands WHERE THE LAMP IS, and the lamp hides: a green "connected" beside a
+     "not watching" is two answers to the same question. */
   #deaf {
-    position: fixed; top: 16px; right: 52px; z-index: 6;
-    font-size: 13px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase;
-    padding: 5px 12px; border: 3px solid var(--ink); border-radius: 999px;
-    background: var(--yellow); color: var(--on-yellow); display: none;
+    position: fixed; top: 10px; right: 14px; z-index: 7;
+    font-size: 13px; font-weight: 900; letter-spacing: .03em; text-transform: uppercase;
+    padding: 7px 14px; border: 3px solid var(--ink); border-radius: 999px;
+    background: var(--red); color: var(--on-red); display: none;
+    box-shadow: 0 0 0 4px var(--ring-red);
   }
+  #lamp.hidden { display: none; }
   #deaf.on { display: block; }
   #deaf { cursor: pointer; font-family: inherit; box-shadow: var(--pop-sm); }
   #deaf:active { transform: translate(2px, 2px); box-shadow: none; }
@@ -524,6 +555,18 @@
   }
   textarea::placeholder { color: var(--ink); opacity: .4; }
   textarea:focus { outline: none; background: var(--yellow-soft); }
+  #compose { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  #to-wrap {
+    display: none; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; opacity: .7;
+  }
+  #to-wrap.on { display: flex; }
+  #to {
+    font: inherit; font-size: 14px; font-weight: 700; color: var(--ink);
+    background: var(--panel); border: 3px solid var(--ink); border-radius: 10px;
+    padding: 4px 8px; max-width: 60%;
+  }
+
   form button {
     font: inherit; font-size: 20px; font-weight: 900; height: 104px; padding: 0 34px;
     background: var(--yellow); color: var(--on-yellow);
@@ -547,7 +590,12 @@
   </div>
   <footer>
     <form id="form">
-      <textarea id="input" rows="3" placeholder="Type here…" autofocus></textarea>
+      <div id="compose">
+        <textarea id="input" rows="3" placeholder="Type here…" autofocus></textarea>
+        <label id="to-wrap" for="to"><span>to</span>
+          <select id="to"><option value="">whoever is listening</option></select>
+        </label>
+      </div>
       <button type="submit">SEND</button>
     </form>
   </footer>
@@ -559,9 +607,11 @@
   const input = document.getElementById('input');
   const form  = document.getElementById('form');
   const lamp  = document.getElementById('lamp');
+  const toSel = document.getElementById('to');
+  const toWrap = document.getElementById('to-wrap');
   const deaf  = document.getElementById('deaf');
   let since = 0, fails = 0, offline = false, lastCommand = '';
-  let waitingNow = false, lastStatusSig = '', lastWatchAge = null;
+  let waitingNow = false, lastStatusSig = '', lastWatchAge = null, lastWatcherSig = '';
   // every question asked since the last reply, in order: several messages in a row are
   // all answered by the one reply that follows, so the breadcrumb has to carry them all
   let pendingAsk = [];
@@ -815,6 +865,25 @@
     sheet = detail;
   }
 
+  /** The "to:" list is the sessions with a LIVE watch. One watcher is the normal case and
+      needs no choice, so the control only appears once there are two. */
+  function drawWatchers(list) {
+    const sig = list.map(w => w.session).join(',');
+    if (sig !== lastWatcherSig) {
+      lastWatcherSig = sig;
+      const keep = toSel.value;
+      toSel.replaceChildren(el('option', '', 'whoever is listening'));
+      list.forEach(w => {
+        const o = el('option', '', (w.label || w.session).slice(0, 48));
+        o.value = w.session;
+        toSel.append(o);
+      });
+      if ([...toSel.options].some(o => o.value === keep)) toSel.value = keep;
+    }
+    toWrap.classList.toggle('on', list.length > 1);
+    if (list.length < 2) toSel.value = '';
+  }
+
   function waiting(status) {
     waitingNow = true;
     const box = el('div', 'thinking');
@@ -854,7 +923,7 @@
       await fetch('/api/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, to: toSel.value || '' }),
       });
       poll();
       return true;
@@ -875,7 +944,10 @@
       lamp.title = 'Connected';
       // the watcher touches .watch every 30s; 3 missed beats means the watch is gone
       lastWatchAge = data.watch;
-      deaf.classList.toggle('on', lastWatchAge === null || lastWatchAge === undefined || lastWatchAge > 90);
+      drawWatchers(data.watchers || []);
+      const dead = lastWatchAge === null || lastWatchAge === undefined || lastWatchAge > 90;
+      deaf.classList.toggle('on', dead);
+      lamp.classList.toggle('hidden', dead);    // one light, one answer
       if (offline) { offline = false; since = 0; return; }  // redraw from history next tick
       // progress lines move while NO new message arrives, so they are their own redraw
       if (!data.messages.length) {
@@ -1080,8 +1152,37 @@
   /** Draw the strip, grouped by session, optionally showing only one of them.
       Claude Code does not name a session, so the label is what it opened with — the
       same string its own picker shows. */
+  function sessionMenu() {
+    const wrap = el('div', 'tl-menu');
+    const btn = el('button', '', 'sessions ▾');
+    btn.type = 'button';
+    const list = el('div', 'list');
+    const ids = [...new Set(tlRows.map(m => m.session || ''))];
+    // every session that HAS a transcript, newest first, plus any in the log without one
+    Object.keys(tlNames).forEach(id => { if (!ids.includes(id)) ids.push(id); });
+    const withReplies = new Set(tlRows.map(m => m.session || ''));
+    ids.forEach(id => {
+      const b = el('button', tlFilter === id ? 'on' : '');
+      b.type = 'button';
+      const n = tlRows.filter(m => (m.session || '') === id).length;
+      b.append(el('em', '', id ? id.slice(0, 8) : '—'),
+               el('span', '', (id ? (tlNames[id] || '(transcript gone)') : 'before sessions were recorded')),
+               el('em', '', n ? n + ' here' : 'not in this log'));
+      b.disabled = !withReplies.has(id);
+      b.onclick = () => {
+        tlFilter = (tlFilter === id ? null : id);
+        wrap.classList.remove('open');
+        drawTimeline();
+      };
+      list.append(b);
+    });
+    btn.onclick = () => wrap.classList.toggle('open');
+    wrap.append(btn, list);
+    return wrap;
+  }
+
   function drawTimeline() {
-    const nodes = [];
+    const nodes = [sessionMenu()];
     let seen = null, nth = 0, shown = 0;
     tlRows.forEach((m, i) => {
       // '' is "no session recorded" -- a real key, because null would be indistinguishable
@@ -1092,8 +1193,8 @@
       if (tlFilter !== null && sid !== tlFilter) return;
       if (isNew) {
         const n = nth;
-        const sep = el('button', 'tl-sep' + (nodes.length === 0 ? ' first' : '') +
-                                 (tlFilter === sid ? ' on' : ''));
+        if (nodes.length) nodes.push(el('div', 'tl-rule'));
+        const sep = el('button', 'tl-sep' + (tlFilter === sid ? ' on' : ''));
         sep.type = 'button';
         sep.append(el('b', '', 'session ' + n),
                    el('i', '', sid ? (tlNames[sid] || '(transcript gone)').slice(0, 60)
@@ -1111,7 +1212,7 @@
     all.type = 'button';
     all.textContent = 'show all (' + tlRows.length + ')';
     all.onclick = () => { tlFilter = null; drawTimeline(); };
-    if (tlFilter !== null) nodes.unshift(all);
+    if (tlFilter !== null) nodes.splice(1, 0, all);
     tlEl.replaceChildren(...nodes);
     if (tlFilter === null) tlEl.scrollLeft = tlEl.scrollWidth;
   }

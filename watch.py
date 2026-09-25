@@ -8,20 +8,43 @@ a detached shell loop would outlive the watch it claims to represent, and the pa
 go on saying someone is listening when nobody is.
 """
 import json
+import os
 import sys
 import threading
 import time
 from pathlib import Path
 
-WATCH = Path(__file__).resolve().parent / ".watch"
+ROOT = Path(__file__).resolve().parent
+WATCH = ROOT / ".watch"
+
+
+def session_id():
+    """Which session this watcher belongs to, so messages can be addressed to it."""
+    env = (os.environ.get("CLAUDE_SESSION_ID") or "").strip()
+    if env:
+        return env
+    for i, a in enumerate(sys.argv):
+        if a == "--session" and i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+    d = Path.home() / ".claude" / "projects" / "-home-wii-Projects-certain"
+    try:
+        return max(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime).stem
+    except (OSError, ValueError):
+        return ""
+
+
+SID = session_id()
+MINE = ROOT / (".watch." + SID) if SID else None
 
 
 def _beat():
     while True:
-        try:
-            WATCH.touch()
-        except OSError:
-            pass
+        for f in (WATCH, MINE):
+            try:
+                if f is not None:
+                    f.touch()
+            except OSError:
+                pass
         time.sleep(30)
 
 
@@ -35,6 +58,12 @@ for line in sys.stdin:
         msg = json.loads(line)
     except json.JSONDecodeError:
         continue
-    if msg.get("role") == "user":
-        text = " ".join(msg.get("text", "").split())
-        print(f"[web chat #{msg.get('id')}] {text}", flush=True)
+    if msg.get("role") != "user":
+        continue
+    # addressed mail: a message sent "to" another session is not ours to answer, and
+    # printing it would notify BOTH sessions -- the exact thing the selector prevents
+    to = (msg.get("to") or "").strip()
+    if to and SID and to != SID:
+        continue
+    text = " ".join(msg.get("text", "").split())
+    print(f"[web chat #{msg.get('id')}]{' (to me)' if to else ''} {text}", flush=True)
