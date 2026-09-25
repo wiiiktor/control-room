@@ -118,6 +118,28 @@ function resumeIn(dir, sid) {
   term.sendText('claude --resume ' + sid);
 }
 
+/** Open the Claude Code extension in an editor tab.
+ *
+ * Its commands are not API and it may not be installed, so each is tried in turn and a
+ * terminal is the last resort. Opening a tab does NOT start a session: Claude Code runs
+ * when it is given something to do, so the caller has to say "now type in it".
+ */
+async function openClaudeTab(dir) {
+  for (const cmd of ['claude-vscode.editor.open', 'claude-vscode.editor.openLast',
+                     'claude-vscode.newConversation']) {
+    try {
+      await vscode.commands.executeCommand(cmd);
+      try { await vscode.commands.executeCommand('claude-vscode.focus'); } catch { /* optional */ }
+      return 'tab';
+    } catch { /* not this one; try the next */ }
+  }
+  // no extension to talk to -- a terminal session at least reads the same log
+  const term = vscode.window.createTerminal({ name: 'claude · control room', cwd: dir });
+  term.show(true);
+  term.sendText("claude 'watch this control room and answer me in the panel'");
+  return 'terminal';
+}
+
 /** Said whenever a panel is opened with nothing reading it: the one step people miss. */
 const NO_SESSION = 'Control Room: no Claude session is watching this panel yet. Open the Claude tab and send it any message — that starts the session that reads what you write here. Your messages are kept until then.';
 
@@ -197,12 +219,10 @@ function activate(context) {
           return reply({ ok: true });
         }
         if (route === '/api/start') {
-          // The step nobody guesses: a session exists once it has been given something to
-          // do. Do it for them -- the SessionStart hook does the rest.
-          const term = vscode.window.createTerminal({ name: 'claude · control room', cwd: dir });
-          term.show(true);
-          term.sendText("claude 'watch this control room and answer me in the panel'");
-          return reply({ ok: true });
+          // A TAB, not a terminal: the terminal session is a different animal from the one
+          // the editor keeps, and it is not where anyone wants to carry on the conversation.
+          const how = await openClaudeTab(dir);
+          return reply({ ok: true, how });
         }
         if (route === '/api/send') {
           const body = JSON.parse(req.body || '{}');

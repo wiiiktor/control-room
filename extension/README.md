@@ -61,6 +61,12 @@ What reads the log is a watch running *inside* a Claude session, so it dies when
 session restarts — and nothing else can start it again. Until it is back, messages you
 type sit in `chat.jsonl` unread, which looks exactly like the panel being broken.
 
+When nothing is listening, the panel offers **Open a Claude tab** — it runs the Claude
+Code extension's own open command, so the session lands in an editor tab rather than a
+terminal. A tab is not yet a session: Claude Code runs when it is given something to do,
+so type anything in it, and that first message starts the session that arms the watch. If
+the extension is not installed, the button falls back to a terminal.
+
 The extension can install a `SessionStart` hook that fixes this: it writes
 `.claude/hooks/control-room-watch.py` and merges one entry into `.claude/settings.json`,
 so every Claude session in the workspace is told at startup to arm the watch — on the

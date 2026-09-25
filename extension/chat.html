@@ -890,15 +890,23 @@
         }
         // only the editor can start a session; in a browser this pick is not offered
         if (btn.dataset.cmd === '__start_session') {
-          btn.onclick = () => {
+          btn.onclick = async () => {
             btn.disabled = true;
-            fetch('/api/start', { method: 'POST', body: '{}' })
-              .then(() => show(build([
-                '::ask Starting',
-                '::say A terminal is opening with a Claude session in it. It arms the watch on '
-                  + 'this room by itself — give it a few seconds, then write here.',
-              ].join('\n')), false))
-              .catch(() => { btn.disabled = false; });
+            let how = null;
+            try {
+              how = (await (await fetch('/api/start', { method: 'POST', body: '{}' })).json()).how;
+            } catch { btn.disabled = false; return; }
+            show(build(how === 'terminal' ? [
+              '::ask Starting',
+              '::say The Claude Code extension did not answer, so a terminal is opening with a '
+                + 'session in it instead. It arms the watch by itself — give it a few seconds.',
+            ] : [
+              '::ask A Claude tab is open',
+              '::say Type anything in it. A session does not exist until it is given something '
+                + 'to do, and that first message is what starts it.',
+              '::note It then arms the watch on this room by itself and picks up everything '
+                + 'waiting here. You do not have to say anything in particular.',
+            ]), false);
           };
           picks.append(btn);
           continue;
@@ -1010,7 +1018,7 @@
         '::ask Nobody is listening yet',
         '::say A Claude session reads what you write here — and a session starts when it is '
           + 'given something to do, not when its tab is opened.',
-        '::pick Start a Claude session for this room => __start_session',
+        '::pick Open a Claude tab => __start_session',
         '::note Or open the Claude Code tab yourself and send it any message; it arms the '
           + 'watch on its own and picks up everything waiting here.',
       ].join('\n')), false);
@@ -1493,7 +1501,7 @@
       { type: 'say', body: 'What only you can fix' },
     ];
     if (window.CONTROL_ROOM_HOST === 'extension') {
-      blocks.push({ type: 'pick', body: 'Start a Claude session for this room => __start_session' });
+      blocks.push({ type: 'pick', body: 'Open a Claude tab => __start_session' });
     }
     blocks.push(...[
       { type: 'note', body: 'The watch lives inside a Claude Code session. If that session ended, say anything in the Claude panel in VS Code — the session re-arms the watch on its next turn and picks up everything waiting here.' },
