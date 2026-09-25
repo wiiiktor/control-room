@@ -250,6 +250,17 @@
     box-shadow: var(--pop); transition: transform .08s, box-shadow .08s;
   }
   #splash .go:active { transform: translate(5px, 5px); box-shadow: 0 0 0 var(--ink); }
+  #splash .wrap { position: relative; display: inline-block; }
+  #splash .x {
+    position: absolute; top: -12px; right: -12px;
+    display: grid; place-items: center; padding: 0;
+    width: 30px; height: 30px; border-radius: 50%;
+    font: 900 13px/1 inherit; color: var(--ink);
+    background: var(--grey); border: 3px solid var(--ink);
+    box-shadow: 0 0 0 4px var(--ring-grey); cursor: pointer;
+    opacity: .85; transition: opacity .12s, background .12s;
+  }
+  #splash .x:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
 
   #stage, footer { zoom: var(--zoom, 1); }
   #palette {
@@ -673,7 +684,10 @@
   <div id="lamp" title="Connected"></div>
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
   <div id="splash" role="dialog" aria-label="Start a working session">
-    <button class="go" type="button">Open the Claude session and write Hello in there to start connection</button>
+    <div class="wrap">
+      <button class="go" type="button">Open the Claude session and write Hello in there to start connection</button>
+      <button class="x" type="button" title="Close" aria-label="Close">✕</button>
+    </div>
   </div>
   <div id="tl-bar"><div id="tl-head"></div><div id="timeline"></div></div>
   <div id="stage">
@@ -1278,23 +1292,31 @@
   const SPLASH_TEXT = 'Open the Claude session and write Hello in there to start connection';
   let splashDismissed = false;
   let splashWatching = null;
+  let splashWaiting = false;   // pressed, and now watching for the session to appear
 
   function splashSay(watching) {
-    if (splashWatching && !watching) { splashDismissed = false; splashGo.textContent = SPLASH_TEXT; }
+    // the watch dying is news: the splash comes back, saying the original thing again
+    if (splashWatching && !watching) {
+      splashDismissed = false; splashWaiting = false; splashGo.textContent = SPLASH_TEXT;
+    }
+    // ...and once the signal it was waiting for arrives, it has nothing left to say
+    if (watching && splashWaiting) { splashWaiting = false; dismissSplash(); }
     splashWatching = watching;
     splash.classList.toggle('on', !splashDismissed);
   }
 
   const dismissSplash = () => { splashDismissed = true; splash.classList.remove('on'); };
   splash.onclick = (e) => { if (e.target === splash) dismissSplash(); };
+  splash.querySelector('.x').onclick = dismissSplash;
   splashGo.onclick = async () => {
     splashGo.disabled = true;
     const how = await openClaudeTab();
     splashGo.disabled = false;
     if (how === null) return;
+    splashWaiting = true;
     splashGo.textContent = how === 'terminal'
-      ? 'A terminal is opening — it connects by itself, give it a few seconds'
-      : 'Now write Hello in the Claude tab';
+      ? 'Write nothing — the terminal connects by itself. I am waiting for a signal from Claude…'
+      : 'Write Hello in the Claude tab. I am waiting for a signal from Claude…';
   };
   splash.classList.add('on');          // before the first poll: a blank panel looks broken
 
