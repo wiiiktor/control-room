@@ -1003,10 +1003,12 @@
       if (newest.role === 'user') {
         lastCommand = pendingAsk.join(JOIN);
         waiting(data.status);
+        if (tlOpen) refreshTimeline(true); // a question you just sent belongs there too
         return;
       }
       waitingNow = false;
       show(build(newest.text), true, newest.ts);
+      if (tlOpen) refreshTimeline(true);   // the strip follows the log, not the opening
     } catch {
       lamp.classList.add('off');
       lamp.title = 'Disconnected — the server is not answering';
@@ -1159,45 +1161,46 @@
     return btn;
   }
 
-  async function openTimeline() {
-    tlOpen = true;
-    tlBar.classList.add('open');
-    tlBtn.classList.add('on');
-    tlHead.replaceChildren();
-    tlEl.replaceChildren(el('p', 'empty-note', 'loading…'));
+  /** Pull the whole log and redraw the strip. Called when the timeline opens, and again
+      whenever a message arrives while it is open -- it used to be built ONCE, so a reply
+      that landed after opening was invisible until you closed and reopened it. */
+  async function refreshTimeline(keepFilter) {
     let msgs;
     try {
       msgs = (await (await fetch('/api/messages?since=0', { cache: 'no-store' })).json()).messages || [];
     } catch {
       return tlEl.replaceChildren(el('p', 'empty-note', 'offline — cannot read the log'));
     }
-    // pair each reply with the question before it -- the log is one flat list, and a
-    // reply on its own cannot say what it was answering
     const replies = [];
     let asked = [];
     for (const m of msgs) {
       if (m.role === 'user') {
         asked.push(m.text);
-        // a question ADDRESSED to a session belongs in that session's strip, answered
-        // or not -- otherwise choosing a session and writing to it shows nothing
         if (m.to) replies.push({ ...m, session: m.to, asked: m.text, pending: true });
         continue;
       }
       replies.push({ ...m, asked: asked.join(JOIN) });
       asked = [];
     }
-    // an addressed question that a reply followed is no longer pending
     replies.forEach((r, i) => {
       if (!r.pending) return;
       r.pending = !replies.slice(i + 1).some(x => !x.pending && x.session === r.session);
     });
-    if (!replies.length) return tlEl.replaceChildren(el('p', 'empty-note', 'no replies yet'));
     tlRows = replies;
-    // never a mixed strip: default to the session of the NEWEST reply
-    tlFilter = replies.length ? (replies[replies.length - 1].session || '') : null;
+    if (!keepFilter || tlFilter === null) {
+      tlFilter = replies.length ? (replies[replies.length - 1].session || '') : null;
+    }
     await loadSessions();
     drawTimeline();
-    tlEl.scrollLeft = tlEl.scrollWidth;      // newest first to the eye, at the right edge
+  }
+
+  async function openTimeline() {
+    tlOpen = true;
+    tlBar.classList.add('open');
+    tlBtn.classList.add('on');
+    tlHead.replaceChildren();
+    tlEl.replaceChildren(el('p', 'empty-note', 'loading…'));
+    await refreshTimeline(!!target);       // a chosen session survives reopening
     fit();
   }
 
