@@ -500,11 +500,13 @@
   .raw img, .raw svg { max-width: 100%; height: auto; }
 
   /* two across on any reasonable width, one across on a narrow pane */
-  /* inline markup: **bold** is weight, `code` is a different mouth -- neither is a colour */
-  .say code, .note code, .plain code, .stat code, .badge code, .ask code,
-  .cards button code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: .92em; padding: 1px 5px; border-radius: 5px;
-    background: color-mix(in srgb, var(--ink) 12%, transparent); }
+  /* Inline markup carries NO colour and NO box. A tinted chip was foreign to a panel
+     made of flat fills and heavy borders, and on a filled badge it landed as a grey
+     block on green. The monospace face is the whole signal; weight carries bold. */
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .92em; letter-spacing: -.01em; }
+  strong { font-weight: 900; }
+  em { font-style: italic; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
   .cards button {
     text-align: left; font: inherit; cursor: pointer; color: var(--ink);
