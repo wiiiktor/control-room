@@ -1029,7 +1029,7 @@
                 body: JSON.stringify({ session: resumeTarget }),
               })).json();
               btn.querySelector('span').textContent = r && r.room
-                ? 'Opened ' + r.room + ' — write there'
+                ? 'Switching to ' + r.room + '…'
                 : 'That room could not be opened';
             } catch {
               btn.disabled = false;
@@ -1632,9 +1632,9 @@
           '::say A session reads one log, and it is not this one. Anything you send it from '
             + 'here would sit unread, and writing in its Claude tab appears in that room, '
             + 'not this one.',
-          '::pick Open that control room => __open_room',
-          '::note It opens as its own panel, already addressed to this session. This one '
-            + 'stays where it is.',
+          '::pick Switch to that control room => __open_room',
+          '::note This tab is replaced by it, already addressed to this session — one '
+            + 'control room at a time, not two.',
         ].join('\n')), false);
         return;
       }

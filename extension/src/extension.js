@@ -265,7 +265,13 @@ function activate(context) {
             if (inst.dir === dir) continue;
             if (new Log(inst.dir).watchers(names).some(w => w.session === sid)) {
               open(inst, sid);
-              return reply({ ok: true, room: inst.name });
+              // ⛔ ...and CLOSE THIS ONE. Leaving it behind is how you end up with two
+              // control room tabs after asking to change session -- which nobody asked
+              // for. Switching rooms should feel like switching, not like accumulating.
+              // Answered first: the page is told where it went before its host vanishes.
+              reply({ ok: true, room: inst.name, replaced: true });
+              setTimeout(() => { try { panel.dispose(); } catch { /* already gone */ } }, 150);
+              return;
             }
           }
           return reply({ error: 'no room is listening for that session' });
