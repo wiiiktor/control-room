@@ -227,6 +227,19 @@
   }
   #font-up { top: 148px; }
   #font-dn { top: 181px; }
+  /* seventh lamp: open a Claude tab. It was only reachable from the "not watching"
+     sheet, which appears exactly when things look fine -- i.e. never, when you want it. */
+  #claude-btn {
+    position: fixed; top: 214px; right: 18px; z-index: 6; display: none;
+    place-items: center; padding: 0;
+    width: 20px; height: 20px; border-radius: 50%;
+    font: 900 10px/1 inherit; color: var(--on-yellow);
+    background: var(--yellow); border: 3px solid var(--ink);
+    box-shadow: 0 0 0 4px var(--ring-yellow);
+    cursor: pointer; opacity: .75; transition: opacity .12s;
+  }
+  #claude-btn.on { display: grid; }
+  #claude-btn:hover { opacity: 1; }
   #font-up:hover, #font-dn:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
   #stage, footer { zoom: var(--zoom, 1); }
   #palette {
@@ -647,6 +660,7 @@
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
   <button id="font-up" type="button" title="Bigger text">+</button>
   <button id="font-dn" type="button" title="Smaller text">−</button>
+  <button id="claude-btn" type="button" title="Open a Claude tab">▶</button>
   <div id="lamp" title="Connected"></div>
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
   <div id="tl-bar"><div id="tl-head"></div><div id="timeline"></div></div>
@@ -892,21 +906,7 @@
         if (btn.dataset.cmd === '__start_session') {
           btn.onclick = async () => {
             btn.disabled = true;
-            let how = null;
-            try {
-              how = (await (await fetch('/api/start', { method: 'POST', body: '{}' })).json()).how;
-            } catch { btn.disabled = false; return; }
-            show(build(how === 'terminal' ? [
-              '::ask Starting',
-              '::say The Claude Code extension did not answer, so a terminal is opening with a '
-                + 'session in it instead. It arms the watch by itself — give it a few seconds.',
-            ] : [
-              '::ask A Claude tab is open',
-              '::say Type anything in it. A session does not exist until it is given something '
-                + 'to do, and that first message is what starts it.',
-              '::note It then arms the watch on this room by itself and picks up everything '
-                + 'waiting here. You do not have to say anything in particular.',
-            ]), false);
+            if (!await openClaudeTab()) btn.disabled = false;
           };
           picks.append(btn);
           continue;
@@ -1232,6 +1232,32 @@
     zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round((zoom + d) * 10) / 10));
     applyZoom();
   };
+  /** Open a Claude tab, and say what the tab still needs. Only the editor can do this,
+      so in a browser the button is not shown at all. */
+  async function openClaudeTab() {
+    let how = null;
+    try {
+      how = (await (await fetch('/api/start', { method: 'POST', body: '{}' })).json()).how;
+    } catch { return false; }
+    show(build((how === 'terminal' ? [
+      '::ask Starting',
+      '::say The Claude Code extension did not answer, so a terminal is opening with a '
+        + 'session in it instead. It arms the watch by itself — give it a few seconds.',
+    ] : [
+      '::ask A Claude tab is open',
+      '::say Type anything in it. A session does not exist until it is given something '
+        + 'to do, and that first message is what starts it.',
+      '::note It then arms the watch on this room by itself and picks up everything '
+        + 'waiting here. It does not matter what you type.',
+    ]).join('\n')), false);
+    return true;
+  }
+  if (window.CONTROL_ROOM_HOST === 'extension') {
+    const cb = document.getElementById('claude-btn');
+    cb.classList.add('on');
+    cb.onclick = () => openClaudeTab();
+  }
+
   document.getElementById('font-up').onclick = () => stepZoom(ZOOM_STEP);
   document.getElementById('font-dn').onclick = () => stepZoom(-ZOOM_STEP);
   applyZoom();
