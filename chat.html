@@ -327,8 +327,8 @@
     opacity: .55; cursor: default; font-variant-numeric: tabular-nums;
   }
   .crumb::before { content: "YOU SAID: "; font-size: 12px; letter-spacing: .05em; opacity: .55; }
-  /* a long command is cut to one line, and opens on hover or click: what you asked is
-     often the context for what came back */
+  /* a long command is cut to one line and opens on hover or click -- no tooltip, the
+     hover already shows the whole thing */
   .crumb { cursor: pointer; }
   .crumb:hover, .crumb.open {
     white-space: normal; overflow: visible; border-radius: 18px; max-width: 100%;
@@ -569,7 +569,6 @@
       const head = el('div', 'head');
       if (crumb && lastCommand) {
         const c = el('div', 'crumb', lastCommand);
-        c.title = lastCommand;                     // hover, for the impatient
         c.onclick = () => { c.classList.toggle('open'); fit(); };
         head.append(c);
       }
@@ -937,7 +936,6 @@
     const head = el('div', 'head');
     if (msg.asked) {
       const c = el('div', 'crumb', msg.asked);
-      c.title = msg.asked;
       c.onclick = () => { c.classList.toggle('open'); fit(); };
       head.append(c);
     }
