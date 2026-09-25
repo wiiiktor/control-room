@@ -20,17 +20,28 @@ WATCH = ROOT / ".watch"
 
 def session_id():
     """Which session this watcher belongs to, so messages can be addressed to it."""
-    env = (os.environ.get("CLAUDE_SESSION_ID") or "").strip()
-    if env:
-        return env
+    # ⭐ Claude Code exports its own id. Read it: the "newest transcript" fallback below
+    # is WRONG whenever another session is active -- a resumed session writing to its
+    # transcript made this watcher believe it WAS that session, so it answered mail
+    # addressed to it.
+    for key in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_SESSION_ID"):
+        env = (os.environ.get(key) or "").strip()
+        if env:
+            return env
     for i, a in enumerate(sys.argv):
         if a == "--session" and i + 1 < len(sys.argv):
             return sys.argv[i + 1]
+    # fallback: the newest transcript that is NOT being driven by resume.py
     d = Path.home() / ".claude" / "projects" / "-home-wii-Projects-certain"
+    root = Path(__file__).resolve().parent
     try:
-        return max(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime).stem
-    except (OSError, ValueError):
+        cand = sorted(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
         return ""
+    for p in cand:
+        if not (root / (".resume." + p.stem)).exists():
+            return p.stem
+    return cand[0].stem if cand else ""
 
 
 SID = session_id()

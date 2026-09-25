@@ -21,15 +21,24 @@ def session_id():
     transcript for this project, which is the live session by definition. Returns None
     rather than guessing when neither is available — a wrong id is worse than no id.
     """
-    env = (os.environ.get("CLAUDE_SESSION_ID") or "").strip()
-    if env:
-        return env
+    # ⭐ Claude Code exports its own id. Read it: the "newest transcript" fallback below
+    # is WRONG whenever another session is active -- a resumed session writing to its
+    # transcript made this watcher believe it WAS that session, so it answered mail
+    # addressed to it.
+    for key in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_SESSION_ID"):
+        env = (os.environ.get(key) or "").strip()
+        if env:
+            return env
     d = Path.home() / ".claude" / "projects" / "-home-wii-Projects-certain"
+    root = Path(__file__).resolve().parent
     try:
-        newest = max(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
-    except (OSError, ValueError):
+        cand = sorted(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
         return None
-    return newest.stem
+    for p in cand:
+        if not (root / (".resume." + p.stem)).exists():
+            return p.stem
+    return cand[0].stem if cand else None
 
 text = " ".join(sys.argv[1:]).strip() or sys.stdin.read().strip()
 if not text:

@@ -42,6 +42,10 @@ def main():
     sid = sys.argv[1]
     # --from lets a supervisor hand over the message that triggered the wake-up, which
     # would otherwise be skipped as "already in the log when I started"
+    # a marker so the SID heuristic in watch.py/reply.py never mistakes this session's
+    # transcript activity for "the session I am running in"
+    marker = ROOT / (".resume." + sid)
+    marker.touch()
     seen = max([m["id"] for m in messages()], default=0)
     if "--from" in sys.argv:
         seen = int(sys.argv[sys.argv.index("--from") + 1]) - 1
@@ -68,3 +72,10 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("\n[resume] stopped", flush=True)
+    finally:
+        for f in ROOT.glob(".resume.*"):
+            if f.name.endswith(sys.argv[1] if len(sys.argv) > 1 else "\0"):
+                try:
+                    f.unlink()
+                except OSError:
+                    pass
