@@ -7,7 +7,9 @@ POST /api/send  {"text":...} -> appends a user message to chat.jsonl
 """
 import fcntl
 import json
+import os
 import threading
+import time
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -19,6 +21,7 @@ PAGE = ROOT / "chat.html"
 ACCESS = ROOT / "access.log"
 SEQ = ROOT / ".seq"
 STATUS = ROOT / ".status"
+WATCH = ROOT / ".watch"      # touched by the watcher; its age says whether anyone is listening
 LOCK = threading.Lock()
 
 
@@ -54,6 +57,19 @@ def add_status(line):
     with LOCK, STATUS.open("a", encoding="utf-8") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX)
         fh.write(line.strip() + "\n")
+
+
+def watch_age():
+    """Seconds since the watcher last said it was alive, or None if it never has.
+
+    Claude watches chat.jsonl from a terminal. That watch dies with the session, and
+    nothing in this server would know — a message would simply sit unanswered. The
+    watcher touches .watch every 30s, so the page can say so instead.
+    """
+    try:
+        return round(time.time() - WATCH.stat().st_mtime)
+    except OSError:
+        return None
 
 
 def access(line):
@@ -143,7 +159,7 @@ class Handler(BaseHTTPRequestHandler):
             msgs = read_messages(since)
             last = msgs[-1]["id"] if msgs else since
             return self._json(200, {"messages": msgs, "last": last, "build": build_id(),
-                                    "status": read_status()})
+                                    "status": read_status(), "watch": watch_age()})
         return self._send(404, "not found", "text/plain; charset=utf-8")
 
     def do_POST(self):
@@ -162,6 +178,8 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     LOG.touch(exist_ok=True)
-    server = ThreadingHTTPServer(("127.0.0.1", 8000), Handler)
-    print("chat bridge on http://localhost:8000  ->", LOG)
+    # 8000 is everybody's default; this panel is long-lived, so it sits out of the way.
+    port = int(os.environ.get("CONTROL_ROOM_PORT", "8111"))
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    print(f"chat bridge on http://localhost:{port}  ->", LOG)
     server.serve_forever()

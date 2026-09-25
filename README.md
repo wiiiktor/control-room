@@ -25,6 +25,7 @@ Python 3 standard library only. No dependencies, no build step.
 | `chat_server.py` | HTTP server on `localhost:8000`: serves the page, reads and appends to `chat.jsonl` |
 | `chat.html` | The panel: renders the markup, sends messages, polls for replies |
 | `reply.py` | Posts an assistant reply into the log |
+| `control-room.service` | systemd user unit: starts the panel at login and restarts it if it dies |
 | `status.py` | Says what is happening WHILE working; shows under "Working on it…" and is cleared when the reply lands |
 | `watch.py` | Filter for `tail -F chat.jsonl`: one line per new user message |
 
@@ -40,7 +41,8 @@ the yellow `C` in the corner switches it.
 ## Run it
 
 ```bash
-python3 chat_server.py                  # then open http://localhost:8000
+python3 chat_server.py                  # then open http://localhost:8111
+                                        # (CONTROL_ROOM_PORT overrides the port)
 ```
 
 Then tell Claude Code, in the same folder, to watch the chat:
@@ -95,5 +97,9 @@ message as a notification, so no polling loop is needed.
 - **A scrollable pane says so.** The detail pane and the timeline draw a visible
   scrollbar rather than the overlay one the OS fades in only after you scroll, which
   is too late to tell you there is more below.
-- **Local only.** The server binds to `127.0.0.1`, so nothing is exposed to the
-  internet.
+- **Local only.** The server binds to `127.0.0.1` on port 8111, so nothing is exposed
+  to the internet and nothing collides with the usual 8000.
+- **It says when nobody is listening.** The page is connected to the server, but that
+  is not the same as Claude reading the log. The watcher touches `.watch` every 30s and
+  the page shows a "not watching" pill when that goes stale — a message sent then will
+  simply wait.

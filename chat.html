@@ -261,6 +261,16 @@
   }
   .thumb .when i { font-style: normal; opacity: .55; }
 
+  /* Claude's watch on the log is a separate thing from the server being up: the page
+     can be perfectly connected while nothing is reading what you send. */
+  #deaf {
+    position: fixed; top: 16px; right: 52px; z-index: 6;
+    font-size: 13px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase;
+    padding: 5px 12px; border: 3px solid var(--ink); border-radius: 999px;
+    background: var(--yellow); color: var(--on-yellow); display: none;
+  }
+  #deaf.on { display: block; }
+
   #lamp.off { background: var(--red); box-shadow: 0 0 0 4px var(--ring-red); animation: blink 1s steps(2) infinite; }
   @keyframes blink { 50% { opacity: .35; } }
 
@@ -325,10 +335,17 @@
      DOWNWARD over the reply instead of pushing everything below it further down. */
   .head .slot { position: relative; flex: 1 1 auto; min-width: 0; height: 38px; }
   .head .crumb { position: absolute; top: 0; left: 0; max-width: 100%; z-index: 20; }
+  /* the stamp holds its own slot too, so showing the date grows DOWNWARD over the
+     reply and nothing below it moves. No rim: it is a label, not a control. */
+  .head .stamp-slot { position: relative; flex: none; height: 38px; width: 84px; }
   .stamp {
-    flex: none; font-size: 15px; font-weight: 800; letter-spacing: .02em;
-    opacity: .55; cursor: default; font-variant-numeric: tabular-nums;
+    position: absolute; top: 7px; right: 0; text-align: right;
+    font-size: 15px; font-weight: 800; letter-spacing: .02em;
+    opacity: .55; cursor: default; font-variant-numeric: tabular-nums; z-index: 20;
   }
+  .stamp .date { display: none; font-size: 13px; font-weight: 700; opacity: .8; }
+  .stamp:hover, .stamp.open { opacity: 1; }
+  .stamp:hover .date, .stamp.open .date { display: block; }
   .crumb::before { content: "YOU SAID: "; font-size: 12px; letter-spacing: .05em; opacity: .55; }
   /* a long command is cut to one line and opens on hover or click -- no tooltip, the
      hover already shows the whole thing */
@@ -495,6 +512,7 @@
   <button id="pal-btn" type="button" title="Colour palette">C</button>
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
   <div id="lamp" title="Connected"></div>
+  <div id="deaf" title="Claude is not watching the log right now — messages will wait">not watching</div>
   <div id="timeline"></div>
   <div id="stage">
     <div id="left"><div id="fit"><div id="screen"></div></div></div>
@@ -514,6 +532,7 @@
   const input = document.getElementById('input');
   const form  = document.getElementById('form');
   const lamp  = document.getElementById('lamp');
+  const deaf  = document.getElementById('deaf');
   let since = 0, fails = 0, offline = false, lastCommand = '';
   let waitingNow = false, lastStatusSig = '';
   // every question asked since the last reply, in order: several messages in a row are
@@ -556,10 +575,14 @@
       every reply, so a reply never has to carry the clock in its own text. */
   function stampOf(ts) {
     if (!ts) return null;
-    const st = el('div', 'stamp', '(' + clock(ts) + ')');
+    const st = el('div', 'stamp');
+    st.append(el('div', '', '(' + clock(ts) + ')'));
     const d = (ts || '').slice(0, 10).split('-');     // 2026-09-24 -> 24.09.2026
-    if (d.length === 3) st.title = d[2] + '.' + d[1] + '.' + d[0];
-    return st;
+    if (d.length === 3) st.append(el('div', 'date', d[2] + '.' + d[1] + '.' + d[0]));
+    st.onclick = () => st.classList.toggle('open');
+    const slot = el('div', 'stamp-slot');
+    slot.append(st);
+    return slot;
   }
 
   function show(nodes, crumb = true, ts = null) {
@@ -818,6 +841,9 @@
       fails = 0;
       lamp.classList.remove('off');
       lamp.title = 'Connected';
+      // the watcher touches .watch every 30s; 3 missed beats means the watch is gone
+      const age = data.watch;
+      deaf.classList.toggle('on', age === null || age === undefined || age > 90);
       if (offline) { offline = false; since = 0; return; }  // redraw from history next tick
       // progress lines move while NO new message arrives, so they are their own redraw
       if (!data.messages.length) {
