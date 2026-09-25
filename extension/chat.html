@@ -216,6 +216,9 @@
   /* fifth and sixth lamps: text size. Quiet like the ✕ -- they are a preference, not a
      thing you act with. The stage and the composer zoom together so the card and the
      box you type in never disagree about how big a word is. */
+  /* Text size, in the BOTTOM corner: a preference you set once and leave, so it does not
+     belong in the column of things you act with. --footer-h is measured at runtime, since
+     the composer grows as you type and these must stay clear of it. */
   #font-up, #font-dn {
     position: fixed; right: 18px; z-index: 6;
     display: grid; place-items: center; padding: 0;
@@ -225,22 +228,37 @@
     box-shadow: 0 0 0 4px var(--ring-grey);
     cursor: pointer; opacity: .6; transition: opacity .12s, background .12s;
   }
-  #font-up { top: 148px; }
-  #font-dn { top: 181px; }
-  /* seventh lamp: open a Claude tab. It was only reachable from the "not watching"
-     sheet, which appears exactly when things look fine -- i.e. never, when you want it. */
-  #claude-btn {
-    position: fixed; top: 214px; right: 18px; z-index: 6; display: none;
-    place-items: center; padding: 0;
-    width: 20px; height: 20px; border-radius: 50%;
-    font: 900 10px/1 inherit; color: var(--on-yellow);
-    background: var(--yellow); border: 3px solid var(--ink);
-    box-shadow: 0 0 0 4px var(--ring-yellow);
-    cursor: pointer; opacity: .75; transition: opacity .12s;
-  }
-  #claude-btn.on { display: grid; }
-  #claude-btn:hover { opacity: 1; }
+  #font-up { bottom: calc(var(--footer-h, 150px) + 46px); }
+  #font-dn { bottom: calc(var(--footer-h, 150px) + 13px); }
   #font-up:hover, #font-dn:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
+
+  /* The splash: the one step nobody guesses, said in the MIDDLE of the screen rather than
+     as a line inside a card that a blank panel never shows in the first place. */
+  #splash {
+    position: fixed; inset: 0; z-index: 9; display: none;
+    place-items: center; background: var(--veil); backdrop-filter: blur(3px);
+  }
+  #splash.on { display: grid; }
+  #splash .box {
+    max-width: 620px; margin: 0 24px; text-align: center;
+    background: var(--panel); border: var(--line) solid var(--ink);
+    border-radius: 22px; padding: 38px 34px; box-shadow: var(--pop);
+    display: flex; flex-direction: column; gap: 18px; align-items: center;
+  }
+  #splash h2 { margin: 0; font-size: clamp(24px, 3.4vw, 34px); font-weight: 900; letter-spacing: -.02em; }
+  #splash p { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.45; }
+  #splash .go {
+    font: inherit; font-size: 20px; font-weight: 900; padding: 16px 30px;
+    background: var(--yellow); color: var(--on-yellow);
+    border: var(--line) solid var(--ink); border-radius: 18px; cursor: pointer;
+    box-shadow: var(--pop-sm); transition: transform .08s, box-shadow .08s;
+  }
+  #splash .go:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
+  #splash .skip {
+    background: none; border: 0; font: inherit; font-size: 15px; font-weight: 600;
+    color: var(--ink); opacity: .55; cursor: pointer; text-decoration: underline;
+  }
+
   #stage, footer { zoom: var(--zoom, 1); }
   #palette {
     display: none; position: fixed; top: 115px; right: 50px; z-index: 7;
@@ -660,9 +678,16 @@
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
   <button id="font-up" type="button" title="Bigger text">+</button>
   <button id="font-dn" type="button" title="Smaller text">−</button>
-  <button id="claude-btn" type="button" title="Open a Claude tab">▶</button>
   <div id="lamp" title="Connected"></div>
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
+  <div id="splash" role="dialog" aria-label="Start a working session">
+    <div class="box">
+      <h2>Nobody is listening yet</h2>
+      <p>Start the Claude extension and write anything in there, to start your working session.</p>
+      <button class="go" type="button">Open a Claude tab</button>
+      <button class="skip" type="button">I will do it myself</button>
+    </div>
+  </div>
   <div id="tl-bar"><div id="tl-head"></div><div id="timeline"></div></div>
   <div id="stage">
     <div id="left"><div id="fit"><div id="screen"></div></div></div>
@@ -731,6 +756,9 @@
       panel, so the column scrolls instead. */
   const MIN_SCALE = 0.8;
   function fit() {
+    // the size buttons sit above the composer, which grows as you type
+    document.documentElement.style.setProperty(
+      '--footer-h', document.querySelector('footer').offsetHeight + 'px');
     screenEl.style.transform = 'none';
     screenEl.style.width = '100%';
     fitBox.style.height = 'auto';
@@ -906,7 +934,11 @@
         if (btn.dataset.cmd === '__start_session') {
           btn.onclick = async () => {
             btn.disabled = true;
-            if (!await openClaudeTab()) btn.disabled = false;
+            const how = await openClaudeTab();
+            if (how === null) { btn.disabled = false; return; }
+            btn.querySelector('span').textContent = how === 'terminal'
+              ? 'A terminal is opening — give it a few seconds'
+              : 'Opened — now write anything in the Claude tab';
           };
           picks.append(btn);
           continue;
@@ -1009,19 +1041,10 @@
   function drawWatchers(list) {
     aliveIds = list.map(w => w.session);
     drawTarget();
-    // First open with nobody reading the log: the screen would otherwise be blank and the
-    // panel would look broken, when what is missing is one step nobody guesses.
-    if (!greeted && window.CONTROL_ROOM_HOST === 'extension'
-        && !aliveIds.length && !screenEl.children.length) {
-      greeted = true;
-      show(build([
-        '::ask Nobody is listening yet',
-        '::say A Claude session reads what you write here — and a session starts when it is '
-          + 'given something to do, not when its tab is opened.',
-        '::pick Open a Claude tab => __start_session',
-        '::note Or open the Claude Code tab yourself and send it any message; it arms the '
-          + 'watch on its own and picks up everything waiting here.',
-      ].join('\n')), false);
+    // Nobody reading the log: say so in the MIDDLE of the screen. A line inside a card
+    // is no use when the panel is blank, which is exactly when this matters.
+    if (window.CONTROL_ROOM_HOST === 'extension') {
+      splash.classList.toggle('on', !aliveIds.length && !splashDismissed);
     }
   }
 
@@ -1234,29 +1257,33 @@
   };
   /** Open a Claude tab, and say what the tab still needs. Only the editor can do this,
       so in a browser the button is not shown at all. */
+  /** Ask the editor for a Claude tab. Returns 'tab' | 'terminal', or null if the host
+      could not be reached. Only the editor can do this; a browser never shows the button. */
   async function openClaudeTab() {
-    let how = null;
     try {
-      how = (await (await fetch('/api/start', { method: 'POST', body: '{}' })).json()).how;
-    } catch { return false; }
-    show(build((how === 'terminal' ? [
-      '::ask Starting',
-      '::say The Claude Code extension did not answer, so a terminal is opening with a '
-        + 'session in it instead. It arms the watch by itself — give it a few seconds.',
-    ] : [
-      '::ask A Claude tab is open',
-      '::say Type anything in it. A session does not exist until it is given something '
-        + 'to do, and that first message is what starts it.',
-      '::note It then arms the watch on this room by itself and picks up everything '
-        + 'waiting here. It does not matter what you type.',
-    ]).join('\n')), false);
-    return true;
+      const r = await (await fetch('/api/start', { method: 'POST', body: '{}' })).json();
+      return r.how || 'tab';
+    } catch {
+      return null;
+    }
   }
-  if (window.CONTROL_ROOM_HOST === 'extension') {
-    const cb = document.getElementById('claude-btn');
-    cb.classList.add('on');
-    cb.onclick = () => openClaudeTab();
-  }
+
+  const splash = document.getElementById('splash');
+  let splashDismissed = false;
+  splash.querySelector('.skip').onclick = () => { splashDismissed = true; splash.classList.remove('on'); };
+  splash.querySelector('.go').onclick = async (e) => {
+    const b = e.currentTarget;
+    b.disabled = true;
+    const how = await openClaudeTab();
+    b.disabled = false;
+    if (how === null) return;
+    splash.querySelector('h2').textContent = how === 'terminal' ? 'A terminal is opening' : 'A Claude tab is open';
+    splash.querySelector('p').textContent = how === 'terminal'
+      ? 'The Claude extension did not answer, so a session is starting in a terminal instead. It arms the watch by itself — give it a few seconds.'
+      : 'Now write anything in it. A session does not exist until it is given something to do, and that first message is what starts it.';
+    b.style.display = 'none';
+    splash.querySelector('.skip').textContent = 'Close this';
+  };
 
   document.getElementById('font-up').onclick = () => stepZoom(ZOOM_STEP);
   document.getElementById('font-dn').onclick = () => stepZoom(-ZOOM_STEP);

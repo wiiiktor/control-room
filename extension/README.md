@@ -5,10 +5,10 @@ extension host reads and writes `chat.jsonl` itself.
 
 ## Install from a .vsix
 
-Download `control-room-0.8.1.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
+Download `control-room-0.9.0.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
 
 ```bash
-code --install-extension control-room-0.8.1.vsix
+code --install-extension control-room-0.9.0.vsix
 ```
 
 or, in the editor: **Extensions ▸ … ▸ Install from VSIX…**
@@ -35,7 +35,7 @@ Cursor, Windsurf, VSCodium and other VS Code forks install the same file the sam
 ```bash
 npm install -g @vscode/vsce
 cd extension
-vsce package        # -> control-room-0.8.1.vsix
+vsce package        # -> control-room-0.9.0.vsix
 ```
 
 ## First open
@@ -61,7 +61,9 @@ What reads the log is a watch running *inside* a Claude session, so it dies when
 session restarts — and nothing else can start it again. Until it is back, messages you
 type sit in `chat.jsonl` unread, which looks exactly like the panel being broken.
 
-When nothing is listening, the panel offers **Open a Claude tab** — it runs the Claude
+When nothing is listening, the panel puts a splash over the screen — *start the Claude
+extension and write anything in there, to start your working session* — with one button on
+it. It offers **Open a Claude tab** — it runs the Claude
 Code extension's own open command, so the session lands in an editor tab rather than a
 terminal. A tab is not yet a session: Claude Code runs when it is given something to do,
 so type anything in it, and that first message starts the session that arms the watch. If
