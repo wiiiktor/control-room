@@ -181,7 +181,6 @@ function activate(context) {
   const wire = (panel, dir, name, session) => {
     const log = new Log(dir);
     panels.set(dir, panel);
-    panel.webview.html = pageHtml(context.extensionPath, dir, session);
     panel.onDidDispose(() => { panels.delete(dir); }, null, context.subscriptions);
 
     // a panel nobody is watching looks identical to a working one until a message is
@@ -191,27 +190,6 @@ function activate(context) {
       const want = name + (watchers.length ? '' : ' (no watcher)');
       if (want !== title) { title = want; panel.title = want; }
     };
-
-    // A panel with nothing watching it is the failure people report as "I write and
-    // nothing happens", and both halves of the cure are things only this extension can
-    // do. They are done, not offered: a question at this moment is a question about
-    // machinery the reader has not met yet.
-    const added = runtime.install(context.extensionPath, dir);
-    let hooked = false;
-    const hookRoot = workspaceRoot(dir);
-    if (!hook.installed(hookRoot) || !hook.current(hookRoot)) {
-      try {
-        const out = hook.install(hookRoot);
-        hooked = !out.already;                // a refreshed script is not news
-      } catch { /* read-only workspace */ }
-    }
-    if (added.length || hooked) {
-      const said = [];
-      if (added.length) said.push('wrote ' + added.join(', ') + ' into ' + path.basename(dir));
-      if (hooked) said.push('installed the session-start hook');
-      vscode.window.showInformationMessage(
-        'Control Room ' + said.join(' and ') + '. Open a Claude tab and send it any message to connect.');
-    }
 
     panel.webview.onDidReceiveMessage(async (req) => {
       const reply = (data) => panels.get(dir) && panel.webview.postMessage({ id: req.id, data });
@@ -262,6 +240,35 @@ function activate(context) {
         reply({ error: String(err && err.message || err) });
       }
     }, null, context.subscriptions);
+
+    // ⛔ ORDER MATTERS. Everything below can fail on someone else's disk, and a throw here
+    // used to skip the handler registration entirely -- leaving a panel that renders and
+    // silently swallows every message, which is indistinguishable from a dead bridge.
+    // The handler is registered first; the rest is best effort.
+    panel.webview.html = pageHtml(context.extensionPath, dir, session);
+    try {
+      // A panel with nothing watching it is the failure people report as "I write and
+      // nothing happens", and both halves of the cure are things only this extension can
+      // do. They are done, not offered: a question at this moment is about machinery the
+      // reader has not met yet.
+      const added = runtime.install(context.extensionPath, dir);
+      let hooked = false;
+      const hookRoot = workspaceRoot(dir);
+      if (!hook.installed(hookRoot) || !hook.current(hookRoot)) {
+        const out = hook.install(hookRoot);
+        hooked = !out.already;                // a refreshed script is not news
+      }
+      if (added.length || hooked) {
+        const said = [];
+        if (added.length) said.push('wrote ' + added.join(', ') + ' into ' + path.basename(dir));
+        if (hooked) said.push('installed the session-start hook');
+        vscode.window.showInformationMessage(
+          'Control Room ' + said.join(' and ') + '. Open a Claude tab and send it any message to connect.');
+      }
+    } catch (err) {
+      vscode.window.showWarningMessage('Control Room: could not finish setting up this room — '
+        + (err && err.message || err) + '. The panel still works.');
+    }
   };
 
   /** Ask which SESSION, the way Claude Code's own picker asks: by what the session
