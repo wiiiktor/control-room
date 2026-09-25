@@ -1247,7 +1247,11 @@
         return;
       }
       waitingNow = false;
-      show(build(newest.text), true, newest.ts);
+      // ⛔ only if it belongs to the session being read. Otherwise choosing a session was
+      // undone by the next reply from any other one, seconds later, for no visible reason.
+      if (!tlChosen || (newest.session || '') === tlFilter) {
+        show(build(newest.text), true, newest.ts);
+      }
       if (tlOpen) refreshTimeline(true);   // the strip follows the log, not the opening
     } catch {
       lamp.classList.add('off');
@@ -1454,6 +1458,9 @@
   const tlBar = document.getElementById('tl-bar');
   const tlHead = document.getElementById('tl-head');
   let tlFilter = null, tlRows = [], tlNames = {};
+  // true only when the session was picked from the menu. A filter that merely followed
+  // the newest reply must not stop the next one from being shown.
+  let tlChosen = false;
   const tlBtn = document.getElementById('tl-btn');
   let tlOpen = false, held = null, pinned = null;
 
@@ -1496,6 +1503,35 @@
       b.title = 'from an earlier reply — not live';
     });
     fit();
+  }
+
+  /** Switching session switches the WHOLE room, not just who you are addressing.
+   *
+   *  ⛔ Picking a session used to change the strip and the recipient and leave the main
+   *  screen showing the PREVIOUS session's last reply -- so the panel showed one
+   *  conversation while the composer was pointed at another. What you choose is what you
+   *  are looking at. */
+  function showSessionLatest(id) {
+    const rows = tlRows.filter(m => (m.session || '') === id);
+    const last = rows[rows.length - 1];
+    pinned = null;
+    markThumb(null);
+    if (!last) {
+      // a session with a transcript but nothing in this room. Leaving someone else's
+      // reply up would read as this session's answer.
+      lastCommand = '';
+      show(build('::note ' + String(tlNames[id] || id || 'That session').slice(0, 60)
+        + ' has not written in this control room yet.'), false);
+      return;
+    }
+    if (last === tlRows[tlRows.length - 1]) {
+      // the newest reply in the log: it is live, so its choice buttons must still work
+      lastCommand = last.asked || '';
+      show(build(last.text), true, last.ts);
+      return;
+    }
+    showArchived(last);
+    held = null;   // there is no live screen to fall back to -- this IS the screen now
   }
 
   function thumbOf(msg, n) {
@@ -1598,6 +1634,7 @@
       b.classList.toggle('empty', !withReplies.has(id));
       b.onclick = () => {
         tlFilter = id;                       // exactly one session is shown, always
+        tlChosen = true;
         // ...and what you write next goes THERE. Choosing a session to look at and
         // then talking to a different one is the confusing half of this panel.
         target = id || '';
@@ -1605,6 +1642,7 @@
         drawTarget();
         closeSessionMenu();
         drawTimeline();
+        showSessionLatest(id);
       };
       list.append(b);
     });
