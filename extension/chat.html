@@ -219,21 +219,21 @@
   /* Text size, in the BOTTOM corner: a preference you set once and leave, so it does not
      belong in the column of things you act with. --footer-h is measured at runtime, since
      the composer grows as you type and these must stay clear of it. */
+  /* Text size, in the footer's own corner. They used to float above it on a runtime
+     measurement, which put them "a bit up" and left them overlapping nothing in
+     particular; inside the row they are simply the last thing on it. */
+  #zoomers { display: flex; flex-direction: column; gap: 7px; justify-content: flex-end; }
   #font-up, #font-dn {
-    position: fixed; right: 18px; z-index: 6;
     display: grid; place-items: center; padding: 0;
-    width: 20px; height: 20px; border-radius: 50%;
-    font: 900 12px/1 inherit; color: var(--ink);
+    width: 26px; height: 26px; border-radius: 50%;
+    font: 900 14px/1 inherit; color: var(--ink);
     background: var(--grey); border: 3px solid var(--ink);
-    box-shadow: 0 0 0 4px var(--ring-grey);
+    box-shadow: 0 0 0 3px var(--ring-grey);
     cursor: pointer; opacity: .6; transition: opacity .12s, background .12s;
   }
-  #font-up { bottom: calc(var(--footer-h, 150px) + 46px); }
-  #font-dn { bottom: calc(var(--footer-h, 150px) + 13px); }
   #font-up:hover, #font-dn:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
+  #font-up:disabled, #font-dn:disabled { opacity: .25; cursor: default; }
 
-  /* The splash: the one step nobody guesses, said in the MIDDLE of the screen rather than
-     as a line inside a card that a blank panel never shows in the first place. */
   /* The splash is one button. Everything it needs to say fits on it, and the backdrop
      dismisses it -- a second control to explain would be a third thing to read. */
   #splash {
@@ -261,8 +261,25 @@
     opacity: .85; transition: opacity .12s, background .12s;
   }
   #splash .x:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
+  #splash .info {
+    display: block; margin: 16px auto 0; background: none; border: 0;
+    font: inherit; font-size: 15px; font-weight: 700; color: var(--ink);
+    opacity: .6; cursor: pointer; text-decoration: underline;
+  }
+  #splash .info:hover { opacity: 1; }
+  #splash .prompt {
+    margin: 12px auto 0; max-width: 620px; text-align: left;
+    background: var(--panel); border: 3px solid var(--ink); border-radius: 16px;
+    padding: 16px 18px; box-shadow: var(--pop-sm);
+  }
+  #splash .prompt p { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
+  #splash .prompt p.hint { margin: 10px 0 0; font-weight: 600; opacity: .65; }
+  #splash .prompt code {
+    display: block; font-size: 13px; line-height: 1.45; white-space: pre-wrap;
+    cursor: copy; padding: 10px 12px; border-radius: 10px;
+    background: var(--yellow-soft); border: 2px solid var(--hair);
+  }
 
-  #stage, footer { zoom: var(--zoom, 1); }
   #palette {
     display: none; position: fixed; top: 115px; right: 50px; z-index: 7;
     flex-direction: column; gap: 6px; padding: 10px;
@@ -679,14 +696,18 @@
   <button id="tl-btn" type="button" title="Timeline — past replies">T</button>
   <button id="pal-btn" type="button" title="Colour palette">C</button>
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
-  <button id="font-up" type="button" title="Bigger text">+</button>
-  <button id="font-dn" type="button" title="Smaller text">−</button>
   <div id="lamp" title="Connected"></div>
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
   <div id="splash" role="dialog" aria-label="Start a working session">
     <div class="wrap">
       <button class="go" type="button">Open the Claude session and write Hello in there to start connection</button>
       <button class="x" type="button" title="Close" aria-label="Close">✕</button>
+      <button class="info" type="button" aria-expanded="false">Info on how to set required Permission Mode</button>
+      <div class="prompt" hidden>
+        <p>To set the required permission mode for this extension, put this prompt to Claude:</p>
+        <code id="perm-prompt">Set the two VS Code settings that let the Claude Code extension act without asking permission for every step: claudeCode.allowDangerouslySkipPermissions = true and claudeCode.initialPermissionMode = "bypassPermissions". Put both in my VS Code user settings.json — Linux ~/.config/Code/User/settings.json, macOS ~/Library/Application Support/Code/User/settings.json, Windows %APPDATA%\Code\User\settings.json — keeping everything else in the file, then tell me to reload the window.</code>
+        <p class="hint">Click the prompt to copy it. Both settings are needed: with only one, the extension quietly goes back to asking.</p>
+      </div>
     </div>
   </div>
   <div id="tl-bar"><div id="tl-head"></div><div id="timeline"></div></div>
@@ -701,6 +722,10 @@
         <div id="to-hint"></div>
       </div>
       <button type="submit">SEND</button>
+      <div id="zoomers">
+        <button id="font-up" type="button" title="Bigger text">+</button>
+        <button id="font-dn" type="button" title="Smaller text">−</button>
+      </div>
     </form>
   </footer>
 
@@ -757,9 +782,6 @@
       panel, so the column scrolls instead. */
   const MIN_SCALE = 0.8;
   function fit() {
-    // the size buttons sit above the composer, which grows as you type
-    document.documentElement.style.setProperty(
-      '--footer-h', document.querySelector('footer').offsetHeight + 'px');
     screenEl.style.transform = 'none';
     screenEl.style.width = '100%';
     fitBox.style.height = 'auto';
@@ -1262,7 +1284,10 @@
     return isFinite(v) && v >= ZOOM_MIN && v <= ZOOM_MAX ? v : 1;
   })();
   function applyZoom() {
-    document.documentElement.style.setProperty('--zoom', String(zoom));
+    // ⛔ setting a custom property that a stylesheet rule reads did NOT take effect until
+    // some other thing forced a relayout: the buttons appeared dead until Ctrl+/- was
+    // used. Writing the zoom inline, on the element itself, applies immediately.
+    document.body.style.zoom = String(zoom);
     try { localStorage.setItem('ctrl-zoom', String(zoom)); } catch {}
     document.getElementById('font-up').disabled = zoom >= ZOOM_MAX - 1e-9;
     document.getElementById('font-dn').disabled = zoom <= ZOOM_MIN + 1e-9;
@@ -1312,6 +1337,32 @@
   const dismissSplash = () => { splashDismissed = true; splash.classList.remove('on'); };
   splash.onclick = (e) => { if (e.target === splash) dismissSplash(); };
   splash.querySelector('.x').onclick = dismissSplash;
+
+  // the permission mode is the one piece of setup this panel cannot do for you, and the
+  // setting names are unguessable -- so it hands you the words to ask Claude with
+  const splashInfo = splash.querySelector('.info');
+  const splashPrompt = splash.querySelector('.prompt');
+  splashInfo.onclick = () => {
+    const open = splashPrompt.hidden;
+    splashPrompt.hidden = !open;
+    splashInfo.setAttribute('aria-expanded', String(open));
+    splashInfo.textContent = open ? 'Hide this' : 'Info on how to set required Permission Mode';
+  };
+  splash.querySelector('#perm-prompt').onclick = async (e) => {
+    const el = e.currentTarget;
+    try {
+      await navigator.clipboard.writeText(el.textContent);
+    } catch {
+      const r = document.createRange();          // clipboard can be blocked; select it instead
+      r.selectNodeContents(el);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      return;
+    }
+    const hint = splashPrompt.querySelector('.hint');
+    const said = hint.textContent;
+    hint.textContent = 'Copied.';
+    setTimeout(() => { hint.textContent = said; }, 1600);
+  };
   splashGo.onclick = async () => {
     splashGo.disabled = true;
     const how = await openClaudeTab();

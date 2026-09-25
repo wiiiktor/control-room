@@ -21,20 +21,35 @@ only) on the same machine as the session.
 
 ## Install
 
-Anyone who can see this repository can install it on any machine, with no clone:
+Needs [`gh`](https://cli.github.com), logged in (`gh auth login`). The repository is
+private, so a plain URL will not do: `raw.githubusercontent.com` answers 404 for it, which
+reads like a missing file rather than a missing login.
+
+### Linux and macOS
 
 ```bash
 gh api repos/wiiiktor/control-room/contents/extension/get.sh \
   -H 'Accept: application/vnd.github.raw' | bash
 ```
 
-Add `-s <version>` to pin one (`| bash -s 0.10.0`). From a clone, `extension/get.sh` does
-the same. It needs [`gh`](https://cli.github.com), logged in — the repository is private,
-so `raw.githubusercontent.com` answers 404, which reads like a missing file rather than a
-missing login. It installs with whichever editor CLI the machine has (`code`,
-`code-insiders`, `cursor`, `codium`, `windsurf`), or the one named in `CONTROL_ROOM_CODE`.
+Pin a version with `| bash -s 0.10.1`. From a clone, `extension/get.sh` does the same. It
+installs with whichever editor CLI the machine has — `code`, `code-insiders`, `cursor`,
+`codium`, `windsurf` — or the one named in `CONTROL_ROOM_CODE`.
 
-Then: reload the extensions, and **Ctrl+Shift+P → Control Room**.
+### Windows
+
+Git for Windows ships Git Bash; in it, the command above works unchanged. Without it, in
+`cmd.exe` (its redirection is byte-safe, unlike PowerShell's, which would corrupt the
+archive):
+
+```bat
+gh api repos/wiiiktor/control-room/contents/extension --jq ".[].name" | findstr .vsix
+cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.10.1.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
+code --install-extension %TEMP%\cr.vsix --force
+```
+
+Then, on every platform: reload the extensions (**Extensions** view, `Ctrl+Shift+X`, then
+**Reload**), and **Ctrl+Shift+P → Control Room**.
 
 ## Using it
 
@@ -80,9 +95,8 @@ settings are preserved and installing twice is a no-op.
 ## Permissions: letting Claude work without a prompt per action
 
 The VS Code extension does **not** read `permissions.defaultMode` from
-`~/.claude/settings.json`. It reads two of its own VS Code settings, and silently falls
-back to prompting if only one of them is set. Put **both** in your user `settings.json`
-(*Preferences: Open User Settings (JSON)*), or in `.vscode/settings.json` for one project:
+`~/.claude/settings.json`. It reads two of its own VS Code settings, and falls back to
+prompting — silently — if only one of them is set:
 
 ```json
 {
@@ -91,12 +105,29 @@ back to prompting if only one of them is set. Put **both** in your user `setting
 }
 ```
 
-Then reload the window. The confirmation is the words **bypass permissions** under the
-Claude input box. The first key is a gate and the second sets the starting mode: with only
-the second, `getInitialPermissionMode()` returns `"default"` and nothing appears to happen.
+The first is a gate, the second sets the starting mode; with only the second,
+`getInitialPermissionMode()` returns `"default"` and nothing appears to happen.
 
-As the name says, this skips the per-action confirmations. Turn it on for a workspace you
-trust, not by reflex.
+Put them in your user settings file — *Preferences: Open User Settings (JSON)* opens the
+right one on any platform, or edit it directly:
+
+| | |
+|---|---|
+| Linux | `~/.config/Code/User/settings.json` |
+| macOS | `~/Library/Application Support/Code/User/settings.json` |
+| Windows | `%APPDATA%\Code\User\settings.json` |
+
+...or let Claude do it — this prompt is also in the panel's splash, under *Info on how to
+set required Permission Mode*:
+
+> Set the two VS Code settings that let the Claude Code extension act without asking
+> permission for every step: `claudeCode.allowDangerouslySkipPermissions = true` and
+> `claudeCode.initialPermissionMode = "bypassPermissions"`. Put both in my VS Code user
+> settings.json, keeping everything else in the file, then tell me to reload the window.
+
+Reload the window afterwards. The confirmation is the words **bypass permissions** under
+the Claude input box. As the name says, this skips the per-action confirmations — turn it
+on for a workspace you trust, not by reflex.
 
 ## Installing an update restarts the extension host
 
