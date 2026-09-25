@@ -46,7 +46,10 @@ def pick_room(rooms, sid):
        so this used to fall through to the first room by name -- and a fresh tab opened
        from any other panel attached itself to that one, wrote its turns there, and left
        the panel you started it from silent. A panel touches .expect when it opens a tab;
-       the newest unclaimed one, within fifteen minutes, is that request;
+       the newest unclaimed one, within ninety seconds, is that request. It was fifteen
+       minutes, and far too generous: every extension-host restart gives the Claude tab a
+       NEW session id, and seven of them in twenty minutes claimed a request nobody had
+       made for them;
     4. failing all of it, the plain room.
     """
     for d in rooms:
@@ -61,7 +64,7 @@ def pick_room(rooms, sid):
             m = (d / ".expect").stat().st_mtime
         except OSError:
             continue
-        if now - m < 900 and m > when:
+        if now - m < 90 and m > when:
             best, when = d, m
     if best is not None and sid:
         # claim it, so the next hook for this session reads the binding instead of racing
@@ -118,6 +121,28 @@ def last_assistant_text(transcript):
     return ""
 
 
+# \u26d4 NOT EVERY PROMPT IS A PERSON TYPING. Claude Code submits its own turns through
+# this same hook: a background task finishing, a reminder, the output of a slash command.
+# Mirrored, they arrive in the panel as things the reader supposedly said -- and the panel
+# puts the newest one in the "you said" breadcrumb, so the screen quoted a task-notification
+# back at them as their own question. A prompt that opens with one of these is machinery.
+MACHINE = (
+    "<task-notification>",
+    "<system-reminder>",
+    "<local-command-stdout>",
+    "<local-command-stderr>",
+    "<command-name>",
+    "[SYSTEM NOTIFICATION",
+    "[Artifact comment sent to Claude]",
+    "Caveat: The messages below were generated",
+)
+
+
+def machine_typed(text):
+    head = text.lstrip()
+    return any(head.startswith(m) for m in MACHINE)
+
+
 def already_answered(log):
     """Did reply.py just write the same answer into the panel?
 
@@ -163,7 +188,7 @@ def main():
 
     if event == "UserPromptSubmit":
         text = (data.get("prompt") or "").strip()
-        if text:
+        if text and not machine_typed(text):
             append_message("user", text, to=sid or None, mirror=True)
         return
 
@@ -224,7 +249,10 @@ def pick_room(rooms, sid):
        so this used to fall through to the first room by name -- and a fresh tab opened
        from any other panel attached itself to that one, wrote its turns there, and left
        the panel you started it from silent. A panel touches .expect when it opens a tab;
-       the newest unclaimed one, within fifteen minutes, is that request;
+       the newest unclaimed one, within ninety seconds, is that request. It was fifteen
+       minutes, and far too generous: every extension-host restart gives the Claude tab a
+       NEW session id, and seven of them in twenty minutes claimed a request nobody had
+       made for them;
     4. failing all of it, the plain room.
     """
     for d in rooms:
@@ -239,7 +267,7 @@ def pick_room(rooms, sid):
             m = (d / ".expect").stat().st_mtime
         except OSError:
             continue
-        if now - m < 900 and m > when:
+        if now - m < 90 and m > when:
             best, when = d, m
     if best is not None and sid:
         # claim it, so the next hook for this session reads the binding instead of racing
