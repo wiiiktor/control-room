@@ -1,15 +1,15 @@
 'use strict';
 /**
- * The log, exactly as chat_server.py keeps it.
+ * The log, exactly as chatlog.py keeps it.
  *
  * One JSON object per line in chat.jsonl; ids come from a high-water mark in .seq so
- * they never repeat, even after the log is truncated. reply.py writes the same file
- * from the terminal, so the two must agree on this format down to the field names.
+ * they never repeat, even after the log is truncated. reply.py writes the same file from
+ * the session, so the two must agree on this format down to the field names.
  */
 const fs = require('fs');
 const path = require('path');
 
-/** The log's timestamps are LOCAL, because chat_server.py writes them that way and the
+/** The log's timestamps are LOCAL, because chatlog.py writes them that way and the
  *  panel prints them as a wall clock. toISOString() is UTC, which stamped every message
  *  sent from the editor two hours behind the replies to it. */
 function localStamp(d = new Date()) {

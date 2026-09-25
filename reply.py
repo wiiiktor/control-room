@@ -12,14 +12,14 @@ import sys
 from pathlib import Path
 
 # ⛔ A SYMLINKED COPY IMPORTS THE ORIGINAL. Python puts the script's RESOLVED directory on
-# sys.path, so running this from an instance folder of symlinks imported chat_server from
+# sys.path, so running this from an instance folder of symlinks imported chatlog from
 # the ORIGINAL folder -- and replies went into the wrong panel's log. Pin the directory
 # this script was invoked from before importing anything.
 _HERE = Path(sys.argv[0]).absolute().parent
 os.environ.setdefault("CONTROL_ROOM_DIR", str(_HERE))
 sys.path.insert(0, str(_HERE))
 
-from chat_server import append_message
+from chatlog import append_message
 
 
 def session_id():

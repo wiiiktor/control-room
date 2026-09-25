@@ -2,131 +2,114 @@
 
 ![Control Room](docs/control-room.png)
 
-A big-button control panel for driving [Claude Code](https://claude.com/claude-code)
-from a browser.
+A big-button control panel for driving [Claude Code](https://claude.com/claude-code),
+as a VS Code extension.
 
-You type (or tap a button) in the panel. The message is appended to `chat.jsonl`.
-Claude Code, running in a terminal, watches that file, does the work, and answers
-with `reply.py` in a small line-based markup ([MARKUP.md](MARKUP.md)) that the panel
-renders as headlines, stat tiles, status pills, cards and choice buttons.
+You type in the panel; the message is appended to `chat.jsonl`. A Claude Code session
+watches that file, does the work, and answers with `reply.py` in a small line-based markup
+([MARKUP.md](MARKUP.md)) that the panel renders as headlines, stat tiles, status pills,
+cards and choice buttons.
 
 ```
-browser  ────────►  chat.jsonl  ──►  Claude Code
-   ▲                                      │
-   └──────────  reply.py  ◄───────────────┘
+panel  ────────►  chat.jsonl  ──►  Claude Code session
+  ▲                                       │
+  └──────────  reply.py  ◄────────────────┘
 ```
 
-Python 3 standard library only. No dependencies, no build step.
+The panel needs no server and no dependencies. Answering needs Python 3 (standard library
+only) on the same machine as the session.
 
-## Files
+## Install
 
-| File | What it does |
-|---|---|
-| `chat_server.py` | HTTP server on `localhost:8000`: serves the page, reads and appends to `chat.jsonl` |
-| `chat.html` | The panel: renders the markup, sends messages, polls for replies |
-| `reply.py` | Posts an assistant reply into the log |
-| `resume.py` | Answers messages addressed to ONE dormant session by resuming it (`claude --resume`) |
-| `autoresume.py` | Starts a `resume.py` on demand for whichever session you write to from the panel |
-| `control-room-autoresume.service` | systemd user unit for the waker |
-| `sessions.py` | Lists this project's Claude Code sessions: id, time, size, opening message |
-| `control-room.service` | systemd user unit: starts the panel at login and restarts it if it dies |
-| `status.py` | Says what is happening WHILE working; shows under "Working on it…" and is cleared when the reply lands |
-| `watch.py` | Filter for `tail -F chat.jsonl`: one line per new user message |
-
-## What a reply looks like
-
-![Every element the panel can draw](docs/control-room-example.png)
-
-One reply, every directive: the headline, the lead, a note, four stat tiles, three
-cards, a plain line, two choice buttons and a `::fill`. The card that is open on the
-right holds a `::chart` and an `::html` table. The palette here is "peas with corn";
-the yellow `C` in the corner switches it.
-
-## In the editor instead of a browser
-
-`extension/` is a VS Code extension that opens the same panel as an editor tab, with no
-server and no port — the extension host reads and writes `chat.jsonl` itself.
+Anyone who can see this repository can install it on any machine, with no clone:
 
 ```bash
-code --install-extension extension/control-room-0.2.0.vsix
+gh api repos/wiiiktor/control-room/contents/extension/get.sh \
+  -H 'Accept: application/vnd.github.raw' | bash
 ```
 
-or **Extensions ▸ … ▸ Install from VSIX…**, then run **Control Room: Open panel** from
-the command palette. The same file installs in Cursor, Windsurf and VSCodium
-(`cursor --install-extension …`). Build it again with `extension/build.sh`.
+Add `-s <version>` to pin one (`| bash -s 0.10.0`). From a clone, `extension/get.sh` does
+the same. It needs [`gh`](https://cli.github.com), logged in — the repository is private,
+so `raw.githubusercontent.com` answers 404, which reads like a missing file rather than a
+missing login. It installs with whichever editor CLI the machine has (`code`,
+`code-insiders`, `cursor`, `codium`, `windsurf`), or the one named in `CONTROL_ROOM_CODE`.
 
-## Run it
+Then: reload the extensions, and **Ctrl+Shift+P → Control Room**.
 
-```bash
-python3 chat_server.py                  # then open http://localhost:8111
-                                        # (CONTROL_ROOM_PORT overrides the port)
+## Using it
+
+1. Open the Claude Code tab and send it **any** message. A session starts when it is given
+   something to do, not when its tab is opened — this is the step everyone misses, which is
+   why the panel opens on a splash that says exactly this.
+2. Open the panel: **Ctrl+Shift+P → Control Room: Open panel**. It asks which session you
+   want to talk to.
+3. Write. The session answers in the panel.
+
+A workspace can hold several rooms — one folder per session, each with its own
+`chat.jsonl` — and every `control-room*` folder is offered as a separate panel.
+
+## What runs where
+
+| File | What it does | Needs |
+|---|---|---|
+| `extension/` | the panel: reads and writes `chat.jsonl` itself | VS Code 1.84+ |
+| `watch.py` | prints each new message for the session to answer, and announces anything unanswered when it starts | Python 3 |
+| `reply.py` | posts an assistant reply into the log | Python 3 |
+| `status.py` | progress lines shown while a reply is being worked on | Python 3 |
+| `chatlog.py` | the log format, shared by the three above | Python 3 |
+
+Nothing here is Linux-specific: the paths come from the workspace, the timestamps are
+local, and `fcntl` locking works on macOS. What is *not* portable is the conversation —
+`chat.jsonl` is per machine and deliberately not in the repository, so a fresh clone gives
+you the extension and an empty room.
+
+## Keeping the panel alive
+
+What reads the log is a watch running **inside** a Claude Code session, so it dies with
+that session — and nothing else can start it again. Until it is back, messages you type sit
+in `chat.jsonl` unread, which looks exactly like the panel being broken. The panel says so:
+the corner pill goes **NOT WATCHING** and the tab title gains `(no watcher)`.
+
+The extension can install a `SessionStart` hook that closes most of this gap: it writes
+`.claude/hooks/control-room-watch.py` and merges one entry into `.claude/settings.json`, so
+every Claude session in the workspace is told at startup to arm the watch — on the room
+*that* session belongs to — and how many messages are waiting. Run **Control Room: Install
+the session-start watch hook**, or say yes when the panel offers it on first open. Existing
+settings are preserved and installing twice is a no-op.
+
+## Permissions: letting Claude work without a prompt per action
+
+The VS Code extension does **not** read `permissions.defaultMode` from
+`~/.claude/settings.json`. It reads two of its own VS Code settings, and silently falls
+back to prompting if only one of them is set. Put **both** in your user `settings.json`
+(*Preferences: Open User Settings (JSON)*), or in `.vscode/settings.json` for one project:
+
+```json
+{
+  "claudeCode.allowDangerouslySkipPermissions": true,
+  "claudeCode.initialPermissionMode": "bypassPermissions"
+}
 ```
 
-Then tell Claude Code, in the same folder, to watch the chat:
+Then reload the window. The confirmation is the words **bypass permissions** under the
+Claude input box. The first key is a gate and the second sets the starting mode: with only
+the second, `getInitialPermissionMode()` returns `"default"` and nothing appears to happen.
 
-```bash
-tail -n0 -F chat.jsonl | python3 -u watch.py      # each user message as one line
-```
+As the name says, this skips the per-action confirmations. Turn it on for a workspace you
+trust, not by reflex.
 
-and to answer with:
+## Installing an update restarts the extension host
 
-```bash
-python3 reply.py <<'EOF2'
-::ask Which one?
-::pick Option A
-::pick Option B
-EOF2
-```
+VS Code reloads every extension when one is installed, and Claude Code is one of them: its
+tab says *"Claude Code stopped responding in this tab…"* and its session connection drops.
+That is the install working. The Control Room panel comes back on its own — it registers a
+webview serializer and each panel records which room it belongs to — but the Claude tab
+needs reopening from the session list, and the watch needs one message to start again.
 
-In Claude Code, running the watch command through the Monitor tool delivers each
-message as a notification, so no polling loop is needed.
+## The markup
 
-## Behaviour worth knowing
+[MARKUP.md](MARKUP.md) is the whole language: `::ask ::say ::note ::kv ::ok ::warn ::err
+::wait ::pick ::fill ::chart ::html ::card`. Replies also take `**bold**`, `` `code` `` and
+`*italic*` inline.
 
-- **One screen, no scrollback.** Each reply replaces the left column; detail lives
-  in cards that open on the right. The panel stamps each reply with its own `(HH:MM)`
-  from `chat.jsonl`, with the date on hover, so a reply never carries a clock in its
-  text and an archived one shows when it landed. A reply too tall for the column is shrunk to fit,
-  down to a floor where the text is still readable, and only then does the column
-  scroll. The "you said" breadcrumb is cut to one line and opens on hover or click.
-- **Grouped by session.** Each reply records the Claude session that wrote it, so the
-  timeline draws a divider per session — labelled with what that session opened with,
-  since Claude Code does not name sessions — and the strip shows exactly ONE session at a
-  time, chosen from a "session:" menu at its head (or by clicking the divider) — never
-  two mixed together. It opens on the newest session.
-- **The timeline is the scrollback.** The yellow `T` in the corner opens a strip of
-  every past reply, each one re-rendered by the same builder rather than stored as an
-  image. Hover a thumbnail to read that screen full size on the left; click to pin it
-  so its cards can be opened; `T` again or `Esc` closes. Nothing is lost by the
-  one-screen rule — `chat.jsonl` holds every message, and the strip is built from it.
-- **Eight palettes.** The yellow `C` picks "peas with corn" (the default), dark,
-  light, and five built on the colour wheel, each holding to one relationship:
-  Copper & Cobalt (complementary), Plum & Citron (split-complementary), Terracotta
-  Triad (triadic), Moss (analogous) and Porcelain & Ink (near-monochrome plus one
-  accent). Surfaces sit in the base hue at low saturation, accents share a lightness,
-  and the text on each fill is picked by contrast ratio, not by eye. Every colour is a
-  token on `:root`, so a palette is one block of variables and nothing else in the
-  stylesheet knows which is running; the choice is kept in `localStorage` and stamped
-  on `<html>` before the first paint.
-- **Live reload.** The server stamps the page with its file time, so an open tab
-  reloads itself when `chat.html` changes.
-- **Progress while you wait.** `python3 status.py "reading the training log"` adds a
-  line under "Working on it…". The lines live in `.status`, never in `chat.jsonl`, and
-  are cleared the moment a message lands — scaffolding, not conversation.
-- **Safe concurrent writers.** The server and `reply.py` both
-  append under an `flock`, and ids come from a high-water mark in `.seq`, so they
-  never repeat, even after `chat.jsonl` is truncated.
-- **A scrollable pane says so.** The detail pane and the timeline draw a visible
-  scrollbar rather than the overlay one the OS fades in only after you scroll, which
-  is too late to tell you there is more below.
-- **Local only.** The server binds to `127.0.0.1` on port 8111, so nothing is exposed
-  to the internet and nothing collides with the usual 8000.
-- **Address a message to one session.** The timeline's session menu picks who you are
-  writing to; `watch.py` ignores anything addressed elsewhere, so only that session is
-  notified. Choose a session that is not running and `autoresume.py` wakes it with
-  `claude --resume` so it can answer — one real Claude run per message.
-- **It says when nobody is listening.** The page is connected to the server, but that
-  is not the same as Claude reading the log. The watcher touches `.watch` every 30s and
-  the page shows a "not watching" pill when that goes stale — a message sent then will
-  simply wait. Clicking the pill explains what it can rule out (a stale page) and what
-  only you can fix (the session that holds the watch).
+![An example reply](docs/control-room-example.png)

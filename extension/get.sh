@@ -31,8 +31,12 @@ if [ $# -ge 1 ]; then
   NAME="control-room-$1.vsix"
 else
   # there is only ever one .vsix in extension/; sort -V so a 0.10.0 beats a 0.9.0
+  # ⛔ no `sort -V`: macOS ships BSD sort, which does not have it. Sort by the version
+  # numbers themselves so 0.10.0 beats 0.9.0 on every machine.
   NAME=$(gh api "repos/$REPO/contents/extension" \
-           --jq '.[] | select(.name|endswith(".vsix")) | .name' | sort -V | tail -1)
+           --jq '.[] | select(.name|endswith(".vsix")) | .name' \
+         | awk -F'[-.]' '{printf "%d %d %d %s\n", $3, $4, $5, $0}' \
+         | sort -n -k1,1 -k2,2 -k3,3 | tail -1 | cut -d' ' -f4)
   [ -n "$NAME" ] || { echo "no .vsix published in $REPO/extension" >&2; exit 1; }
 fi
 
