@@ -39,6 +39,19 @@ cards, a plain line, two choice buttons and a `::fill`. The card that is open on
 right holds a `::chart` and an `::html` table. The palette here is "peas with corn";
 the yellow `C` in the corner switches it.
 
+## In the editor instead of a browser
+
+`extension/` is a VS Code extension that opens the same panel as an editor tab, with no
+server and no port — the extension host reads and writes `chat.jsonl` itself.
+
+```bash
+code --install-extension extension/control-room-0.1.0.vsix
+```
+
+or **Extensions ▸ … ▸ Install from VSIX…**, then run **Control Room: Open panel** from
+the command palette. The same file installs in Cursor, Windsurf and VSCodium
+(`cursor --install-extension …`). Build it again with `extension/build.sh`.
+
 ## Run it
 
 ```bash
