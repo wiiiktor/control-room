@@ -18,6 +18,7 @@ const { Log } = require('./log');
 const { labels } = require('./sessions');
 const hook = require('./hook');
 const runtime = require('./runtime');
+const diagnose = require('./diagnose');
 
 /** "control-room-medicover" -> "Control Room · medicover"; the plain one keeps its name. */
 function instanceName(folder) {
@@ -327,6 +328,22 @@ function activate(context) {
       },
     }));
   }
+
+  // "the bridge does not work" is four faults wearing one face; this names which
+  context.subscriptions.push(vscode.commands.registerCommand('controlRoom.diagnose', async () => {
+    const found = instances();
+    const root = workspaceRoot(found[0].dir);
+    const text = diagnose.report({
+      version: context.extension ? context.extension.packageJSON.version : '?',
+      root,
+      rooms: found.map(i => i.dir),
+      runtimeFiles: runtime.FILES,
+      hookInstalled: hook.installed(root),
+      hookPath: path.join(root, '.claude', 'settings.json'),
+    });
+    const doc = await vscode.workspace.openTextDocument({ content: text, language: 'plaintext' });
+    await vscode.window.showTextDocument(doc, { preview: false });
+  }));
 
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.open', async () => {
     const picked = await pickSession('Which session do you want to talk to?');

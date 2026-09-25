@@ -2,7 +2,7 @@
   "name": "control-room",
   "displayName": "Control Room",
   "description": "A big-button control panel for driving Claude Code from inside the editor.",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "publisher": "wiiiktor",
   "license": "MIT",
   "repository": {
@@ -36,6 +36,10 @@
       {
         "command": "controlRoom.installHook",
         "title": "Control Room: Install the session-start watch hook"
+      },
+      {
+        "command": "controlRoom.diagnose",
+        "title": "Control Room: Diagnose the bridge"
       }
     ],
     "configuration": {
@@ -70,6 +74,10 @@
         {
           "command": "controlRoom.installHook",
           "when": "false"
+        },
+        {
+          "command": "controlRoom.diagnose",
+          "when": "true"
         }
       ]
     }

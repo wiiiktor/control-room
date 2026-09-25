@@ -32,7 +32,7 @@ gh api repos/wiiiktor/control-room/contents/extension/get.sh \
   -H 'Accept: application/vnd.github.raw' | bash
 ```
 
-Pin a version with `| bash -s 0.11.0`. From a clone, `extension/get.sh` does the same. It
+Pin a version with `| bash -s 0.11.1`. From a clone, `extension/get.sh` does the same. It
 installs with whichever editor CLI the machine has — `code`, `code-insiders`, `cursor`,
 `codium`, `windsurf` — or the one named in `CONTROL_ROOM_CODE`.
 
@@ -44,7 +44,7 @@ archive):
 
 ```bat
 gh api repos/wiiiktor/control-room/contents/extension --jq ".[].name" | findstr .vsix
-cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.11.0.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
+cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.11.1.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
 code --install-extension %TEMP%\cr.vsix --force
 ```
 
@@ -82,6 +82,13 @@ Nothing here is Linux-specific: the paths come from the workspace, the timestamp
 local, and `fcntl` locking works on macOS. What is *not* portable is the conversation —
 `chat.jsonl` is per machine and deliberately not in the repository, so a fresh clone gives
 you the extension and an empty room.
+
+## When the bridge does not work
+
+**Ctrl+Shift+P → Control Room: Diagnose the bridge** opens a report naming which of the
+four possible faults it is: no room, no Python, no hook, or no session. It also prints the
+last few messages in the room, which is how you tell whether the panel is writing where the
+watch is reading.
 
 ## Keeping the panel alive
 
