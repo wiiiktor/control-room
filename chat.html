@@ -918,7 +918,12 @@
     if (sig !== lastWatcherSig) {
       lastWatcherSig = sig;
       const keep = toSel.value;
-      toSel.replaceChildren(el('option', '', 'whoever is listening'));
+      // ⛔ an <option> with no value attribute uses its TEXT as its value, so this one
+      // was sending to="whoever is listening" -- a target no watcher matches, which
+      // watch.py then filtered out. Every message picked that way went nowhere.
+      const any = el('option', '', 'whoever is listening');
+      any.value = '';
+      toSel.replaceChildren(any);
       list.forEach(w => {
         const o = el('option', '', (w.label || w.session).slice(0, 48));
         o.value = w.session;

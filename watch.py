@@ -63,7 +63,12 @@ for line in sys.stdin:
     # addressed mail: a message sent "to" another session is not ours to answer, and
     # printing it would notify BOTH sessions -- the exact thing the selector prevents
     to = (msg.get("to") or "").strip()
-    if to and SID and to != SID:
+    # ⚠️ only skip a message addressed to ANOTHER REAL session. A target that is not a
+    # session id at all (a stray label, a typo) would otherwise be dropped by every
+    # watcher at once and the message would vanish -- which is exactly what happened
+    # with an <option> whose value defaulted to its own text.
+    looks_like_session = len(to) == 36 and to.count("-") == 4
+    if to and SID and looks_like_session and to != SID:
         continue
     text = " ".join(msg.get("text", "").split())
     print(f"[web chat #{msg.get('id')}]{' (to me)' if to else ''} {text}", flush=True)
