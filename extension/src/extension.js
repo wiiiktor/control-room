@@ -329,6 +329,20 @@ function activate(context) {
     }));
   }
 
+  // A window already running keeps the extension it started with, and nothing on the
+  // command line can reload it -- but a URI can, because opening one activates this
+  // extension and hands it the path. `code --open-url vscode://wiiiktor.control-room/reload`
+  // is then the terminal command for a menu step that otherwise has to be clicked.
+  if (vscode.window.registerUriHandler) {
+    context.subscriptions.push(vscode.window.registerUriHandler({
+      handleUri(uri) {
+        if (uri.path === '/reload') return vscode.commands.executeCommand('workbench.action.reloadWindow');
+        if (uri.path === '/open') return vscode.commands.executeCommand('controlRoom.open');
+        if (uri.path === '/diagnose') return vscode.commands.executeCommand('controlRoom.diagnose');
+      },
+    }));
+  }
+
   // "the bridge does not work" is four faults wearing one face; this names which
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.diagnose', async () => {
     const found = instances();

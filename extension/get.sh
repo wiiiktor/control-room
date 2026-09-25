@@ -46,6 +46,11 @@ echo "downloaded $NAME ($(stat -c%s "$OUT" 2>/dev/null || stat -f%z "$OUT") byte
 [ "${CONTROL_ROOM_NO_INSTALL:-}" = 1 ] && { echo "$OUT"; exit 0; }
 "$EDITOR_CLI" --install-extension "$OUT" --force
 
+# A window that is already open keeps the extension it started with. This asks the running
+# window to reload itself; it works from the version that registers the handler onwards, so
+# the step below is still printed for the first update and for a window that ignores it.
+"$EDITOR_CLI" --open-url "vscode://wiiiktor.control-room/reload" >/dev/null 2>&1 || true
+
 # Two steps people get wrong: they reload the WINDOW (which is not enough to pick up a new
 # extension build) and then look for the panel in a menu. Say both, and say them in bold --
 # this scrolls past under vsce's own output otherwise. Colour only when a terminal is reading.
@@ -55,8 +60,8 @@ cat <<MSG
 
 ${Y}▸ ${NAME} installed${R}
 
-  ${B}1.${R} Reload the extensions: ${B}Extensions${R} view ${D}(Ctrl+Shift+X)${R}, then ${B}Reload${R}
-     ${D}— or Ctrl+Shift+P → Developer: Reload Window${R}
+  ${B}1.${R} A reload was requested automatically. If the window did not reload:
+     ${D}Ctrl+Shift+P → Developer: Reload Window${R}
   ${B}2.${R} Open the panel: ${D}Ctrl+Shift+P${R} → ${B}Control Room${R}
 
 MSG

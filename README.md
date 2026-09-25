@@ -32,7 +32,7 @@ gh api repos/wiiiktor/control-room/contents/extension/get.sh \
   -H 'Accept: application/vnd.github.raw' | bash
 ```
 
-Pin a version with `| bash -s 0.11.1`. From a clone, `extension/get.sh` does the same. It
+Pin a version with `| bash -s 0.11.2`. From a clone, `extension/get.sh` does the same. It
 installs with whichever editor CLI the machine has — `code`, `code-insiders`, `cursor`,
 `codium`, `windsurf` — or the one named in `CONTROL_ROOM_CODE`.
 
@@ -44,7 +44,7 @@ archive):
 
 ```bat
 gh api repos/wiiiktor/control-room/contents/extension --jq ".[].name" | findstr .vsix
-cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.11.1.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
+cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.11.2.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
 code --install-extension %TEMP%\cr.vsix --force
 ```
 
@@ -53,8 +53,15 @@ No clone is needed: the .vsix carries the room's Python side (`watch.py`, `reply
 the panel opens, along with the session-start hook. It never overwrites files that are
 already there, so a clone's own copies win.
 
-Then, on every platform: reload the extensions (**Extensions** view, `Ctrl+Shift+X`, then
-**Reload**), and **Ctrl+Shift+P → Control Room**.
+The installer then asks the running window to reload itself, so there is no menu step:
+
+```bash
+code --open-url "vscode://wiiiktor.control-room/reload"
+```
+
+That works from the version registering the handler onwards — the first update after this
+one still needs **Ctrl+Shift+P → Developer: Reload Window**. Then **Ctrl+Shift+P → Control
+Room**. The same scheme takes `/open` and `/diagnose`.
 
 ## Using it
 
