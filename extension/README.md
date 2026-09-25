@@ -5,24 +5,24 @@ extension host reads and writes `chat.jsonl` itself.
 
 ## Install from a .vsix
 
-Download `control-room-0.5.1.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
+Download `control-room-0.6.0.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
 
 ```bash
-code --install-extension control-room-0.5.1.vsix
+code --install-extension control-room-0.6.0.vsix
 ```
 
 or, in the editor: **Extensions ▸ … ▸ Install from VSIX…**
 
 Then run **Control Room: Open panel** from the command palette.
 
-Four commands:
+One command in the palette: **`Control Room: Open panel`**. It asks which **session**
+you want to talk to, listing each live one under the name its transcript carries, and
+opens the control room that session is listening to with the session already selected as
+the recipient. If nothing is listening it says so, and says what to do about it.
 
-| command | what it does |
-|---|---|
-| `Control Room: Open panel for a session` | pick a **session** by name; opens the control room it is listening to, already addressed to it |
-| `Control Room: Open every control room in this workspace` | one tab per instance, in one go |
-| `Control Room: Resume a Claude session in a terminal` | pick a session, and it opens a terminal running `claude --resume <id>` |
-| `Control Room: Install the session-start watch hook` | writes the hook below, so Claude starts watching the panel by itself |
+Three more commands exist but are kept out of the palette, because the panel offers each
+of them at the moment it matters: opening every instance at once, resuming a session in a
+terminal, and installing the hook below.
 
 The second one is what the browser version cannot do: a dormant session gets a real
 window you can watch and type into, instead of a headless process answering in the log.
@@ -35,7 +35,7 @@ Cursor, Windsurf, VSCodium and other VS Code forks install the same file the sam
 ```bash
 npm install -g @vscode/vsce
 cd extension
-vsce package        # -> control-room-0.5.1.vsix
+vsce package        # -> control-room-0.6.0.vsix
 ```
 
 ## Keeping the panel alive

@@ -118,6 +118,9 @@ function resumeIn(dir, sid) {
   term.sendText('claude --resume ' + sid);
 }
 
+/** Said whenever a panel is opened with nothing reading it: the one step people miss. */
+const NO_SESSION = 'Control Room: no Claude session is watching this panel yet. Open the Claude tab and send it any message — that starts the session that reads what you write here. Your messages are kept until then.';
+
 function activate(context) {
   // one panel per instance folder: a second panel must not take over the first one's log
   const panels = new Map();
@@ -215,9 +218,11 @@ function activate(context) {
     const found = instances();
     const names = await labels(workspaceRoot(found[0].dir));
     const items = [];
+    let live = 0;
     for (const inst of found) {
-      const live = new Log(inst.dir).watchers(names);
-      for (const w of live) {
+      const watching = new Log(inst.dir).watchers(names);
+      live += watching.length;
+      for (const w of watching) {
         items.push({
           label: (names[w.session] || w.label || w.session).slice(0, 70),
           description: inst.name,
@@ -228,35 +233,26 @@ function activate(context) {
       }
       // a room nobody is listening to is still worth opening -- to read it, or to
       // resume the session from inside it -- but it must not look like a live one
-      if (!live.length) {
+      if (!watching.length) {
         items.push({
           label: inst.name,
-          description: 'no session listening',
-          detail: inst.dir,
+          description: 'no session is listening',
+          detail: 'Open the Claude tab and send it any message — that starts the session that reads this panel.',
           inst,
           session: '',
         });
       }
     }
-    if (items.length === 1) return items[0];
-    const picked = await vscode.window.showQuickPick(items, { placeHolder, matchOnDescription: true });
-    return picked || null;
-  };
-
-  /** Write the SessionStart hook that re-arms the watch. Without it the panel goes
-   *  quiet after every Claude restart and only a human notices. */
-  const installHook = async (quiet) => {
-    const root = workspaceRoot(instances()[0].dir);
-    try {
-      const out = hook.install(root);
-      vscode.window.showInformationMessage(out.already
-        ? 'Control Room: the session-start hook was already installed; its script was refreshed.'
-        : 'Control Room: session-start hook installed. It takes effect the next time a Claude session starts in this workspace.');
-      return out;
-    } catch (err) {
-      if (!quiet) vscode.window.showErrorMessage('Control Room: could not install the hook — ' + (err && err.message || err));
-      return null;
+    if (items.length === 1) {
+      if (!live) vscode.window.showInformationMessage(NO_SESSION);
+      return items[0];
     }
+    const picked = await vscode.window.showQuickPick(items, {
+      placeHolder: live ? placeHolder : 'No Claude session is listening yet — open the Claude tab and send it a message',
+      matchOnDescription: true,
+    });
+    if (picked && !picked.session) vscode.window.showInformationMessage(NO_SESSION);
+    return picked || null;
   };
 
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.installHook', () => installHook(false)));
