@@ -212,6 +212,23 @@
   }
   #pal-btn:hover, #pal-btn.on { opacity: 1; }
   #pal-btn.on { box-shadow: 0 0 0 4px var(--ring-ink); }
+
+  /* fifth and sixth lamps: text size. Quiet like the ✕ -- they are a preference, not a
+     thing you act with. The stage and the composer zoom together so the card and the
+     box you type in never disagree about how big a word is. */
+  #font-up, #font-dn {
+    position: fixed; right: 18px; z-index: 6;
+    display: grid; place-items: center; padding: 0;
+    width: 20px; height: 20px; border-radius: 50%;
+    font: 900 12px/1 inherit; color: var(--ink);
+    background: var(--grey); border: 3px solid var(--ink);
+    box-shadow: 0 0 0 4px var(--ring-grey);
+    cursor: pointer; opacity: .6; transition: opacity .12s, background .12s;
+  }
+  #font-up { top: 148px; }
+  #font-dn { top: 181px; }
+  #font-up:hover, #font-dn:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
+  #stage, footer { zoom: var(--zoom, 1); }
   #palette {
     display: none; position: fixed; top: 115px; right: 50px; z-index: 7;
     flex-direction: column; gap: 6px; padding: 10px;
@@ -628,6 +645,8 @@
   <button id="tl-btn" type="button" title="Timeline — past replies">T</button>
   <button id="pal-btn" type="button" title="Colour palette">C</button>
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
+  <button id="font-up" type="button" title="Bigger text">+</button>
+  <button id="font-dn" type="button" title="Smaller text">−</button>
   <div id="lamp" title="Connected"></div>
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
   <div id="tl-bar"><div id="tl-head"></div><div id="timeline"></div></div>
@@ -1129,6 +1148,28 @@
     palBtn.classList.toggle('on', open);
   };
   applyTheme(document.documentElement.dataset.theme || 'peas');
+
+  /* Text size. Kept like the palette: a preference that survives a reload, because
+     losing it silently is how a panel ends up unreadable on the next open. */
+  const ZOOM_MIN = 0.7, ZOOM_MAX = 1.8, ZOOM_STEP = 0.1;
+  let zoom = (() => {
+    const v = parseFloat((() => { try { return localStorage.getItem('ctrl-zoom'); } catch { return ''; } })());
+    return isFinite(v) && v >= ZOOM_MIN && v <= ZOOM_MAX ? v : 1;
+  })();
+  function applyZoom() {
+    document.documentElement.style.setProperty('--zoom', String(zoom));
+    try { localStorage.setItem('ctrl-zoom', String(zoom)); } catch {}
+    document.getElementById('font-up').disabled = zoom >= ZOOM_MAX - 1e-9;
+    document.getElementById('font-dn').disabled = zoom <= ZOOM_MIN + 1e-9;
+    fit();                               // the card has to be re-measured at the new size
+  }
+  const stepZoom = (d) => {
+    zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round((zoom + d) * 10) / 10));
+    applyZoom();
+  };
+  document.getElementById('font-up').onclick = () => stepZoom(ZOOM_STEP);
+  document.getElementById('font-dn').onclick = () => stepZoom(-ZOOM_STEP);
+  applyZoom();
 
   /* ---- TIMELINE ------------------------------------------------------------
      Past replies, re-rendered by the same builder rather than stored as pictures,

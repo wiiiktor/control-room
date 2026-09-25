@@ -5,10 +5,10 @@ extension host reads and writes `chat.jsonl` itself.
 
 ## Install from a .vsix
 
-Download `control-room-0.6.2.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
+Download `control-room-0.7.0.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
 
 ```bash
-code --install-extension control-room-0.6.2.vsix
+code --install-extension control-room-0.7.0.vsix
 ```
 
 or, in the editor: **Extensions ▸ … ▸ Install from VSIX…**
@@ -35,8 +35,16 @@ Cursor, Windsurf, VSCodium and other VS Code forks install the same file the sam
 ```bash
 npm install -g @vscode/vsce
 cd extension
-vsce package        # -> control-room-0.6.2.vsix
+vsce package        # -> control-room-0.7.0.vsix
 ```
+
+## Installing an update restarts the extension host
+
+VS Code reloads every extension when one is installed, and the Claude Code extension is
+one of them: its tab says *"Claude Code stopped responding in this tab…"* and its session
+connection drops. That is the install working, not a fault — reopen the conversation from
+the session list, or reload the window. It also ends the watch described below, so expect
+to give the Claude tab one message afterwards.
 
 ## Keeping the panel alive
 
