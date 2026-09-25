@@ -231,12 +231,21 @@
   }
 
   /* THE TIMELINE — hidden until T. Oldest left, newest right; it scrolls sideways only. */
-  #timeline {
-    display: none; flex: 0 0 auto; gap: 12px; overflow-x: auto; overflow-y: hidden;
-    padding: 12px 56px 12px 22px; border-bottom: var(--line) dashed var(--hair);
-    background: var(--veil);
+  /* the menu must not scroll away with the thumbnails, so the bar is two parts: a fixed
+     head and a rail that scrolls to the right of it */
+  #tl-bar {
+    display: none; flex: 0 0 auto; align-items: stretch;
+    border-bottom: var(--line) dashed var(--hair); background: var(--veil);
   }
-  #timeline.open { display: flex; }
+  #tl-bar.open { display: flex; }
+  #tl-head {
+    flex: 0 0 auto; display: flex; align-items: center;
+    padding: 12px 14px 12px 22px; border-right: 3px dashed var(--hair);
+  }
+  #timeline {
+    flex: 1 1 auto; min-width: 0; display: flex; gap: 12px;
+    overflow-x: auto; overflow-y: hidden; padding: 12px 56px 12px 14px;
+  }
   #timeline .empty-note { font-size: 15px; font-weight: 700; opacity: .5; }
   /* a session boundary: the strip is one ribbon, this says where a working session began */
   .tl-sep {
@@ -609,7 +618,7 @@
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
   <div id="lamp" title="Connected"></div>
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
-  <div id="timeline"></div>
+  <div id="tl-bar"><div id="tl-head"></div><div id="timeline"></div></div>
   <div id="stage">
     <div id="left"><div id="fit"><div id="screen"></div></div></div>
     <div id="detail" class="empty"></div>
@@ -1102,7 +1111,12 @@
     palEl.append(b);
   });
 
-  toSel.onchange = () => { target = toSel.value || ''; drawTarget(); };
+  toSel.onchange = () => {
+    target = toSel.value || '';
+    drawTarget();
+    // the strip follows the composer, as the composer follows the strip: one choice
+    if (tlOpen && target) { tlFilter = target; drawTimeline(); }
+  };
 
   palBtn.onclick = () => {
     const open = palEl.classList.toggle('open');
@@ -1116,6 +1130,8 @@
      left column; the live screen is held aside and put back on the way out. A click
      pins it, so you can open its cards. ------------------------------------------ */
   const tlEl = document.getElementById('timeline');
+  const tlBar = document.getElementById('tl-bar');
+  const tlHead = document.getElementById('tl-head');
   let tlFilter = null, tlRows = [], tlNames = {};
   const tlBtn = document.getElementById('tl-btn');
   let tlOpen = false, held = null, pinned = null;
@@ -1191,8 +1207,9 @@
 
   async function openTimeline() {
     tlOpen = true;
-    tlEl.classList.add('open');
+    tlBar.classList.add('open');
     tlBtn.classList.add('on');
+    tlHead.replaceChildren();
     tlEl.replaceChildren(el('p', 'empty-note', 'loading…'));
     let msgs;
     try {
@@ -1292,7 +1309,8 @@
   }
 
   function drawTimeline() {
-    const nodes = [sessionMenu()];
+    tlHead.replaceChildren(sessionMenu());   // fixed: it never scrolls away
+    const nodes = [];
     let seen = null, nth = 0, shown = 0;
     tlRows.forEach((m, i) => {
       // '' is "no session recorded" -- a real key, because null would be indistinguishable
@@ -1334,8 +1352,9 @@
     pinned = null;
     closeSessionMenu();
     restoreLive();
-    tlEl.classList.remove('open');
+    tlBar.classList.remove('open');
     tlEl.replaceChildren();
+    tlHead.replaceChildren();
     tlBtn.classList.remove('on');
     fit();
   }
