@@ -69,10 +69,15 @@ function workspaceRoot(fallback) {
  *
  * The extension ships its own chat.html so it works in any workspace; a copy sitting
  * beside the log wins, because that is the one being edited while developing. */
-function pageHtml(extensionPath, dir, session) {
+function pageHtml(extensionPath, dir, session, build) {
   const local = path.join(dir, 'chat.html');
   const bundled = path.join(extensionPath, 'chat.html');
   let html = fs.readFileSync(fs.existsSync(local) ? local : bundled, 'utf8');
+  // ⛔ NOBODY WAS STAMPING THIS. The page compares its own build with the one the host
+  // reports and reloads when they differ -- but the placeholder was never replaced, so
+  // the comparison guarded itself out and the reload never fired. An updated extension
+  // could go on serving yesterday's page, which reads as the update not working.
+  html = html.replace('"__BUILD__"', JSON.stringify(String(build || '0')));
   const shim = `
 <script>
   // The session was chosen in the command palette, before the page existed. The page
@@ -287,7 +292,7 @@ function activate(context) {
     // used to skip the handler registration entirely -- leaving a panel that renders and
     // silently swallows every message, which is indistinguishable from a dead bridge.
     // The handler is registered first; the rest is best effort.
-    panel.webview.html = pageHtml(context.extensionPath, dir, session);
+    panel.webview.html = pageHtml(context.extensionPath, dir, session, BUILD);
     try {
       // A panel with nothing watching it is the failure people report as "I write and
       // nothing happens", and both halves of the cure are things only this extension can

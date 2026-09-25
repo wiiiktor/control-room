@@ -1877,6 +1877,9 @@
     blocks.push(...[
       { type: 'note', body: 'The watch lives inside a Claude Code session. If that session ended, say anything in the Claude panel in VS Code — the session re-arms the watch on its next turn and picks up everything waiting here.' },
       { type: 'note', body: 'If the panel itself is dead rather than unwatched, close the tab and open it again: Ctrl+Shift+P → Control Room.' },
+      // which build this PAGE is -- the answer to "did the update take", which nothing
+      // on screen could answer before
+      { type: 'kv', body: 'panel build = ' + (BUILD === '__BUILD__' ? 'unstamped' : BUILD) },
     ]);
     openSheet('Nobody is watching', blocks, null);
   };
