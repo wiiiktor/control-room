@@ -3,6 +3,19 @@
 The same panel as the browser version, in an editor tab. No server, no port: the
 extension host reads and writes `chat.jsonl` itself.
 
+## Install in one command
+
+From a clone of this repository:
+
+```bash
+control-room/extension/get.sh          # whatever version is published
+control-room/extension/get.sh 0.9.0    # a particular one
+```
+
+It downloads the `.vsix` from GitHub and installs it. The repository is private, so it
+goes through `gh` (already logged in) — `raw.githubusercontent.com` answers 404 for a
+private repo, which reads like a missing file rather than a missing login.
+
 ## Install from a .vsix
 
 Download `control-room-0.9.0.vsix` from the [releases](https://github.com/wiiiktor/control-room/releases), then either:
