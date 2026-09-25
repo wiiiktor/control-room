@@ -177,7 +177,7 @@
   }
   /* same lamp shape, one below the other — grey and quiet */
   #wipe {
-    position: fixed; top: 50px; right: 18px; z-index: 5;
+    position: fixed; top: 49px; right: 18px; z-index: 5;
     display: grid; place-items: center; padding: 0;
     width: 20px; height: 20px; border-radius: 50%;
     font: 900 10px/1 inherit; color: var(--ink);
@@ -188,7 +188,7 @@
   #wipe:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
   /* third lamp in the same column: the timeline toggle */
   #tl-btn {
-    position: fixed; top: 84px; right: 18px; z-index: 6;
+    position: fixed; top: 82px; right: 18px; z-index: 6;
     display: grid; place-items: center; padding: 0;
     width: 20px; height: 20px; border-radius: 50%;
     font: 900 11px/1 inherit; color: var(--on-yellow);
@@ -202,7 +202,7 @@
 
   /* fourth lamp: the palette picker */
   #pal-btn {
-    position: fixed; top: 118px; right: 18px; z-index: 6;
+    position: fixed; top: 115px; right: 18px; z-index: 6;
     display: grid; place-items: center; padding: 0;
     width: 20px; height: 20px; border-radius: 50%;
     font: 900 11px/1 inherit; color: var(--on-yellow);
@@ -213,7 +213,7 @@
   #pal-btn:hover, #pal-btn.on { opacity: 1; }
   #pal-btn.on { box-shadow: 0 0 0 4px var(--ring-ink); }
   #palette {
-    display: none; position: fixed; top: 118px; right: 50px; z-index: 7;
+    display: none; position: fixed; top: 115px; right: 50px; z-index: 7;
     flex-direction: column; gap: 6px; padding: 10px;
     background: var(--panel); border: 3px solid var(--ink); box-shadow: var(--pop-sm);
   }
@@ -261,8 +261,10 @@
   .tl-menu { flex: 0 0 auto; align-self: center; position: relative; }
   .tl-menu > button {
     font: inherit; font-size: 13px; font-weight: 800; text-transform: uppercase;
-    letter-spacing: .04em; cursor: pointer; color: var(--ink); white-space: nowrap;
+    letter-spacing: .04em; cursor: pointer; color: var(--ink);
     background: var(--panel); border: 3px solid var(--ink); border-radius: 999px; padding: 6px 14px;
+    /* fixed, so the head of the strip does not jump when the session changes */
+    width: 300px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   /* ⚠️ the strip scrolls (overflow-x: auto), which CLIPS anything positioned inside it.
      The list is fixed and lives on <body>, so it floats over the whole page. */
@@ -270,7 +272,7 @@
     display: none; position: fixed; z-index: 60;
     flex-direction: column; gap: 6px; padding: 10px; max-height: 320px; overflow-y: auto;
     background: var(--panel); border: 3px solid var(--ink); box-shadow: var(--pop-sm);
-    width: 420px; max-width: 70vw;
+    width: 620px; max-width: 86vw;
   }
   .tl-list.open { display: flex; }
   .tl-list button {
@@ -353,10 +355,15 @@
   #detail.empty { align-items: center; justify-content: center; border-left-color: var(--hair-soft); }
   /* A scrollable surface says so: the overlay bar the OS draws is invisible until you
      already scrolled, which is too late to tell you there is more below. */
-  #left, #detail, #timeline { scrollbar-width: thin; scrollbar-color: var(--ink) transparent; }
-  #left::-webkit-scrollbar, #detail::-webkit-scrollbar, #timeline::-webkit-scrollbar { width: 12px; height: 12px; }
-  #left::-webkit-scrollbar-track, #detail::-webkit-scrollbar-track, #timeline::-webkit-scrollbar-track { background: transparent; }
-  #left::-webkit-scrollbar-thumb, #detail::-webkit-scrollbar-thumb, #timeline::-webkit-scrollbar-thumb {
+  #left, #detail { scrollbar-width: thin; scrollbar-color: var(--ink) transparent; }
+  /* the strip and the session menu share one scrollbar style */
+  #timeline, .tl-list { scrollbar-width: auto; scrollbar-color: var(--ink) var(--panel); }
+  #left::-webkit-scrollbar, #detail::-webkit-scrollbar,
+  #timeline::-webkit-scrollbar, .tl-list::-webkit-scrollbar { width: 14px; height: 14px; }
+  #left::-webkit-scrollbar-track, #detail::-webkit-scrollbar-track,
+  #timeline::-webkit-scrollbar-track, .tl-list::-webkit-scrollbar-track { background: var(--panel); }
+  #left::-webkit-scrollbar-thumb, #detail::-webkit-scrollbar-thumb,
+  #timeline::-webkit-scrollbar-thumb, .tl-list::-webkit-scrollbar-thumb {
     background: var(--ink); border: 3px solid var(--paper); border-radius: 999px;
   }
   #detail .placeholder {
@@ -1177,7 +1184,7 @@
       const n = tlRows.filter(m => (m.session || '') === id).length;
       b.append(el('em', '', id ? id.slice(0, 8) : '—'),
                el('span', '', (id ? (tlNames[id] || '(transcript gone)') : 'before sessions were recorded')),
-               el('em', '', n ? n + ' here' : 'not in this log'));
+               el('em', '', n ? n + ' here' : 'no control room log available'));
       b.disabled = !withReplies.has(id);
       b.onclick = () => {
         tlFilter = id;                       // exactly one session is shown, always
@@ -1186,15 +1193,22 @@
       };
       list.append(b);
     });
-    btn.onclick = () => {
-      const open = !list.classList.contains('open');
-      closeSessionMenu();
-      if (!open) return;
+    const openAt = () => {
       const r = btn.getBoundingClientRect();
       list.style.left = Math.round(r.left) + 'px';
       list.style.top = Math.round(r.bottom + 6) + 'px';
       list.classList.add('open');
     };
+    // hover opens it; it closes when the pointer leaves BOTH the button and the list,
+    // which are not nested (the list lives on <body> to escape the strip's clipping)
+    let leaveTimer = null;
+    const hold = () => { if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; } };
+    const later = () => { hold(); leaveTimer = setTimeout(closeSessionMenu, 220); };
+    btn.onmouseenter = () => { hold(); openAt(); };
+    btn.onmouseleave = later;
+    list.onmouseenter = hold;
+    list.onmouseleave = later;
+    btn.onclick = openAt;
     if (menuList) menuList.remove();
     menuList = list;
     document.body.append(list);              // out of the strip, so nothing clips it
