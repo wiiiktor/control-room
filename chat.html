@@ -280,6 +280,8 @@
     background: var(--yellow); color: var(--on-yellow); display: none;
   }
   #deaf.on { display: block; }
+  #deaf { cursor: pointer; font-family: inherit; box-shadow: var(--pop-sm); }
+  #deaf:active { transform: translate(2px, 2px); box-shadow: none; }
 
   #lamp.off { background: var(--red); box-shadow: 0 0 0 4px var(--ring-red); animation: blink 1s steps(2) infinite; }
   @keyframes blink { 50% { opacity: .35; } }
@@ -302,7 +304,9 @@
   #fit { width: 100%; max-width: 760px; margin: auto 0; }
   /* the right one MAY scroll: detail is not a decision and does not have to fit a screen */
   #detail {
-    overflow-y: auto; border-left: var(--line) dashed var(--hair); padding: 4px 4px 4px 22px;
+    /* the four corner buttons are FIXED, so anything scrolling past would pass under
+       them; the right gutter keeps text clear of all four */
+    overflow-y: auto; border-left: var(--line) dashed var(--hair); padding: 4px 56px 4px 22px;
     display: flex; flex-direction: column; gap: 16px;
   }
   #detail.empty { align-items: center; justify-content: center; border-left-color: var(--hair-soft); }
@@ -324,7 +328,7 @@
   .cards button.on { background: var(--yellow); color: var(--on-yellow); box-shadow: 0 0 0 var(--ink); transform: translate(4px, 4px); }
   @media (max-width: 900px) {
     #stage { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
-    #detail { border-left: none; border-top: var(--line) dashed var(--hair); padding: 16px 4px 4px; max-height: 45%; }
+    #detail { border-left: none; border-top: var(--line) dashed var(--hair); padding: 16px 56px 4px 4px; max-height: 45%; }
   }
   #screen {
     width: 100%; transform-origin: top left;
@@ -522,7 +526,7 @@
   <button id="pal-btn" type="button" title="Colour palette">C</button>
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
   <div id="lamp" title="Connected"></div>
-  <div id="deaf" title="Claude is not watching the log right now — messages will wait">not watching</div>
+  <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
   <div id="timeline"></div>
   <div id="stage">
     <div id="left"><div id="fit"><div id="screen"></div></div></div>
@@ -544,7 +548,7 @@
   const lamp  = document.getElementById('lamp');
   const deaf  = document.getElementById('deaf');
   let since = 0, fails = 0, offline = false, lastCommand = '';
-  let waitingNow = false, lastStatusSig = '';
+  let waitingNow = false, lastStatusSig = '', lastWatchAge = null;
   // every question asked since the last reply, in order: several messages in a row are
   // all answered by the one reply that follows, so the breadcrumb has to carry them all
   let pendingAsk = [];
@@ -729,6 +733,11 @@
         btn.append(el('span', '', label));
         // a prefill is the START of a sentence, so it ends with a space and the caret
         // sits after it -- the point is to keep typing, not to edit what landed
+        if (btn.dataset.cmd === '__reload') {
+          btn.onclick = () => location.reload();
+          picks.append(btn);
+          continue;
+        }
         btn.onclick = () => isFill
           ? (input.value = btn.dataset.cmd + ' ',
              input.focus(),
@@ -852,8 +861,8 @@
       lamp.classList.remove('off');
       lamp.title = 'Connected';
       // the watcher touches .watch every 30s; 3 missed beats means the watch is gone
-      const age = data.watch;
-      deaf.classList.toggle('on', age === null || age === undefined || age > 90);
+      lastWatchAge = data.watch;
+      deaf.classList.toggle('on', lastWatchAge === null || lastWatchAge === undefined || lastWatchAge > 90);
       if (offline) { offline = false; since = 0; return; }  // redraw from history next tick
       // progress lines move while NO new message arrives, so they are their own redraw
       if (!data.messages.length) {
@@ -1077,6 +1086,27 @@
   }
 
   tlBtn.onclick = () => (tlOpen ? closeTimeline() : openTimeline());
+
+  /* The pill is honest about its own limits: a page cannot make a Claude session read
+     the log again. What it CAN do is rule out the two things that look identical from
+     here — a stale page and a dead server — and say plainly what only you can fix. */
+  deaf.onclick = () => {
+    const age = lastWatchAge;
+    const blocks = [
+      { type: 'say', body: 'Nothing is reading the log. Your messages are being stored — they are not lost — but nobody will answer until a session picks them up.' },
+      { type: 'note', body: age === null || age === undefined
+          ? 'The watcher has never checked in since this server started.'
+          : 'Last heartbeat: ' + age + ' seconds ago. Anything over 90 means the watch is gone.' },
+      { type: 'note', body: 'The green lamp only means this page can reach the panel server. That is a different thing from a Claude session reading what you send.' },
+      { type: 'say', body: 'What this button can rule out' },
+      { type: 'pick', body: 'Reload the page => __reload' },
+      { type: 'note', body: 'Use it if the page has been open a long time: a stale tab can report an old heartbeat.' },
+      { type: 'say', body: 'What only you can fix' },
+      { type: 'note', body: 'The watch lives inside a Claude Code session. If that session ended, say anything in the Claude panel in VS Code — the session re-arms the watch on its next turn and picks up everything waiting here.' },
+      { type: 'note', body: 'If the panel itself is dead rather than unwatched, the lamp goes red and tells you the command to restart it.' },
+    ];
+    openSheet('Nobody is watching', blocks, null);
+  };
 
   document.getElementById('wipe').onclick = () => {
     lastCommand = '';
