@@ -14,7 +14,9 @@ import threading
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(os.environ.get("CONTROL_ROOM_DIR")
+            or Path(__file__).absolute().parent)   # absolute(), NOT resolve():
+# a symlinked copy of this file must belong to the directory it was invoked from
 WATCH = ROOT / ".watch"
 
 

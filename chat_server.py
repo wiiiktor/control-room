@@ -15,7 +15,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(os.environ.get("CONTROL_ROOM_DIR")
+            or Path(__file__).absolute().parent)   # absolute(), NOT resolve():
+# a symlinked copy of this file must belong to the directory it was invoked from
 LOG = ROOT / "chat.jsonl"
 PAGE = ROOT / "chat.html"
 ACCESS = ROOT / "access.log"

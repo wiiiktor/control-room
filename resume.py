@@ -12,12 +12,15 @@ history, same context — and lets it answer through reply.py.
 start it when you want to talk to a dormant session, stop it (Ctrl-C) when you are done.
 """
 import json
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(os.environ.get("CONTROL_ROOM_DIR")
+            or Path(__file__).absolute().parent)   # absolute(), NOT resolve():
+# a symlinked copy of this file must belong to the directory it was invoked from
 LOG = ROOT / "chat.jsonl"
 
 PROMPT = """This message came from the Control Room panel, addressed to this session:
