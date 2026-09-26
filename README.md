@@ -74,7 +74,26 @@ installs with whichever editor CLI the machine has — `code`, `code-insiders`, 
 
 ### Windows
 
-Git for Windows ships Git Bash; in it, the command above works unchanged. Without it, in
+⚠️ **The panel works; answering in it does not, yet.** Installing is fine and the panel
+opens, renders and accepts messages — but three things in the answering half are Unix-only,
+and all three were measured rather than assumed:
+
+| | |
+|---|---|
+| `chatlog.py` imports `fcntl` | there is no `fcntl` on Windows Python, so `reply.py`, `status.py` and the mirror hook all die on the import |
+| the hooks are registered as `python3 <script>` | Windows ships `python` and `py`, not `python3`, so the hooks never run |
+| the watch is `tail -n0 -F chat.jsonl \| python3 -u watch.py` | there is no `tail` in PowerShell or `cmd` |
+
+Under **WSL**, with the workspace opened inside it, all three are Unix again and the room
+works as it does on Linux. Git Bash is not a substitute: its `python` is the Windows one,
+so `fcntl` is still missing.
+
+A fourth, cosmetic: session labels come from `~/.claude/projects/<workspace-path-with-
+separators-as-dashes>`, and a Windows path starts `C:` — a colon cannot appear in a
+directory name, so the encoding differs and the picker shows sessions without their names.
+
+Installing itself: Git for Windows ships Git Bash; in it, the command above works
+unchanged. Without it, in
 `cmd.exe` (its redirection is byte-safe, unlike PowerShell's, which would corrupt the
 archive):
 
@@ -137,9 +156,10 @@ back.
 python3 -c 'import sys, fcntl, json; print("python", sys.version.split()[0], "— replies will work")'
 ```
 
-The imports are the point — `fcntl` is what serialises two writers into one log, and it is
-absent on Windows Python, where the room has to run under WSL or Git Bash. Any Python 3.8 or
-newer will do; there are no third-party packages to install, now or ever.
+The imports are the point — `fcntl` is what serialises two writers into one log, and it does
+not exist on Windows Python. That is why the answering half needs WSL there; see
+[Windows](#windows). Any Python 3.8 or newer will do; there are no third-party packages to
+install, now or ever.
 
 If the command prints nothing:
 
