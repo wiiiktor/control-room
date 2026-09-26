@@ -1489,15 +1489,19 @@
      Three token sets in the stylesheet; this only stamps data-theme on <html> and
      remembers the choice. Dark is the default, so an empty stamp is already right —
      the read is wrapped because localStorage throws in a locked-down browser. ---- */
+  // Ordered by GROUND, not by when each was written: the default first, then the rest of the
+  // light ones, then the dark ones. Classified by the measured luminance of each theme's --paper
+  // rather than by its name -- "Moss" and "Porcelain & Ink" say nothing about which way round
+  // they are, and one of them is dark.
   const THEMES = [
-    { id: 'dark',  name: 'Dark mode',      chip: '#1f1f1f' },
-    { id: 'light', name: 'Light mode',     chip: '#ffffff' },
-    { id: 'peas',  name: 'Peas with corn', chip: '#ffd43b' },
-    { id: 'cobalt',     name: 'Copper & Cobalt', chip: '#4987df' },
-    { id: 'plum',       name: 'Plum & Citron',   chip: '#9949df' },
+    { id: 'peas',       name: 'Peas with corn',   chip: '#ffd43b' },
+    { id: 'light',      name: 'Light mode',       chip: '#ffffff' },
     { id: 'terracotta', name: 'Terracotta Triad', chip: '#c96a3e' },
-    { id: 'moss',       name: 'Moss',            chip: '#49df99' },
-    { id: 'porcelain',  name: 'Porcelain & Ink', chip: '#226dc3' },
+    { id: 'porcelain',  name: 'Porcelain & Ink',  chip: '#226dc3' },
+    { id: 'dark',       name: 'Dark mode',        chip: '#1f1f1f' },
+    { id: 'cobalt',     name: 'Copper & Cobalt',  chip: '#4987df' },
+    { id: 'plum',       name: 'Plum & Citron',    chip: '#9949df' },
+    { id: 'moss',       name: 'Moss',             chip: '#49df99' },
   ];
   const palBtn = document.getElementById('pal-btn');
   const palEl = document.getElementById('palette');
