@@ -26,6 +26,7 @@ Installed by the Control Room extension; turn it off with controlRoom.mirrorEdit
 """
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -143,6 +144,29 @@ def machine_typed(text):
     return any(head.startswith(m) for m in MACHINE)
 
 
+# Blocks the harness wraps around or appends to a prompt. The reader did not type these,
+# and the panel shows the newest prompt as the "you said" breadcrumb -- so leaving them in
+# quoted tag soup back at them as their own words. Paired tags are cut out whole; the
+# pasted-content wrapper is unwrapped, because what is INSIDE it is exactly what the
+# reader pasted.
+CUT = ("system-reminder", "task-notification", "local-command-stdout",
+       "local-command-stderr", "command-name", "command-message", "command-args")
+
+
+def clean_prompt(text):
+    for tag in CUT:
+        text = re.sub("<" + tag + "[^>]*>.*?</" + tag + ">", "", text, flags=re.S)
+        text = re.sub("<" + tag + "[^>]*>", "", text)
+    text = re.sub("</?pasted_content[^>]*>", "", text)
+    # whatever that left behind: no runs of blank lines, no leading or trailing space
+    lines, out = text.splitlines(), []
+    for line in lines:
+        if not line.strip() and (not out or not out[-1]):
+            continue
+        out.append(line.rstrip())
+    return "\\n".join(out).strip()
+
+
 def already_answered(log):
     """Did reply.py just write the same answer into the panel?
 
@@ -189,7 +213,9 @@ def main():
     if event == "UserPromptSubmit":
         text = (data.get("prompt") or "").strip()
         if text and not machine_typed(text):
-            append_message("user", text, to=sid or None, mirror=True)
+            text = clean_prompt(text)
+            if text:
+                append_message("user", text, to=sid or None, mirror=True)
         return
 
     if event == "Stop":
