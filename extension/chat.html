@@ -246,6 +246,18 @@
     cursor: pointer; opacity: .6; transition: opacity .12s, background .12s;
   }
   #font-up:hover, #font-dn:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
+  /* Clears the RIGHT pane only. Same button as the two below it; hidden while the pane is
+     already empty, because a control that does nothing is worse than no control. */
+  #clear-detail {
+    display: grid; place-items: center; padding: 0;
+    width: 20px; height: 20px; border-radius: 50%;
+    font: 900 10px/1 inherit; color: var(--ink);
+    background: var(--grey); border: 3px solid var(--ink);
+    box-shadow: 0 0 0 4px var(--ring-grey);
+    cursor: pointer; opacity: .6; transition: opacity .12s, background .12s;
+  }
+  #clear-detail:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
+  #clear-detail[hidden] { display: none; }
   #font-up:disabled, #font-dn:disabled { opacity: .25; cursor: default; }
 
   /* The splash is one button. Everything it needs to say fits on it, and the backdrop
@@ -790,6 +802,7 @@
     <div id="left"><div id="fit"><div id="screen"></div></div></div>
     <div id="detail" class="empty"></div>
     <div id="zoomers">
+      <button id="clear-detail" type="button" title="Clear this pane" aria-label="Clear the detail pane">✕</button>
       <button id="font-up" type="button" title="Bigger text">+</button>
       <button id="font-dn" type="button" title="Smaller text">−</button>
     </div>
@@ -1237,11 +1250,14 @@
   /* The right pane is the detail surface: empty until something on the left is chosen,
      and it may scroll, because detail is not a decision and need not fit one screen. */
   let sheet = null;                       // the pane when it holds something, else null
+  const clearBtn = document.getElementById('clear-detail');
   function closeSheet() {
     detail.replaceChildren(el('p', 'placeholder', 'Pick something on the left'));
     detail.classList.add('empty');
+    // the only thing this touches on the left: the OPEN tile stops looking pressed
     screenEl.querySelectorAll('.cards button.on').forEach(b => b.classList.remove('on'));
     sheet = null;
+    if (clearBtn) clearBtn.hidden = true;
   }
   function openSheet(title, blocks, tile) {
     detail.classList.remove('empty');
@@ -1250,6 +1266,7 @@
     screenEl.querySelectorAll('.cards button.on').forEach(b => b.classList.remove('on'));
     if (tile) tile.classList.add('on');
     sheet = detail;
+    if (clearBtn) clearBtn.hidden = false;
   }
 
   /** The "to:" list is the sessions with a LIVE watch. One watcher is the normal case and
@@ -1730,6 +1747,11 @@
         : WAITING_TEXT;
   };
   splash.classList.add('on');          // before the first poll: a blank panel looks broken
+
+  // ⛔ closeSheet and NOTHING else. The left pane keeps its reply, the timeline keeps its
+  // filter, the composer keeps its text; the only mark removed outside this pane is the
+  // pressed state on the tile that opened it, which would otherwise claim something is open.
+  clearBtn.onclick = () => closeSheet();
 
   document.getElementById('font-up').onclick = () => stepZoom(ZOOM_STEP);
   document.getElementById('font-dn').onclick = () => stepZoom(-ZOOM_STEP);
