@@ -988,10 +988,16 @@
             btn.disabled = true;
             const how = await openClaudeTab();
             if (how === null) { btn.disabled = false; return; }
+            if (how === 'already') {
+              btn.querySelector('span').textContent = 'Already connected — just write here';
+              return;
+            }
             addressWhoeverAnswers();
             btn.querySelector('span').textContent = how === 'terminal'
               ? 'A terminal is opening — give it a few seconds'
-              : 'Opened — write anything in it; this panel talks to whoever answers';
+              : how === 'existing'
+                ? 'Brought the Claude tab forward — write anything in it'
+                : 'Opened — write anything in it; this panel talks to whoever answers';
           };
           picks.append(btn);
           continue;
@@ -1410,7 +1416,13 @@
       could not be reached. Only the editor can do this; a browser never shows the button. */
   async function openClaudeTab() {
     try {
-      const r = await (await fetch('/api/start', { method: 'POST', body: '{}' })).json();
+      // who we are trying to reach: the host can then answer "already there" instead of
+      // opening a tab for a session that is running and reading this log right now
+      const r = await (await fetch('/api/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: target || '' }),
+      })).json();
       return r.how || 'tab';
     } catch {
       return null;
@@ -1528,11 +1540,20 @@
     const how = await openClaudeTab();
     splashGo.disabled = false;
     if (how === null) return;
+    if (how === 'already') {
+      // nothing was opened, because nothing needed to be: say so rather than claiming a
+      // tab was started, which is what sent people looking for one
+      splashGo.textContent = 'That session is already connected — close this and write here';
+      splashGo.classList.add('live');
+      return;
+    }
     addressWhoeverAnswers();
     splashWaiting = true;
     splashGo.textContent = how === 'terminal'
       ? 'I am waiting for a signal from Claude — the terminal connects by itself'
-      : WAITING_TEXT;
+      : how === 'existing'
+        ? 'Brought the Claude tab forward — write anything in it'
+        : WAITING_TEXT;
   };
   splash.classList.add('on');          // before the first poll: a blank panel looks broken
 

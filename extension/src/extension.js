@@ -147,13 +147,40 @@ function resumeIn(dir, sid) {
  * terminal is the last resort. Opening a tab does NOT start a session: Claude Code runs
  * when it is given something to do, so the caller has to say "now type in it".
  */
+/** Is a Claude Code tab already open in this window?
+ *
+ *  It cannot say WHICH session that tab holds -- the extension publishes no such thing --
+ *  only that one exists. That is still worth knowing: a tab already open is a tab to bring
+ *  forward rather than a reason to make another.
+ */
+function claudeTabOpen() {
+  try {
+    for (const group of vscode.window.tabGroups.all) {
+      for (const tab of group.tabs) {
+        const view = tab.input && (tab.input.viewType || tab.input.notebookType);
+        if (view && /claude/i.test(String(view))) return true;
+        if (/^claude\b/i.test(String(tab.label || ''))) return true;
+      }
+    }
+  } catch { /* an older VS Code without the tab API */ }
+  return false;
+}
+
 async function openClaudeTab(dir) {
-  for (const cmd of ['claude-vscode.editor.open', 'claude-vscode.editor.openLast',
-                     'claude-vscode.newConversation']) {
+  // ⛔ ORDER MATTERS, AND IT WAS BACKWARDS. `claude-vscode.editor.open` is called "Open in
+  // New Tab" and does exactly that -- so pressing the button with a Claude tab already
+  // sitting there made a SECOND one, every time. `editor.openLast` is the plain "Open": it
+  // brings back the conversation that is already there. Reuse first, create only if there
+  // is nothing to reuse.
+  const existing = claudeTabOpen();
+  const order = existing
+    ? ['claude-vscode.editor.openLast', 'claude-vscode.editor.open', 'claude-vscode.newConversation']
+    : ['claude-vscode.editor.open', 'claude-vscode.editor.openLast', 'claude-vscode.newConversation'];
+  for (const cmd of order) {
     try {
       await vscode.commands.executeCommand(cmd);
       try { await vscode.commands.executeCommand('claude-vscode.focus'); } catch { /* optional */ }
-      return 'tab';
+      return existing ? 'existing' : 'tab';
     } catch { /* not this one; try the next */ }
   }
   // no extension to talk to -- a terminal session at least reads the same log
@@ -277,6 +304,17 @@ function activate(context) {
           return reply({ error: 'no room is listening for that session' });
         }
         if (route === '/api/start') {
+          // ⛔ ASK FIRST. The button opened a tab whatever the state was -- including when
+          // the session you had just chosen was already running and reading this very log.
+          // Nothing needed opening; the answer was "it is already there, write here".
+          const want = (JSON.parse(req.body || '{}').session || '').trim();
+          if (want) {
+            const names = await labels(workspaceRoot(dir));
+            if (log.watchers(names).some(w => w.session === want)) {
+              try { await vscode.commands.executeCommand('claude-vscode.focus'); } catch { /* optional */ }
+              return reply({ ok: true, how: 'already' });
+            }
+          }
           // ⛔ SAY WHICH ROOM ASKED. A session that has never run has no heartbeat, so the
           // hooks fall back to the first room by name -- and a fresh tab opened from any
           // other panel attached itself to that one instead, wrote its turns there, and
