@@ -167,6 +167,37 @@ def clean_prompt(text):
     return "\\n".join(out).strip()
 
 
+def last_user_text(transcript):
+    """The most recent thing the USER side of the transcript said, as text.
+
+    Tool results arrive as user-role entries with no text of their own; those are skipped, so
+    this returns the last actual prompt.
+    """
+    try:
+        lines = Path(transcript).read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+    for line in reversed(lines):
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        m = d.get("message") or {}
+        if m.get("role") != "user":
+            continue
+        c = m.get("content")
+        if isinstance(c, str):
+            if c.strip():
+                return c
+            continue
+        if isinstance(c, list):
+            out = " ".join(b.get("text", "") for b in c
+                           if isinstance(b, dict) and b.get("type") == "text")
+            if out.strip():
+                return out
+    return ""
+
+
 def already_answered(log):
     """Did reply.py just write the same answer into the panel?
 
@@ -220,6 +251,13 @@ def main():
 
     if event == "Stop":
         if already_answered(LOG):
+            return
+        # \u26d4 A MACHINE-TRIGGERED TURN IS NOT CONVERSATION. A monitor expiring, a background
+        # task finishing, a reminder -- none of those are mirrored as user lines, so mirroring the
+        # reply to one puts half an exchange in the panel with nothing it is answering. Re-arming
+        # the watch every thirty minutes filled the log with "Re-armed. Quiet." against no
+        # question. If the turn began with machinery, its answer stays out too.
+        if machine_typed(last_user_text(data.get("transcript_path") or "")):
             return
         text = last_assistant_text(data.get("transcript_path") or "")
         if text:
@@ -346,6 +384,10 @@ def main():
         "  timeout_ms: 1800000",
         "Re-arm it every time it expires. Answer the user IN THE PANEL with "
         f"\`python3 {mine}/reply.py\` -- a reply in the editor chat never reaches them there.",
+        "RE-ARMING IS HOUSEKEEPING, NOT NEWS. When a turn exists only because the watch "
+        "expired, say nothing in the panel and keep your reply to nothing or one short line. "
+        "The panel is the user's screen, and a log of 're-armed, quiet' against no question is "
+        "noise they have to read past. Report what they asked about, or what changed.",
     ]
     if waiting:
         lines.append(f"{waiting} message(s) are unanswered right now; watch.py announces them on startup.")

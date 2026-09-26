@@ -68,7 +68,7 @@ gh api repos/wiiiktor/control-room/contents/extension/get.sh \
   -H 'Accept: application/vnd.github.raw' | bash
 ```
 
-Pin a version with `| bash -s 0.12.17`. From a clone, `extension/get.sh` does the same. It
+Pin a version with `| bash -s 0.12.19`. From a clone, `extension/get.sh` does the same. It
 installs with whichever editor CLI the machine has — `code`, `code-insiders`, `cursor`,
 `codium`, `windsurf` — or the one named in `CONTROL_ROOM_CODE`.
 
@@ -99,7 +99,7 @@ archive):
 
 ```bat
 gh api repos/wiiiktor/control-room/contents/extension --jq ".[].name" | findstr .vsix
-cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.12.17.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
+cmd /c "gh api repos/wiiiktor/control-room/contents/extension/control-room-0.12.19.vsix -H "Accept: application/vnd.github.raw" > %TEMP%\cr.vsix"
 code --install-extension %TEMP%\cr.vsix --force
 ```
 
@@ -183,6 +183,33 @@ record, not a request, so nothing is answered twice and no answer is mirrored ba
 turn. A `Stop` that follows a `reply.py` answer within two minutes adds nothing, since
 that answer is already in the panel, in markup. Turn it off with
 `controlRoom.mirrorEditorChat`.
+
+Three kinds of line never cross:
+
+- **What the harness typed.** Claude Code submits its own turns through the same hook — a
+  background task finishing, a system reminder, the output of a slash command. Those are
+  not mirrored, and the wrappers it puts around what *you* paste are stripped so the panel
+  shows your words rather than the tags around them.
+- **The answer to one of those.** A turn that exists only because a monitor expired has no
+  question in the panel for its reply to sit under, so the reply stays out too. Without
+  this the log filled with "re-armed, quiet" against nothing.
+- **A reply already sent with `reply.py`.** It is in the panel in markup; the plain-text
+  copy would be the same thing twice.
+
+The instructions the extension gives each session say the same thing in the other
+direction — re-arming the watch is housekeeping, and housekeeping is not reported.
+
+## Taking a reply out of the strip
+
+Hovering a thumbnail in the timeline shows a small **×**. It removes that reply from the
+strip — and *only* from the strip. The id goes into `<room>/.hidden`, one per line, and the
+message stays in `chat.jsonl` untouched.
+
+That indirection is deliberate. Editing the log is the obvious way to delete something and
+it is the one thing this project has already been burned by: `tail -F` re-reads a file from
+the top when it is truncated, so rewriting `chat.jsonl` replays every message into whatever
+watch is running — eleven old questions arriving as new, one of them a `delete` command. The
+log is append-only. To bring a thumbnail back, delete its line from `.hidden`.
 
 ## When the bridge does not work
 

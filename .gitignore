@@ -6,6 +6,7 @@ chat.jsonl
 .watch.*
 .expect
 .session.*
+.hidden
 .resume.*
 __pycache__/
 *.pyc

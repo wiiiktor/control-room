@@ -555,6 +555,17 @@
   /* The MIRRORED half of the conversation is Markdown, so it gets Markdown's shapes. Colour
      comes from the same tokens as everything else, so all eight themes are covered by one
      rule set and none of it needs a per-theme override. */
+  /* the thumbnail's own remove button: invisible until the tile is hovered, so the strip
+     stays quiet, and big enough to hit on a touchpad */
+  .thumb { position: relative; }
+  .thumb .drop {
+    position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; padding: 0;
+    border: 0; border-radius: 6px; background: var(--panel); color: inherit;
+    font: 700 14px/1 inherit; cursor: pointer; opacity: 0; transition: opacity .12s;
+  }
+  .thumb:hover .drop, .thumb .drop:focus-visible { opacity: .75; }
+  .thumb .drop:hover { opacity: 1; background: var(--red); color: var(--on-red); }
+
   .md-p { margin: 0; font-size: 18px; line-height: 1.45; }
   .md-list { margin: 0; padding-left: 1.4em; font-size: 18px; line-height: 1.45; }
   .md-list li { margin: 0 0 4px; }
@@ -1389,6 +1400,7 @@
       lamp.title = 'Connected';
       // the watcher touches .watch every 30s; 3 missed beats means the watch is gone
       lastWatchAge = data.watch;
+      if (data.hidden) tlHidden = new Set(data.hidden);
       drawWatchers(data.watchers || [], data.elsewhere);
       const dead = lastWatchAge === null || lastWatchAge === undefined || lastWatchAge > 90;
       deaf.classList.toggle('on', dead);
@@ -1684,6 +1696,7 @@
   const tlBar = document.getElementById('tl-bar');
   const tlHead = document.getElementById('tl-head');
   let tlFilter = null, tlRows = [], tlNames = {};
+  let tlHidden = new Set();      // replies the reader has taken out of the strip
   // true only when the session was picked from the menu. A filter that merely followed
   // the newest reply must not stop the next one from being shown.
   let tlChosen = false;
@@ -1851,6 +1864,25 @@
       if (pinned === msg) { pinned = null; restoreLive(); markThumb(null); return; }
       pinned = msg; showArchived(msg); markThumb(btn);
     };
+
+    // ⛔ NOT a delete. The log is append-only -- see /api/hide -- so this takes the reply out
+    // of the strip and leaves it in the file. Its own button, on the thumbnail, because the
+    // thing you want gone is the thing you are looking at.
+    const drop = el('button', 'drop', '\u00d7');
+    drop.type = 'button';
+    drop.title = 'take this out of the strip (the message itself is kept)';
+    drop.onclick = (e) => {
+      e.stopPropagation();                       // opening it is what the tile itself does
+      tlHidden.add(msg.id);
+      if (pinned === msg) { pinned = null; restoreLive(); markThumb(null); }
+      btn.remove();
+      fetch('/api/hide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: msg.id }),
+      }).catch(() => { /* it is already gone from the strip; the next poll restores it */ });
+    };
+    btn.append(drop);
     return btn;
   }
 
@@ -1879,7 +1911,7 @@
       if (!r.pending) return;
       r.pending = !replies.slice(i + 1).some(x => !x.pending && x.session === r.session);
     });
-    tlRows = replies;
+    tlRows = replies.filter(r => !tlHidden.has(r.id));
     if (!keepFilter || tlFilter === null) {
       tlFilter = replies.length ? (replies[replies.length - 1].session || '') : null;
     }

@@ -248,6 +248,16 @@ function activate(context) {
       return out;
     };
 
+    /** Ids the reader has taken out of the strip. A missing or unreadable file means none. */
+    const hiddenIds = () => {
+      try {
+        return fs.readFileSync(path.join(dir, '.hidden'), 'utf8')
+          .split('\n').map(n => parseInt(n, 10)).filter(Number.isFinite);
+      } catch {
+        return [];
+      }
+    };
+
     panel.webview.onDidReceiveMessage(async (req) => {
       const reply = (data) => panels.get(dir) && panel.webview.postMessage({ id: req.id, data });
       try {
@@ -264,6 +274,7 @@ function activate(context) {
             build: BUILD,
             status: log.readStatus(),
             watch: log.watchAge(),
+            hidden: hiddenIds(),
             watchers,
             elsewhere: elsewhere(names, watchers),
           });
@@ -281,6 +292,23 @@ function activate(context) {
           if (!/^[0-9a-f-]{36}$/.test(sid)) return reply({ error: 'not a session id' });
           resumeIn(dir, sid);
           return reply({ ok: true });
+        }
+        // Hide one reply from the timeline strip.
+        //
+        // ⛔ APPEND, NEVER REWRITE. Removing the line from chat.jsonl is the obvious reading of
+        // "delete", and it is the one thing this project has already been burned by: `tail -F`
+        // re-reads a truncated file from the top, so rewriting the log replays every message
+        // into whatever watch is running. The log stays append-only and a separate list says
+        // what not to draw. Delete a line from `.hidden` to bring a thumbnail back.
+        if (route === '/api/hide') {
+          const id = parseInt(JSON.parse(req.body || '{}').id, 10);
+          if (!Number.isFinite(id)) return reply({ error: 'not an id' });
+          try {
+            fs.appendFileSync(path.join(dir, '.hidden'), id + '\n');
+          } catch {
+            return reply({ error: 'could not write .hidden' });
+          }
+          return reply({ ok: true, id });
         }
         // Open the room a session IS listening to, addressed to it. The panel cannot
         // reach it from here; this is the move that works.
