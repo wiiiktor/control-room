@@ -552,6 +552,29 @@
   .note { margin: 0; font-size: 16px; font-weight: 600; opacity: .7; }
   .plain { margin: 0; font-size: 18px; white-space: pre-wrap; }
 
+  /* The MIRRORED half of the conversation is Markdown, so it gets Markdown's shapes. Colour
+     comes from the same tokens as everything else, so all eight themes are covered by one
+     rule set and none of it needs a per-theme override. */
+  .md-p { margin: 0; font-size: 18px; line-height: 1.45; }
+  .md-list { margin: 0; padding-left: 1.4em; font-size: 18px; line-height: 1.45; }
+  .md-list li { margin: 0 0 4px; }
+  .md-hr { border: 0; border-top: 2px solid currentColor; opacity: .25; margin: 4px 0; width: 100%; }
+  .md-pre {
+    margin: 0; padding: 12px 14px; background: var(--panel); border-radius: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 15px; line-height: 1.4; white-space: pre; overflow-x: auto; color: inherit;
+  }
+  /* a wide table scrolls ITSELF; the page never scrolls sideways */
+  .md-scroll { overflow-x: auto; max-width: 100%; }
+  .md-table { border-collapse: collapse; font-size: 16px; font-variant-numeric: tabular-nums; }
+  .md-table th, .md-table td {
+    text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid currentColor;
+  }
+  .md-table th { font-weight: 800; }
+  .md-table tbody tr:last-child td { border-bottom: 0; }
+  /* the separator is structure, not ink: keep it faint on every ground */
+  .md-table th, .md-table td { border-bottom-color: color-mix(in oklab, currentColor 22%, transparent); }
+
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 12px; }
   .stat {
     background: var(--yellow-soft); border: 3px solid var(--ink);
@@ -881,6 +904,97 @@
   }
 
   function build(text) { return buildBlocks(parse(text)); }
+
+  /** MIRRORED lines are MARKDOWN, not CTRL markup.
+   *
+   *  ⛔ Everything in the log was run through the directive parser, which is right for a
+   *  reply written with ::say and ::card -- and wrong for the half of the conversation the
+   *  mirror copies out of the editor, which is ordinary Markdown. A heading came through as
+   *  a literal "##", a table as a row of pipes, a fenced block as three backticks and its
+   *  contents jumbled by the inline `code` rule. The panel showed the source instead of the
+   *  answer.
+   *
+   *  This is deliberately a SMALL Markdown: headings, fences, tables, lists, rules and
+   *  paragraphs, with the existing inline() for bold/code/italic. Nodes, never HTML, for the
+   *  same reason the rest of the renderer is. */
+  function buildMd(text) {
+    const lines = String(text).replace(/\r/g, '').split('\n');
+    const out = [];
+    let i = 0;
+    const isRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+    const cells = (l) => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+    while (i < lines.length) {
+      const line = lines[i];
+      // fenced code: taken verbatim, so nothing inside it is interpreted
+      const fence = line.match(/^\s*(```+|~~~+)(.*)$/);
+      if (fence) {
+        const close = fence[1][0];
+        const body = [];
+        i++;
+        while (i < lines.length && !new RegExp('^\\s*' + close + '{3,}\\s*$').test(lines[i])) {
+          body.push(lines[i]); i++;
+        }
+        i++;                                     // the closing fence, or the end of the text
+        out.push(el('pre', 'md-pre', body.join('\n')));
+        continue;
+      }
+      const head = line.match(/^(#{1,6})\s+(.*)$/);
+      if (head) {
+        out.push(rich(head[1].length <= 2 ? 'h1' : 'h2',
+                      head[1].length <= 2 ? 'ask' : 'say', head[2]));
+        i++;
+        continue;
+      }
+      if (/^\s*(---+|\*\*\*+|___+)\s*$/.test(line)) { out.push(el('hr', 'md-hr')); i++; continue; }
+      // a table: a header row, a dashes row, then body rows
+      if (isRow(line) && i + 1 < lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1])) {
+        const table = el('table', 'md-table');
+        const thead = el('thead'), hr = el('tr');
+        cells(line).forEach(c => hr.append(rich('th', '', c)));
+        thead.append(hr); table.append(thead);
+        const tb = el('tbody');
+        i += 2;
+        while (i < lines.length && isRow(lines[i])) {
+          const tr = el('tr');
+          cells(lines[i]).forEach(c => tr.append(rich('td', '', c)));
+          tb.append(tr); i++;
+        }
+        table.append(tb);
+        const wrap = el('div', 'md-scroll');     // wide tables scroll themselves, not the page
+        wrap.append(table);
+        out.push(wrap);
+        continue;
+      }
+      const bullet = line.match(/^\s*([-*+]|\d+[.)])\s+(.*)$/);
+      if (bullet) {
+        const ordered = /\d/.test(bullet[1]);
+        const list = el(ordered ? 'ol' : 'ul', 'md-list');
+        while (i < lines.length) {
+          const m = lines[i].match(/^\s*([-*+]|\d+[.)])\s+(.*)$/);
+          if (!m || (/\d/.test(m[1]) !== ordered)) break;
+          list.append(rich('li', '', m[2]));
+          i++;
+        }
+        out.push(list);
+        continue;
+      }
+      if (!line.trim()) { i++; continue; }
+      // a paragraph: consecutive non-blank lines that start nothing else
+      const para = [];
+      while (i < lines.length && lines[i].trim()
+             && !/^\s*(```|~~~|#{1,6}\s|\||[-*+]\s|\d+[.)]\s|---+\s*$)/.test(lines[i])) {
+        para.push(lines[i].trim()); i++;
+      }
+      if (para.length) out.push(rich('p', 'md-p', para.join(' ')));
+      else i++;                                  // a line that matched nothing above; do not loop
+    }
+    return out.length ? out : [rich('p', 'md-p', text)];
+  }
+
+  /** One message -> nodes. The mirror decides which language it is written in. */
+  function render(msg) {
+    return msg && msg.mirror ? buildMd(msg.text || '') : build((msg && msg.text) || '');
+  }
 
   const SVGNS = 'http://www.w3.org/2000/svg';
   function svg(tag, attrs) {
@@ -1315,7 +1429,7 @@
       // ⛔ only if it belongs to the session being read. Otherwise choosing a session was
       // undone by the next reply from any other one, seconds later, for no visible reason.
       if (!tlChosen || (newest.session || '') === tlFilter) {
-        show(build(newest.text), true, newest.ts);
+        show(render(newest), true, newest.ts);
       }
       if (tlOpen) refreshTimeline(true);   // the strip follows the log, not the opening
     } catch {
@@ -1604,7 +1718,7 @@
     }
     const st = stampOf(msg.ts);
     if (st) head.append(st);
-    const kids = build(msg.text);
+    const kids = render(msg);
     if (head.children.length) kids.unshift(head);
     screenEl.replaceChildren(...kids);
     // ⛔ an archived reply is a RECORD. Its choice buttons still carried live onclicks,
@@ -1705,7 +1819,7 @@
     if (last === tlRows[tlRows.length - 1]) {
       // the newest reply in the log: it is live, so its choice buttons must still work
       lastCommand = last.asked || '';
-      show(build(last.text), true, last.ts);
+      show(render(last), true, last.ts);
       return;
     }
     showArchived(last);
@@ -1721,7 +1835,7 @@
     // the thumbnail is the screen as it was, breadcrumb included, so a reply can be
     // recognised by what was ASKED rather than by the shape of its answer
     if (msg.asked) inner.append(el('div', 'crumb', msg.asked));
-    inner.append(...build(msg.text));
+    inner.append(...render(msg));
     // belt and braces with .page's pointer-events: inert takes it out of the tab order
     // and out of hit-testing entirely, so a nested button cannot be reached at all
     inner.inert = true;
