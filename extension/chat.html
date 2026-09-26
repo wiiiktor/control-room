@@ -1602,6 +1602,21 @@
    *  screen showing the PREVIOUS session's last reply -- so the panel showed one
    *  conversation while the composer was pointed at another. What you choose is what you
    *  are looking at. */
+  /** Only reached when the switch FAILED: then the reader does need the explanation, and
+   *  a button to try again with. */
+  function stuckElsewhere(who, room) {
+    show(build([
+      '::err Could not switch to ' + room,
+      '::say That session is running and answering — in another control room — but this '
+        + 'panel could not open it.',
+      '::note ' + who,
+      '::say A session reads one log, and it is not this one. Anything you send it from here '
+        + 'would sit unread, and writing in its Claude tab appears in that room.',
+      '::pick Try again => __open_room',
+      '::note Failing that: Ctrl+Shift+P → Control Room, and pick it from the list.',
+    ].join('\n')), false);
+  }
+
   function showSessionLatest(id) {
     const rows = tlRows.filter(m => (m.session || '') === id);
     const last = rows[rows.length - 1];
@@ -1622,20 +1637,25 @@
         // ⛔ AND THE SPLASH HAS TO GO. It asks "is anybody reading this room", which is
         // true -- so it covered this screen with a green "Session ok" and the instruction
         // to open a Claude tab and write. Doing that writes into the OTHER room and
-        // nothing happens here, which is exactly the dead end this screen exists to
+        // nothing happens here, which is exactly the dead end this screen is here to
         // prevent. Its advice is wrong in this one case, so it stands down.
         dismissSplash();
-        show(build([
-          '::warn Listening in ' + String(elsewhereIn[id]).slice(0, 40) + ', not here',
-          '::say That session is running and answering — in another control room.',
-          '::note ' + who,
-          '::say A session reads one log, and it is not this one. Anything you send it from '
-            + 'here would sit unread, and writing in its Claude tab appears in that room, '
-            + 'not this one.',
-          '::pick Switch to that control room => __open_room',
-          '::note This tab is replaced by it, already addressed to this session — one '
-            + 'control room at a time, not two.',
-        ].join('\n')), false);
+        const room = String(elsewhereIn[id]).slice(0, 40);
+        // ⛔ DO IT, do not explain it. This used to be a card with a button: a paragraph
+        // about how a session reads one log, and a "Switch to that control room" to press.
+        // But picking a session IS the instruction -- there is nothing to decide, and the
+        // reader had to read a screen they never asked for to get where they already said
+        // they were going. The words below are kept for the one case where they mean
+        // something: the switch not happening.
+        show(build('::wait Switching to ' + room + '…'), false);
+        fetch('/api/open_room', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session: id }),
+        }).then(r => r.json()).then((r) => {
+          if (r && r.room) return;           // this tab is closing; nothing left to draw
+          stuckElsewhere(who, room);
+        }).catch(() => stuckElsewhere(who, room));
         return;
       }
       splashAgain();
