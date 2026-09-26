@@ -46,6 +46,9 @@
     --yellow: #dcdcaa; --on-yellow: #16170f; --yellow-soft: #37341f;
     --red: #f14c4c; --on-red: #16170f; --alert: #ff8a80; --red-soft: #402424;
     --grey: #4a4a4a; --hair: rgba(212,212,212,.24); --hair-soft: rgba(212,212,212,.12);
+    /* the three text-dimming tiers, as tokens: strong / medium / faint. A theme that wants one
+       ink and no hierarchy sets all three to 1 -- see peas. */
+    --dim-1: .75; --dim-2: .6; --dim-3: .45;
     --veil: rgba(30,30,30,.82);
     --ring-green: rgba(78,201,176,.28); --ring-yellow: rgba(220,220,170,.22);
     --ring-red: rgba(241,76,76,.28); --ring-grey: rgba(160,160,160,.18);
@@ -68,7 +71,7 @@
     --ink: #16170f;
     --paper: #fffdf2;
     --panel: #ffffff;
-    --green: #34c759;
+    --green: #59d478;
     --on-green: #16170f;
     --green-deep: #1f8f3e;
     --green-soft: #ddf7e2;
@@ -79,6 +82,11 @@
     --on-red: #16170f; --alert: #b3261e;
     --red-soft: #ffe2de;
     --grey: #c2c5bd;
+    /* ⛔ ONE INK, NO FADED TIER. Asked for in the editor's own font settings and again here: a dim
+       tier on a cream ground reads as light grey, which is the thing being refused. Every text
+       opacity in this stylesheet goes through these three tokens, so switching them off is one
+       line per theme rather than twenty selectors. */
+    --dim-1: 1; --dim-2: 1; --dim-3: 1;
     --hair: rgba(22,23,15,.22);
     --hair-soft: rgba(22,23,15,.12);
     --veil: rgba(255,253,242,.75);
@@ -291,7 +299,7 @@
     padding: 16px 18px; box-shadow: var(--pop-sm);
   }
   #splash .prompt p { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
-  #splash .prompt p.hint { margin: 10px 0 0; font-weight: 600; opacity: .65; }
+  #splash .prompt p.hint { margin: 10px 0 0; font-weight: 600; opacity: var(--dim-1); }
   #splash .prompt code {
     display: block; font-size: 13px; line-height: 1.45; white-space: pre-wrap;
     cursor: copy; padding: 10px 12px; border-radius: 10px;
@@ -332,7 +340,7 @@
     flex: 1 1 auto; min-width: 0; display: flex; gap: 12px;
     overflow-x: auto; overflow-y: hidden; padding: 12px 56px 12px 14px;
   }
-  #timeline .empty-note { font-size: 15px; font-weight: 700; opacity: .5; }
+  #timeline .empty-note { font-size: 15px; font-weight: 700; opacity: var(--dim-2); }
   /* a session boundary: the strip is one ribbon, this says where a working session began */
   .tl-sep {
     flex: 0 0 auto; align-self: stretch; display: flex; flex-direction: column;
@@ -346,9 +354,9 @@
     background: none; border: 3px solid transparent; border-radius: 12px;
     padding: 6px 10px; margin-left: 4px;
   }
-  .tl-sep b { font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; opacity: .75; }
-  .tl-sep i { font-style: normal; font-size: 11px; font-weight: 700; line-height: 1.25; opacity: .6; }
-  .tl-sep span { font-size: 10px; font-weight: 700; opacity: .45; font-family: ui-monospace, monospace; }
+  .tl-sep b { font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; opacity: var(--dim-1); }
+  .tl-sep i { font-style: normal; font-size: 11px; font-weight: 700; line-height: 1.25; opacity: var(--dim-2); }
+  .tl-sep span { font-size: 10px; font-weight: 700; opacity: var(--dim-3); font-family: ui-monospace, monospace; }
   .tl-sep.on b { opacity: 1; }
   .tl-sep.on { background: var(--yellow-soft); border-color: var(--ink); }
   .tl-sep.first { border-left: none; }
@@ -377,8 +385,8 @@
   }
   .tl-list button:hover { background: var(--yellow-soft); }
   .tl-list button.on { background: var(--green-soft); }
-  .tl-list button.empty { opacity: .6; }
-  .tl-list button em { font-style: normal; font-size: 11px; opacity: .5; font-family: ui-monospace, monospace; }
+  .tl-list button.empty { opacity: var(--dim-2); }
+  .tl-list button em { font-style: normal; font-size: 11px; opacity: var(--dim-2); font-family: ui-monospace, monospace; }
   .tl-list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 
 
@@ -389,13 +397,13 @@
     background: var(--panel); border: 3px dashed var(--hair); border-radius: 14px;
   }
   .tl-empty b { font-size: 14px; font-weight: 800; }
-  .tl-empty span { font-size: 13px; opacity: .6; }
+  .tl-empty span { font-size: 13px; opacity: var(--dim-2); }
   .tl-empty code {
     font-family: ui-monospace, monospace; font-size: 13px; padding: 4px 8px;
     background: var(--yellow-soft); border: 2px solid var(--ink); border-radius: 8px;
     user-select: all;
   }
-  .tl-empty i { font-style: normal; font-size: 12px; opacity: .55; }
+  .tl-empty i { font-style: normal; font-size: 12px; opacity: var(--dim-2); }
   .tl-empty .wake {
     align-self: flex-start; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
     color: var(--on-green); background: var(--green);
@@ -424,7 +432,7 @@
     font-size: 11px; font-weight: 800; letter-spacing: .04em; padding: 4px 7px;
     display: flex; justify-content: space-between; gap: 6px;
   }
-  .thumb .when i { font-style: normal; opacity: .55; }
+  .thumb .when i { font-style: normal; opacity: var(--dim-2); }
 
   /* Claude's watch on the log is a separate thing from the server being up: the page
      can be perfectly connected while nothing is reading what you send. */
@@ -549,12 +557,16 @@
     font-weight: 900; letter-spacing: -.03em;
   }
   .say { margin: 0; font-size: clamp(19px, 2.3vw, 23px); line-height: 1.4; font-weight: 650; }
-  .note { margin: 0; font-size: 16px; font-weight: 600; opacity: .7; }
+  .note { margin: 0; font-size: 16px; font-weight: 600; opacity: var(--dim-1); }
   .plain { margin: 0; font-size: 18px; white-space: pre-wrap; }
 
   /* The MIRRORED half of the conversation is Markdown, so it gets Markdown's shapes. Colour
      comes from the same tokens as everything else, so all eight themes are covered by one
      rule set and none of it needs a per-theme override. */
+  /* a swatch being PREVIEWED is marked differently from the one that is chosen: the panel has
+     already changed colour, so the list has to say which of those two states you are seeing */
+  #palette button.previewing { outline: 2px dashed currentColor; outline-offset: -2px; }
+
   /* the thumbnail's own remove button: invisible until the tile is hovered, so the strip
      stays quiet, and big enough to hit on a touchpad */
   .thumb { position: relative; }
@@ -1490,12 +1502,32 @@
   const palBtn = document.getElementById('pal-btn');
   const palEl = document.getElementById('palette');
 
-  function applyTheme(id) {
+  // What is CHOSEN, as opposed to what is merely being looked at. A preview stamps the
+  // document without touching this, so leaving the list always has somewhere to return to.
+  let themeChosen = document.documentElement.dataset.theme || 'peas';
+
+  function stampTheme(id) {
     document.documentElement.dataset.theme = id;
-    try { localStorage.setItem('ctrl-theme', id); } catch {}
     palEl.querySelectorAll('button').forEach(b =>
-      b.setAttribute('aria-checked', String(b.dataset.id === id)));
+      b.setAttribute('aria-checked', String(b.dataset.id === themeChosen)));
+    palEl.querySelectorAll('button').forEach(b =>
+      b.classList.toggle('previewing', b.dataset.id === id && id !== themeChosen));
   }
+
+  function applyTheme(id) {
+    themeChosen = id;
+    try { localStorage.setItem('ctrl-theme', id); } catch {}
+    stampTheme(id);
+  }
+
+  /** Put a theme on the screen without choosing it.
+   *
+   *  Eight names in a list say almost nothing about what eight palettes look like, and the only
+   *  way to find out was to pick one and pick again. Hovering shows the whole panel in that
+   *  theme; leaving the list puts the chosen one back. Nothing is written to storage on the way
+   *  through, so a preview cannot become the theme by accident -- only a click does that. */
+  const previewTheme = (id) => stampTheme(id);
+  const endPreview = () => stampTheme(themeChosen);
 
   THEMES.forEach(t => {
     const b = el('button');
@@ -1506,12 +1538,24 @@
     chip.style.background = t.chip;
     b.append(chip, el('span', '', t.name));
     b.onclick = () => { applyTheme(t.id); palEl.classList.remove('open'); palBtn.classList.remove('on'); };
+    // pointer AND keyboard: tabbing through the list previews too, or the feature exists only
+    // for people using a mouse
+    b.onmouseenter = () => previewTheme(t.id);
+    b.onfocus = () => previewTheme(t.id);
     palEl.append(b);
+  });
+
+  // one handler on the list, not eight leave handlers: moving between two swatches must not
+  // flicker back to the chosen theme in between
+  palEl.onmouseleave = endPreview;
+  palEl.addEventListener('focusout', (e) => {
+    if (!palEl.contains(e.relatedTarget)) endPreview();
   });
 
   palBtn.onclick = () => {
     const open = palEl.classList.toggle('open');
     palBtn.classList.toggle('on', open);
+    if (!open) endPreview();                 // closing it abandons whatever was on screen
   };
   applyTheme(document.documentElement.dataset.theme || 'peas');
 
