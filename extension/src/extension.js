@@ -718,11 +718,21 @@ function activate(context) {
           return reply(r);
         }
         if (route === '/api/resume') {
-          // Only the editor can do this: give a dormant session a REAL window by
-          // resuming it in a terminal you can watch and type into.
           const body = JSON.parse(req.body || '{}');
           const sid = (body.session || '').trim();
           if (!/^[0-9a-f-]{36}$/.test(sid)) return reply({ error: 'not a session id' });
+          // ⛔⛔ NEVER RESUME A SESSION THAT IS ALREADY RUNNING. `claude --resume` on a live session
+          // does not join it -- it starts a COPY under a NEW id. So every press of a button that
+          // called this endpoint spawned another Claude on the same room: two became three became
+          // four, each one answering everything, and the reader was left pressing "stop the other"
+          // against a queue that refilled itself. Observed live: e95b918a, then 843769ac.
+          // The check belongs HERE and not only in the page, because the page's view of liveness is
+          // a second old and this is the call that costs a process.
+          const live = await new Promise(res => liveSessions(res));
+          if (live.some(r => r.sessionId === sid)) {
+            return reply({ error: 'already running', session: sid, why:
+              'that session is live; resuming it would start a copy, so nothing was started' });
+          }
           resumeIn(dir, sid);
           return reply({ ok: true });
         }

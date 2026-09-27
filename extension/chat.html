@@ -1693,13 +1693,29 @@
       showOffline();
       return false;
     }
-    try {
-      await fetch('/api/resume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session: target }),
-      });
-    } catch { /* the message is on record either way; the session can be woken by hand */ }
+    // ⛔ DO NOT ASK FOR A RESUME OF SOMETHING THAT IS ALREADY RUNNING. A resume of a live session
+    // starts a COPY under a new id, so asking repeatedly builds a crowd of Claudes on one room. The
+    // extension refuses this too -- it is the authority -- but not asking is cheaper and lets the
+    // room say the useful thing instead.
+    if (!liveNow[target]) {
+      try {
+        const r = await (await fetch('/api/resume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session: target }),
+        })).json();
+        if (r && r.error === 'already running') {
+          show(build([
+            '::warn ' + name.slice(0, 40) + ' is already running, so nothing was woken',
+            '::say Your message is written down. That session is live but is not reading this room '
+              + 'yet — it will pick the message up on its next turn.',
+            '::note Resuming it would have started a copy under a new id, and a second Claude on this '
+              + 'room answers everything twice. Nothing was started.',
+          ].join('\n')), false);
+          return true;
+        }
+      } catch { /* the message is on record either way; the session can be woken by hand */ }
+    }
     poll();
     // ⛔ A HIDDEN TERMINAL FAILS SILENTLY, and a woken session that never answers is the most
     // confusing thing this panel can do: the message is written, nothing is on screen, and
