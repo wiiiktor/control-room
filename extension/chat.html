@@ -1924,6 +1924,14 @@
     const names = d.sessions || {};
     const live = new Set((d.watchers || []).map(w => w.session));
     const away = d.elsewhere || {};
+    // ⛔ AND THE PAGE HAS TO KEEP IT. This list is the first thing on screen and can be
+    // clicked before the first poll has returned -- and only the poll was writing
+    // `elsewhereIn`. So a session running in ANOTHER room looked, to the click handler, like
+    // a session that had simply ended: it was addressed instead of switched to, the panel
+    // offered to wake something that was already awake, and every message went to a log that
+    // session does not read. Every other row worked, which is why it looked like one bad
+    // entry. The splash now hands over what it just learned.
+    elsewhereIn = Object.assign({}, elsewhereIn, away);
     const ids = Object.keys(names).slice(0, 6);
     sessLoaded = true;                       // ⛔ even with no sessions: the two rows below are
                                              // the whole splash then, and returning early left
@@ -1932,7 +1940,8 @@
     ids.forEach((id) => {
       const b = el('button');
       b.type = 'button';
-      const where = live.has(id) ? 'reading this room' : away[id] ? 'in ' + away[id] : 'ended';
+      const where = live.has(id) ? 'reading this room'
+        : away[id] ? 'in ' + away[id] + ' — opens that room' : 'ended';
       b.classList.toggle('live', live.has(id));
       b.append(el('span', '', String(names[id]).replace(/\s+/g, ' ').slice(0, 90)),
                el('em', '', where));
