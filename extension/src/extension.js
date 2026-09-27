@@ -230,7 +230,12 @@ function startHeadless(dir, args, what, done) {
   p.on('close', (code) => {
     // `backgrounded · 16b59ea7` -- the short id `claude attach|logs|stop` take
     const m = /backgrounded\s*\W*\s*([0-9a-f]{6,})/i.exec(out);
-    if (code === 0 && m) { done({ ok: true, id: m[1], out }); return; }
+    // \u26a0 A RESUME OF A SESSION THAT IS ALREADY RUNNING BECOMES A COPY under a NEW id -- the CLI
+    // says so in its own output. The room has to report that, because the reader picked one session
+    // and a different one is about to answer. \u26d4 UNVERIFIED WORDING: I have not made the CLI
+    // print this, so the match is deliberately loose and the flag is advisory, never a failure.
+    const copied = /\bcopy\b|already running/i.test(out);
+    if (code === 0 && m) { done({ ok: true, id: m[1], out, copied }); return; }
     done({ ok: false, code, out, err,
            why: 'claude exited ' + code + (err.trim() ? ' — ' + err.trim().split('\n')[0] : '') });
   });
@@ -331,6 +336,16 @@ function resumeIn(dir, sid) {
     startHeadless(dir, ['--resume', sid, WAKE], 'Waking session ' + sid.slice(0, 8) + '.', (r) => {
       if (r.ok) {
         lastBg = r.id;
+        if (r.copied && r.id.slice(0, 8) !== sid.slice(0, 8)) {
+          announce(dir, [
+            '::warn ' + sid.slice(0, 8) + ' is already running, so a copy of it answers instead',
+            '::say A session that is live somewhere else cannot be woken from here — nothing can '
+              + 'reach into it. Claude started a copy carrying the same history, as ' + r.id + '.',
+            '::note The copy answers this room. The original is untouched and keeps whatever it was '
+              + 'doing. If the original is the Claude session in this editor, that is why: reloading '
+              + 'the window restarts it, and until it takes a turn it is not reading this room.',
+          ].join('\n'));
+        }
         proveItStarted(dir, null, 'Session ' + sid.slice(0, 8) + ' was asked to wake up.');
         return;
       }

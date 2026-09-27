@@ -2010,8 +2010,13 @@
     ids.forEach((id) => {
       const b = el('button');
       b.type = 'button';
+      // \u26d4 "ended" MADE THE LIST LOOK LIKE A GRAVEYARD. A session with no watcher is the
+      // ordinary, usable case: `claude --bg --resume <id>` brings any past session back under its
+      // own id, with its whole history, and it answers here. What the panel cannot do is wake a
+      // session that is running RIGHT NOW somewhere else -- resume would start a copy. So the row
+      // says what will happen when it is picked, not whether it is over.
       const where = live.has(id) ? 'reading this room'
-        : away[id] ? 'in ' + away[id] + ' — opens that room' : 'ended';
+        : away[id] ? 'in ' + away[id] + ' — opens that room' : 'asleep — write and it wakes';
       b.classList.toggle('live', live.has(id));
       // \u2b50 THE ID, ON EVERY ROW. Asked for by name: without it two sessions that opened with
       // the same words are impossible to tell apart, and there is nothing to quote when one of
