@@ -307,7 +307,12 @@ def main():
         # question. If the turn began with machinery, its answer stays out too.
         if machine_typed(last_user_text(data.get("transcript_path") or "")):
             return
-        text = current_reply(data.get("transcript_path") or "")
+        # \u26d4 PREFER WHAT THE HOOK IS HANDED. Claude Code passes the finished reply in the Stop
+        # input as last_assistant_message. The transcript is the fallback only: under the VS Code
+        # tab it is written late -- the reply lands there when the NEXT message is sent -- so a
+        # transcript read gave the previous answer, or nothing, until the reader typed again.
+        text = (data.get("last_assistant_message") or "").strip() \
+            or current_reply(data.get("transcript_path") or "")
         if text:
             append_message("assistant", text[:4000], session=sid or None, mirror=True)
 
