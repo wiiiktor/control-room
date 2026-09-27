@@ -592,6 +592,31 @@ function activate(context) {
   // told them somebody was listening when nobody was, and the message was appended and never woken.
   // A session that survived beats again in seconds and comes straight back.
   setFloor(Date.now());
+  // \u26d4 AND SWEEP THE DEAD HEARTBEAT FILES. Every session that ever watched a room leaves its
+  // `.watch.<id>` behind for good: eight of them had piled up here for six sessions that no longer
+  // exist. The age filter means they cannot fake a watcher, but they are the room's own record of
+  // who is present, so a stale one is a lie sitting in the folder -- it turns up in diagnose, in the
+  // file listing, and in every attempt to work out what is going on by hand. A file older than ten
+  // minutes whose session is not in `claude agents` is rubbish, and removing it costs nothing.
+  setTimeout(() => {
+    liveSessions((rows) => {
+      const live = new Set(rows.map(r => r.sessionId));
+      for (const inst of instances()) {
+        let names = [];
+        try { names = fs.readdirSync(inst.dir); } catch { continue; }
+        for (const n of names) {
+          if (!n.startsWith('.watch.')) continue;
+          const sid = n.slice('.watch.'.length);
+          if (live.has(sid)) continue;
+          const f = path.join(inst.dir, n);
+          try {
+            if (Date.now() - fs.statSync(f).mtimeMs < 600000) continue;   // recent: leave it alone
+            fs.unlinkSync(f);
+          } catch { /* gone, or not ours to remove */ }
+        }
+      }
+    });
+  }, 3000);
   // one panel per instance folder: a second panel must not take over the first one's log
   const panels = new Map();
   // the page reloads itself when this changes; in a webview the html is fixed for the
