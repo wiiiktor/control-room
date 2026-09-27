@@ -2,7 +2,7 @@
   "name": "control-room",
   "displayName": "Control Room",
   "description": "A big-button control panel for driving Claude Code from inside the editor.",
-  "version": "0.14.5",
+  "version": "0.14.6",
   "publisher": "wiiiktor",
   "license": "MIT",
   "icon": "icon.png",
@@ -75,6 +75,11 @@
           ],
           "default": "hidden",
           "markdownDescription": "Where terminals this extension opens go. An INTERACTIVE terminal (resuming a session, or the fallback when the Claude extension is missing) is never hidden — you have to be able to type in it — so under `hidden` it becomes an editor tab instead. Either way it stays out of the bottom panel."
+        },
+        "controlRoom.autoTrust": {
+          "type": "boolean",
+          "default": true,
+          "description": "When VS Code trusts the workspace, record the same trust for Claude Code, so a session started in a hidden terminal is not stopped by \"Do you trust the files in this folder?\"."
         }
       }
     },

@@ -147,6 +147,21 @@ const ourTerms = new Map();
  *                    strand it invisibly. Those get an editor TAB instead: still out of the
  *                    bottom panel, which is what was actually asked for.
  */
+/** Carry VS Code's workspace trust over to Claude Code, so a hidden start has no trust question.
+ *
+ * \u26d4 THE READER ASKED FOR THIS TO BE AUTOMATIC, and the question it answers has already been
+ * answered once, in VS Code: a workspace VS Code does not trust runs no extension code that could
+ * reach here. So when VS Code trusts it and Claude has not been told, the extension tells it --
+ * the same flag answering Yes would write. Off with controlRoom.autoTrust. */
+function carryTrust(cwd) {
+  if (vscode.workspace.getConfiguration('controlRoom').get('autoTrust') === false) return false;
+  if (vscode.workspace.isTrusted === false) return false;
+  try {
+    if (preflight.trusted(cwd).ok) return false;
+    return preflight.grantTrust(cwd);
+  } catch { return false; }
+}
+
 function termOpts(name, cwd, interactive) {
   const mode = vscode.workspace.getConfiguration('controlRoom').get('startTerminal') || 'hidden';
   const o = { name, cwd };
@@ -160,6 +175,7 @@ function termOpts(name, cwd, interactive) {
   // login, and on an unfinished onboarding -- and hidden, that wait is indistinguishable from a
   // session thinking. Every one of those is knowable from files before the terminal exists, so
   // the check runs first and a failed check opens the terminal where it can be answered.
+  carryTrust(cwd);
   const pre = preflight.check(cwd);
   if (!pre.ok) {
     o.location = vscode.TerminalLocation.Editor;
@@ -401,6 +417,7 @@ function activate(context) {
     if (!trustSaid.has(dir)) {
       trustSaid.add(dir);
       try {
+        carryTrust(workspaceRoot(dir));
         const pre = preflight.check(workspaceRoot(dir));
         // and not twice: a restored panel and a startup open can both wire the same room
         const last = log.read().filter(m => m.role === 'assistant').pop();

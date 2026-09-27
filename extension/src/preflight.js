@@ -15,8 +15,8 @@
  * read. So the rule is: a terminal may only be hidden when the things that would make it ask a
  * question have already been checked. Otherwise it opens where it can be seen and answered.
  *
- * This is deliberately a read-only check. It never writes to ~/.claude.json, never accepts a
- * trust dialog on the reader's behalf, and never touches credentials -- it only reports.
+ * The checks only read. The one write is grantTrust(), and the extension calls it only when
+ * VS Code itself already trusts the workspace (see extension.js) -- it never touches credentials.
  */
 const cp = require('child_process');
 const fs = require('fs');
@@ -131,4 +131,24 @@ function check(cwd) {
   return { ok: problems.length === 0, problems, notes, bin, untrusted: !t.ok, cwd };
 }
 
-module.exports = { check, findClaude, credentials, trusted };
+/** Record in ~/.claude.json that `cwd` is trusted, exactly as answering Yes would.
+ *
+ * \u26d4 ONE KEY, READ JUST BEFORE THE WRITE. Claude Code rewrites this whole file itself, often,
+ * so the file is re-read immediately before writing, only projects[cwd].hasTrustDialogAccepted is
+ * set (everything else in that entry and the file is kept), and the write goes to a temp file
+ * renamed over the original so no reader ever sees half a file. Returns true when it wrote. */
+function grantTrust(cwd) {
+  const f = path.join(os.homedir(), '.claude.json');
+  let d;
+  try { d = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return false; }   // no file, no guess
+  d.projects = d.projects || {};
+  const entry = d.projects[cwd] || {};
+  if (entry.hasTrustDialogAccepted === true) return false;
+  d.projects[cwd] = Object.assign({}, entry, { hasTrustDialogAccepted: true });
+  const tmp = f + '.control-room-' + process.pid;
+  fs.writeFileSync(tmp, JSON.stringify(d, null, 2), { mode: 0o600 });
+  fs.renameSync(tmp, f);
+  return true;
+}
+
+module.exports = { check, findClaude, credentials, trusted, grantTrust };
