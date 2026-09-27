@@ -1496,6 +1496,22 @@
   // question directly, so it is no longer inferred.
   let liveNow = {};
   let stopOthers = [];   // the extra watchers, when more than one is reading this room
+
+  /** Put a first message in the composer, selected, and hand over the keyboard.
+   *
+   *  ⭐ ASKED FOR, and it is the right shape: "why not just choose the session name on the list and
+   *  prefill the bottom input field". Choosing a session used to leave the reader in front of a
+   *  screen with buttons on it -- read this, press that, then type -- when the only thing that
+   *  actually connects a session is a message. One Enter now does it. The text is selected rather
+   *  than appended to, so typing something else replaces it and nothing has to be deleted first. */
+  const FIRST_WORDS = 'WRITE TO ME NOW';
+  function prefill(text) {
+    input.value = text;
+    try { fit(); } catch { /* the composer sizes itself on the next input */ }
+    input.focus();
+    try { input.setSelectionRange(0, input.value.length); } catch { /* older webview */ }
+  }
+
   let wakingNow = {};    // session id -> seconds since the extension asked it to wake
 
   function drawTarget() {
@@ -2149,6 +2165,10 @@
         tlFilter = id;
         tlChosen = true;
         showSessionLatest(id);
+        // ⭐ and the composer is loaded, so the next keystroke can be Enter. Not for a session
+        // that is already answering here -- there is nothing to connect, and overwriting what the
+        // reader may be part-way through typing would be rude.
+        if (!aliveIds.includes(id) && !input.value.trim()) prefill(FIRST_WORDS);
       };
       built.push(b);
     });
@@ -2589,6 +2609,7 @@
         closeSessionMenu();
         drawTimeline();
         showSessionLatest(id);
+        if (id && !aliveIds.includes(id) && !input.value.trim()) prefill(FIRST_WORDS);
       };
       list.append(b);
     });
