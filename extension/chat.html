@@ -313,6 +313,30 @@
   #splash .auto:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); border-style: solid; }
   #splash .auto:disabled { cursor: default; border-style: solid; }
 
+  /* Sessions that already exist, on the splash. Starting a new one is not the only thing
+     somebody wants at this moment -- usually the session they want is sitting there, ended. */
+  #splash .sess {
+    margin: 18px auto 0; max-width: 560px; display: flex; flex-direction: column; gap: 6px;
+    text-align: left;
+  }
+  #splash .sess > b {
+    font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+    opacity: var(--dim-1); margin-bottom: 2px;
+  }
+  #splash .sess button {
+    display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 8px 12px;
+    font: 600 14px/1.3 inherit; color: var(--ink); text-align: left;
+    background: var(--panel); border: 2px solid var(--hair); border-radius: 10px;
+    cursor: pointer; transition: border-color .12s, background .12s;
+  }
+  #splash .sess button:hover { border-color: var(--ink); background: var(--yellow-soft); }
+  #splash .sess button span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #splash .sess button em {
+    font-style: normal; font-size: 11px; font-family: ui-monospace, monospace; opacity: var(--dim-2);
+  }
+  #splash .sess button.live { border-color: var(--green); }
+  #splash .sess button.live em { color: var(--green); opacity: 1; font-weight: 700; }
+
   #splash .info {
     display: block; margin: 16px auto 0; background: none; border: 0;
     font: inherit; font-size: 15px; font-weight: 700; color: var(--ink);
@@ -812,6 +836,7 @@
     <div class="wrap">
       <button class="go" type="button">Open the Claude session and write Hello in there to start connection</button>
       <button class="auto" type="button">…or let me start one in the background</button>
+      <div class="sess" id="splash-sess" hidden></div>
       <button class="x" type="button" title="Close" aria-label="Close">✕</button>
       <button class="info" type="button" aria-expanded="false">Info on how to set required Permission Mode</button>
       <div class="prompt" hidden>
@@ -1816,6 +1841,63 @@
     }
   };
 
+  /** The sessions that already exist, offered where the decision is made.
+   *
+   *  ⛔ The splash used to offer only "start a new one", and starting a new one is usually NOT
+   *  what somebody wants at this moment -- the session they mean is sitting there, ended, with
+   *  all of its context. Clicking one brings it back; clicking one that is already reading this
+   *  room just closes the splash, because there was nothing to do.
+   *
+   *  The labels are the sessions' own opening messages, which is what Claude Code's picker
+   *  shows too -- nothing here invents a name. Newest first: `labels()` sorts by mtime and an
+   *  object keeps its insertion order. */
+  const sessBox = document.getElementById('splash-sess');
+  let sessLoaded = false;
+  async function loadSplashSessions() {
+    if (sessLoaded) return;
+    let d;
+    try {
+      d = await (await fetch('/api/sessions', { cache: 'no-store' })).json();
+    } catch { return; }
+    const names = d.sessions || {};
+    const live = new Set((d.watchers || []).map(w => w.session));
+    const away = d.elsewhere || {};
+    const ids = Object.keys(names).slice(0, 6);
+    if (!ids.length) return;
+    sessLoaded = true;
+    sessBox.replaceChildren(el('b', '', 'or pick up a session you already had'));
+    ids.forEach((id) => {
+      const b = el('button');
+      b.type = 'button';
+      const where = live.has(id) ? 'reading this room' : away[id] ? 'in ' + away[id] : 'ended';
+      b.classList.toggle('live', live.has(id));
+      b.append(el('span', '', String(names[id]).replace(/\s+/g, ' ').slice(0, 90)),
+               el('em', '', where));
+      b.onclick = async () => {
+        if (live.has(id)) {                      // already here: nothing to start
+          window.CONTROL_ROOM_SET_TARGET(id);
+          return dismissSplash();
+        }
+        b.disabled = true;
+        b.querySelector('em').textContent = 'bringing it back…';
+        splashWaiting = true;
+        splashGo.textContent = 'Resuming that session — it connects on its first turn';
+        try {
+          await fetch('/api/resume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session: id }),
+          });
+        } catch {
+          b.disabled = false;
+          b.querySelector('em').textContent = 'could not resume';
+        }
+      };
+      sessBox.append(b);
+    });
+    sessBox.hidden = false;
+  }
+
   const dismissSplash = () => { splashDismissed = true; splash.classList.remove('on'); };
   splash.onclick = (e) => { if (e.target === splash) dismissSplash(); };
   splash.querySelector('.x').onclick = dismissSplash;
@@ -1882,6 +1964,7 @@
         : WAITING_TEXT;
   };
   splash.classList.add('on');          // before the first poll: a blank panel looks broken
+  loadSplashSessions();                // and fill the list while it is up
 
   // ⛔ closeSheet and NOTHING else. The left pane keeps its reply, the timeline keeps its
   // filter, the composer keeps its text; the only mark removed outside this pane is the
