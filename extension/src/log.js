@@ -18,6 +18,18 @@ function localStamp(d = new Date()) {
          `T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
+// \u26d4 A HEARTBEAT FILE OUTLIVES THE HEARTBEAT BY UP TO 90 SECONDS, AND THAT IS EXACTLY THE
+// WINDOW IN WHICH THIS PANEL IS TESTED. Reloading the VS Code window kills the Claude session the
+// editor hosts, and its watch with it -- but `.watch.<id>` keeps the mtime of its last beat, so for
+// a minute and a half afterwards the room reports that session as alive. The panel then takes the
+// ordinary path: append the message, do not wake anybody, and wait for a reply from a process that
+// no longer exists. From the reader's side: "I reloaded and I still cannot connect."
+//
+// The extension sets this floor to its own activation time. A session that SURVIVED the reload
+// beats again within seconds and is live again; one that died stays dead, immediately.
+let FLOOR = 0;
+function setFloor(ms) { FLOOR = ms || 0; }
+
 class Log {
   constructor(dir) {
     this.dir = dir;
@@ -124,17 +136,19 @@ class Log {
     for (const n of names) {
       if (!n.startsWith('.watch.')) continue;
       const session = n.slice('.watch.'.length);
-      let age;
+      let age, beat;
       try {
-        age = Math.round((Date.now() - fs.statSync(path.join(this.dir, n)).mtimeMs) / 1000);
+        beat = fs.statSync(path.join(this.dir, n)).mtimeMs;
+        age = Math.round((Date.now() - beat) / 1000);
       } catch {
         continue;
       }
       if (age > 90) continue;
+      if (beat < FLOOR) continue;          // beat before this extension host started: a dead session
       out.push({ session, age, label: (labels && labels[session]) || '(no transcript)' });
     }
     return out.sort((a, b) => a.age - b.age);
   }
 }
 
-module.exports = { Log };
+module.exports = { Log, setFloor };

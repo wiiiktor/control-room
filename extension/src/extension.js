@@ -14,7 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
-const { Log } = require('./log');
+const { Log, setFloor } = require('./log');
 const { labels } = require('./sessions');
 const hook = require('./hook');
 const runtime = require('./runtime');
@@ -494,6 +494,13 @@ function preflightSays(pre, doing) {
 const NO_SESSION = 'Control Room: no Claude session is watching this panel yet. Open the Claude tab and send it any message — that starts the session that reads what you write here. Your messages are kept until then.';
 
 function activate(context) {
+  // \u26d4 EVERY HEARTBEAT OLDER THAN THIS MOMENT BELONGS TO A SESSION THAT IS GONE. Reloading the
+  // window kills the Claude session the editor hosts -- which is the session this panel is usually
+  // talking to -- and `.watch.<id>` keeps the mtime of its last beat for another 90 seconds. That is
+  // the exact window in which the reader reloads to pick up a new build and tries again, so the room
+  // told them somebody was listening when nobody was, and the message was appended and never woken.
+  // A session that survived beats again in seconds and comes straight back.
+  setFloor(Date.now());
   // one panel per instance folder: a second panel must not take over the first one's log
   const panels = new Map();
   // the page reloads itself when this changes; in a webview the html is fixed for the
@@ -541,11 +548,10 @@ function activate(context) {
     // ignored, so the tab itself says so
     let title = name;
     const retitle = (watchers) => {
-      // \u26d4 NO VERSION HERE. It went in when "I see zero difference" needed settling from
-      // outside, and it settled it -- but a tab is read a hundred times after that and the
-      // number is noise in all of them. The splash still stamps the build, which is where you
-      // look when the question is which build you are on.
-      const want = name + (watchers.length ? '' : ' (no watcher)');
+      // The version is BACK in the tab title, asked for again: with a build a few minutes old at
+      // any time, "which one am I looking at" is a question the tab should answer without being
+      // opened. The splash stamps it too.
+      const want = name + ' ' + BUILD + (watchers.length ? '' : ' (no watcher)');
       if (want !== title) { title = want; panel.title = want; }
     };
 
