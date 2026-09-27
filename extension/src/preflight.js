@@ -126,7 +126,9 @@ function check(cwd) {
   if (!t.ok) problems.push(t.why);
   if (t.unverified) notes.push(t.unverified);
 
-  return { ok: problems.length === 0, problems, notes, bin };
+  // `untrusted` is kept apart from the list because it is the one blocker the reader can
+  // clear in a single click, and the room says so in its own words.
+  return { ok: problems.length === 0, problems, notes, bin, untrusted: !t.ok, cwd };
 }
 
 module.exports = { check, findClaude, credentials, trusted };

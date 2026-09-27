@@ -333,6 +333,25 @@ function startSessionInTerminal(dir, first) {
 
 /** The check, in the reader's words. Named problems beat a spinner. */
 function preflightSays(pre, doing) {
+  // \u26d4 THE TRUST QUESTION GETS ITS OWN SCREEN. As one ::note among others it read like a
+  // diagnostic, and the one thing to do -- answer Yes, once -- was nowhere on the screen.
+  // Trust belongs to the FOLDER, not to a session: one Yes lets every session there start
+  // hidden, a resumed old one as much as a new one, so the screen says that too.
+  if (pre.untrusted) {
+    const out = [
+      '::ask Trust this folder first',
+      '::say Claude Code has never been allowed to work in ' + (pre.cwd || 'this folder')
+        + '. Before it runs here it asks "Do you trust the files in this folder?" -- and a hidden'
+        + ' terminal cannot show you that question, so the session would wait forever.',
+      '::li I opened the terminal as a tab instead. Answer Yes there, now.',
+      '::li You only do this once. Trust belongs to the folder, not to a session: afterwards every'
+        + ' session here starts hidden, new ones and resumed old ones alike.',
+      '::li If the tab is not in front, press the button below.',
+    ];
+    for (const p of pre.problems) if (!/trust/i.test(p)) out.push('::li ! ' + p);
+    out.push('::pick Show me the terminal => __reveal_terminal');
+    return out.join('\n');
+  }
   const out = ['::warn I did not hide the terminal for ' + doing];
   out.push('::say Something in it is going to ask a question, so it opened as a tab where you can answer.');
   for (const p of pre.problems) out.push('::note ' + p);
