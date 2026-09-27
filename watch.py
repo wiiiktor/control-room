@@ -121,7 +121,14 @@ def catch_up():
             continue
     global SEEN
     SEEN = max((m.get("id", 0) for m in msgs), default=0)
-    last_reply = max((m.get("id", 0) for m in msgs if m.get("role") == "assistant"), default=0)
+    # ⛔ ONLY A SESSION'S REPLY ANSWERS ANYTHING. The extension writes its own notices into the
+    # log as assistant lines ("the session I started has not answered in 60 seconds"), and the
+    # mirror copies the editor tab's answers in; neither carries a `session` of a reply, or it is
+    # marked `mirror`. Counting them made the notice about an unanswered message mark that very
+    # message answered, and the session that then woke up to read it skipped it.
+    last_reply = max((m.get("id", 0) for m in msgs
+                      if m.get("role") == "assistant" and m.get("session") and not m.get("mirror")),
+                     default=0)
     for m in msgs:
         if m.get("id", 0) > last_reply and mine(m):
             emit(m, missed=True)

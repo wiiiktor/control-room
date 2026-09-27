@@ -359,7 +359,9 @@ def unanswered(log):
         msgs = [json.loads(l) for l in log.read_text(encoding="utf-8").splitlines() if l.strip()]
     except (OSError, json.JSONDecodeError):
         return 0
-    last = max((m.get("id", 0) for m in msgs if m.get("role") == "assistant"), default=0)
+    # only a session's own reply answers anything: extension notices and mirrored lines do not
+    last = max((m.get("id", 0) for m in msgs
+                if m.get("role") == "assistant" and m.get("session") and not m.get("mirror")), default=0)
     return sum(1 for m in msgs if m.get("id", 0) > last and m.get("role") == "user")
 
 
