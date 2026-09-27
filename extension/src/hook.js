@@ -461,7 +461,11 @@ main()
  */
 function current(root) {
   try {
-    return fs.readFileSync(path.join(root, '.claude', 'hooks', SCRIPT), 'utf8') === hookSource(root);
+    // \u26d4 BOTH scripts. Only the watch hook was compared, so once it matched, a newer mirror
+    // script was never written -- a fix to the mirror shipped and never reached the workspace.
+    const dir = path.join(root, '.claude', 'hooks');
+    return fs.readFileSync(path.join(dir, SCRIPT), 'utf8') === hookSource(root)
+      && fs.readFileSync(path.join(dir, MIRROR), 'utf8') === mirrorSource(root);
   } catch {
     return false;
   }
