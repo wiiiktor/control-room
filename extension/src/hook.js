@@ -122,6 +122,49 @@ def last_assistant_text(transcript):
     return ""
 
 
+def current_reply(transcript, wait=6.0):
+    """The reply to the CURRENT prompt, waiting briefly for it to reach the transcript.
+
+    \u26d4 THE STOP HOOK CAN RUN BEFORE THE REPLY IS WRITTEN DOWN. Under the VS Code Claude tab
+    the transcript still ended at the previous turn when this hook read it, so the panel got
+    the PREVIOUS reply every time -- one turn late, and the newest answer never arrived. So:
+    find the last real prompt, and take only assistant text written AFTER it; if there is none
+    yet, re-read for a few seconds. Nothing found means nothing is mirrored -- a stale reply is
+    worse than a missing one.
+    """
+    import time as _t
+    deadline = _t.time() + wait
+    while True:
+        try:
+            lines = Path(transcript).read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return ""
+        prompt_at, reply = -1, ""
+        for i, line in enumerate(lines):
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            m = d.get("message") or {}
+            c = m.get("content")
+            if m.get("role") == "user":
+                texty = isinstance(c, str) and c.strip() or (isinstance(c, list) and any(
+                    isinstance(b, dict) and b.get("type") == "text" for b in c))
+                if texty:
+                    prompt_at, reply = i, ""
+            elif m.get("role") == "assistant" and prompt_at >= 0:
+                if isinstance(c, str) and c.strip():
+                    reply = c.strip()
+                elif isinstance(c, list):
+                    out = " ".join(b.get("text", "") for b in c
+                                   if isinstance(b, dict) and b.get("type") == "text").strip()
+                    if out:
+                        reply = out          # the LAST text after the prompt is the answer
+        if reply or _t.time() >= deadline:
+            return reply
+        _t.sleep(0.3)
+
+
 # \u26d4 NOT EVERY PROMPT IS A PERSON TYPING. Claude Code submits its own turns through
 # this same hook: a background task finishing, a reminder, the output of a slash command.
 # Mirrored, they arrive in the panel as things the reader supposedly said -- and the panel
@@ -264,7 +307,7 @@ def main():
         # question. If the turn began with machinery, its answer stays out too.
         if machine_typed(last_user_text(data.get("transcript_path") or "")):
             return
-        text = last_assistant_text(data.get("transcript_path") or "")
+        text = current_reply(data.get("transcript_path") or "")
         if text:
             append_message("assistant", text[:4000], session=sid or None, mirror=True)
 
