@@ -190,29 +190,11 @@ async function openClaudeTab(dir) {
   return 'terminal';
 }
 
-/** Start a session WITHOUT the reader typing anything.
- *
- * The native tab cannot be driven: it is another extension's webview, no command takes a
- * prompt, and the editor's `type` command does not reach a webview. A TERMINAL can --
- * `claude [prompt]` starts an interactive session with that first message, which is the whole
- * of the step everyone misses.
- *
- * The terminal is shown but NOT focused, on purpose. Hiding it would hide "you are not logged
- * in" too, and that is the one failure this path has.
- */
-function startSessionInTerminal(dir, first) {
-  // ⛔ cwd is the WORKSPACE, not the room: Claude files a session under the directory it
-  // started in, and the hooks live in the workspace's .claude/. The room is found by the
-  // .expect marker instead -- same mechanism the panel's "open a tab" button uses.
-  try { fs.writeFileSync(path.join(dir, '.expect'), ''); } catch { /* read-only room */ }
-  const term = vscode.window.createTerminal({
-    name: 'claude · ' + path.basename(dir),
-    cwd: workspaceRoot(dir),
-  });
-  term.show(true);                       // true = preserve focus, so the panel keeps it
-  term.sendText('claude ' + JSON.stringify(first));
-  return term;
-}
+/* ⛔ NO startSessionInTerminal HERE. Starting a session by running `claude <prompt>` in a
+ * terminal belongs to the SIDEBAR extension (../../extension-sidebar), which is a separate
+ * codebase for exactly this reason. The tab version reaches a session through the Claude tab
+ * and nowhere else; resumeIn() above is the one terminal it opens, and only when you ask it
+ * to bring a dormant session back. */
 
 /** Said whenever a panel is opened with nothing reading it: the one step people miss. */
 const NO_SESSION = 'Control Room: no Claude session is watching this panel yet. Open the Claude tab and send it any message — that starts the session that reads what you write here. Your messages are kept until then.';
@@ -354,13 +336,6 @@ function activate(context) {
             }
           }
           return reply({ error: 'no room is listening for that session' });
-        }
-        // Start a session on the reader's behalf. Terminal, because the tab cannot be typed into.
-        if (route === '/api/autostart') {
-          const first = 'Watch this control room and answer me in the panel.';
-          startSessionInTerminal(dir, first);
-          panel.reveal(panel.viewColumn, false);   // and put the room back in front
-          return reply({ ok: true, how: 'terminal', sent: first });
         }
         if (route === '/api/start') {
           // ⛔ ASK FIRST. The button opened a tab whatever the state was -- including when

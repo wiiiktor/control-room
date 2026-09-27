@@ -1,7 +1,13 @@
-# Control Room — VS Code extension
+# Control Room — tab extension
 
-The panel, as an editor tab. No server, no port: the extension host reads and writes
-`chat.jsonl` itself, so `chat.html` serves this and nothing else has to be running.
+The panel, as an **editor tab**, one per room. No server, no port: the extension host reads
+and writes `chat.jsonl` itself, so `chat.html` serves this and nothing else has to be running.
+
+Its sibling in [`../extension-sidebar`](../extension-sidebar) is the same room as a sidebar
+view, and it is a **separate codebase** — separate extension id, separate settings, separate
+`.vsix`. Two things follow: a fix made here is not made there, and **starting a session in a
+terminal belongs to the sidebar only**. This version reaches a session through the Claude tab,
+and opens a terminal for one purpose alone: resuming a session you asked it to bring back.
 
 Install, usage, permissions and the markup are all in the [repository README](../README.md).
 
