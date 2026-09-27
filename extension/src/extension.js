@@ -126,6 +126,33 @@ function pageHtml(extensionPath, dir, session, build) {
   return html.replace('<script>', shim + '\n<script>', 1);
 }
 
+/** Where a terminal this extension opens should go.
+ *
+ * ⛔ THE SETTING HAS TO COVER EVERY TERMINAL, not just the one it was added for. "I do not
+ * want to see this terminal in the bottom panel" is about terminals; a setting that fixed one
+ * of three paths looked like no change at all, because the other two are the ones most often
+ * pressed.
+ *
+ * Two kinds, and they cannot share a default:
+ *   FIRE-AND-FORGET  starting a session with a first message -- nothing to watch, so `hidden`
+ *                    is safe and is the default.
+ *   INTERACTIVE      resuming a session, or the last-resort terminal when the Claude extension
+ *                    is not installed -- you have to be able to type in it, so `hidden` would
+ *                    strand it invisibly. Those get an editor TAB instead: still out of the
+ *                    bottom panel, which is what was actually asked for.
+ */
+function termOpts(name, cwd, interactive) {
+  const mode = vscode.workspace.getConfiguration('controlRoom').get('startTerminal') || 'hidden';
+  const o = { name, cwd };
+  if (mode === 'panel') return { opts: o, reveal: true };
+  if (interactive || mode === 'tab') {
+    o.location = vscode.TerminalLocation.Editor;
+    return { opts: o, reveal: true };
+  }
+  o.hideFromUser = true;
+  return { opts: o, reveal: false };
+}
+
 /** Resume a session in a terminal rooted at the instance it answers for. */
 function resumeIn(dir, sid) {
   // ⛔ NOT the room folder. Claude Code files a session under the directory it was
@@ -133,11 +160,9 @@ function resumeIn(dir, sid) {
   // project folder -- so `--resume` run from control-room/ looks for the id somewhere it
   // was never written, and finds nothing. The room is still where the log is; the
   // session-start hook finds it by heartbeat, not by cwd.
-  const term = vscode.window.createTerminal({
-    name: 'claude · ' + sid.slice(0, 8),
-    cwd: workspaceRoot(dir),
-  });
-  term.show(true);
+  const { opts, reveal } = termOpts('claude · ' + sid.slice(0, 8), workspaceRoot(dir), true);
+  const term = vscode.window.createTerminal(opts);
+  if (reveal) term.show(true);
   term.sendText('claude --resume ' + sid);
 }
 
@@ -184,8 +209,9 @@ async function openClaudeTab(dir) {
     } catch { /* not this one; try the next */ }
   }
   // no extension to talk to -- a terminal session at least reads the same log
-  const term = vscode.window.createTerminal({ name: 'claude · control room', cwd: dir });
-  term.show(true);
+  const { opts, reveal } = termOpts('claude · control room', dir, true);
+  const term = vscode.window.createTerminal(opts);
+  if (reveal) term.show(true);
   term.sendText("claude 'watch this control room and answer me in the panel'");
   return 'terminal';
 }

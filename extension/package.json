@@ -2,7 +2,7 @@
   "name": "control-room",
   "displayName": "Control Room",
   "description": "A big-button control panel for driving Claude Code from inside the editor.",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "publisher": "wiiiktor",
   "license": "MIT",
   "icon": "icon.png",
@@ -60,6 +60,21 @@
           "type": "boolean",
           "default": true,
           "description": "Copy the Claude tab's conversation into the panel, so it holds both sides rather than only what was typed in it. Mirrored lines are marked and are never answered a second time."
+        },
+        "controlRoom.startTerminal": {
+          "type": "string",
+          "enum": [
+            "hidden",
+            "tab",
+            "panel"
+          ],
+          "enumDescriptions": [
+            "Fire-and-forget terminals run unseen; interactive ones open as an editor tab.",
+            "Every terminal this extension opens becomes an editor tab.",
+            "The terminal view at the bottom, as before."
+          ],
+          "default": "hidden",
+          "markdownDescription": "Where terminals this extension opens go. An INTERACTIVE terminal (resuming a session, or the fallback when the Claude extension is missing) is never hidden — you have to be able to type in it — so under `hidden` it becomes an editor tab instead. Either way it stays out of the bottom panel."
         }
       }
     },
