@@ -8,6 +8,7 @@ Reads from stdin when no argument is given, so multi-line replies work:
     EOF
 """
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -48,8 +49,51 @@ def session_id():
             return p.stem
     return cand[0].stem if cand else None
 
-text = " ".join(sys.argv[1:]).strip() or sys.stdin.read().strip()
+DIRECTIVES = ("ask", "say", "note", "kv", "ok", "warn", "err", "wait", "pick",
+              "fill", "chart", "html", "endhtml", "card", "endcard")
+
+REMINDER = """\
+\033[1;31m⛔ REFUSED: this reply is not written in CTRL markup.\033[0m
+
+The panel is not a Markdown chat. A reply with no `::` line renders as a wall of
+plain text: no headline, no stat boxes, no buttons, and `#`/`-`/`|` land literally.
+
+  ::say   the one-sentence answer        ::ok / ::warn / ::err   coloured pill
+  ::ask   the question to decide         ::kv <key> = <value>    stat box
+  ::note  the small grey detail          ::pick <label>          button
+  ::card <title> … ::endcard             ::html … ::endhtml      escape hatch
+
+Full spec: %s
+
+Rewrite it with directives, or -- if plain text really is what you want --
+re-run with \033[1m--plain\033[0m (or CTRL_PLAIN=1).
+"""
+
+def check_markup(text):
+    """A reply with no directive is almost always Markdown written out of habit.
+
+    ⛔ THIS GUARD EXISTS BECAUSE THE HABIT IS STRONGER THAN THE MEMORY. Every session
+    reads MARKUP.md and then answers in Markdown anyway, because Markdown is what a
+    chat looks like. A rule nobody is stopped by is not a rule -- so the send itself
+    refuses, and the refusal carries the cheat sheet.
+    """
+    lines = [l for l in text.splitlines() if l.strip()]
+    if any(l.lstrip().startswith("::") for l in lines):
+        return                                     # markup is present; nothing to say
+    md = [l for l in lines if re.match(r"^\s*([-*+]\s|\d+[.)]\s|#{1,6}\s|>\s|\|)", l)]
+    sys.stderr.write(REMINDER % (_HERE / "MARKUP.md"))
+    if md:
+        sys.stderr.write("\nMarkdown seen on %d line(s), e.g.: %s\n"
+                         % (len(md), md[0].strip()[:70]))
+    sys.exit(3)
+
+argv = [a for a in sys.argv[1:] if a not in ("--plain", "-p")]
+plain = len(argv) != len(sys.argv[1:]) or os.environ.get("CTRL_PLAIN") == "1"
+
+text = " ".join(argv).strip() or sys.stdin.read().strip()
 if not text:
     sys.exit("nothing to send")
+if not plain:
+    check_markup(text)
 msg = append_message("assistant", text, session=session_id())
 print(f"sent #{msg['id']}")
