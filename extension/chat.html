@@ -1857,6 +1857,9 @@
       // the watcher touches .watch every 30s; 3 missed beats means the watch is gone
       lastWatchAge = data.watch;
       if (data.hidden) tlHidden = new Set(data.hidden);
+      // the one-second poll no longer carries `live` (asking cost a Claude Code process every five
+      // seconds); it arrives with the session list instead, so keep the last answer rather than
+      // treating its absence as "nothing is live"
       if (data.live) liveNow = data.live;
       if (data.waking) wakingNow = data.waking;
       drawWatchers(data.watchers || [], data.elsewhere);

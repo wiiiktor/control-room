@@ -272,9 +272,18 @@ function startHeadless(dir, args, what, done) {
  *
  * Cached for a few seconds: the page polls every second and this is a process spawn.
  */
+// ⛔⛔ EVERY CALL IS A FULL CLAUDE CODE BOOT, NOT A QUERY. `claude agents --json` starts a complete
+// process: it loads 40 bundled skills, connects every MCP server, sends telemetry, then exits. With a
+// five-second cache and a page that polls every second, this extension was booting and killing a
+// Claude Code process every five seconds, all day. That is what filled the reader's Claude output
+// panel with startup debug and dying processes.
+//
+// So it is no longer on any timer. It is asked ONLY where the answer changes a decision: when the
+// session list is built, and immediately before a resume, which is the call that would otherwise
+// spawn a copy. The cache is long because liveness only matters at those two moments.
 let liveCache = { at: 0, rows: [] };
 function liveSessions(cb) {
-  if (Date.now() - liveCache.at < 5000) { cb(liveCache.rows); return; }
+  if (Date.now() - liveCache.at < 45000) { cb(liveCache.rows); return; }
   const bin = preflight.findClaude();
   if (!bin) { cb([]); return; }
   const cp = require('child_process');
@@ -719,8 +728,11 @@ function activate(context) {
             hidden: hiddenIds(),
             watchers,
             elsewhere: elsewhere(names, watchers),
-            live: Object.fromEntries((await new Promise(res => liveSessions(res)))
-              .map(r => [r.sessionId, { status: r.status || '', kind: r.kind || '' }])),
+            // ⛔ NOT HERE. This is the one-second poll; asking here is what booted a process every
+            // five seconds. The page keeps whatever /api/sessions last told it, which is a minute old
+            // at worst -- and the only decision that must not act on stale liveness, the resume,
+            // re-asks for itself.
+            live: null,
             waking: wakingIds(),
           });
         }
@@ -755,6 +767,7 @@ function activate(context) {
           // reader pressing Send. "Any live session should be killed only AFTER the user clicks SEND"
           // -- so stopping is no longer a button to press in advance, it is the first half of waking,
           // and it happens once, with a message already on record to answer.
+          liveCache = { at: 0, rows: [] };           // this decision may not run on a stale answer
           const live = await new Promise(res => liveSessions(res));
           const row = live.find(r => r.sessionId === sid);
           let stopped = false;
