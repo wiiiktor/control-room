@@ -1789,7 +1789,24 @@
       addressWhoeverAnswers();
       splashWaiting = true;
       splashGo.textContent = 'A session is starting — it connects on its first turn';
-      splashAuto.textContent = 'started in a terminal, below';
+      splashAuto.textContent = r.mode === 'hidden' ? 'started, out of sight'
+        : r.mode === 'tab' ? 'started in a terminal tab'
+        : 'started in a terminal below';
+      // ⛔ A HIDDEN TERMINAL HIDES THE FAILURE TOO. `hideFromUser` means "not logged in" is
+      // just as invisible as success, so if nothing is watching this room a while later, offer
+      // the terminal rather than leaving a button that says it started something.
+      if (r.mode === 'hidden') {
+        setTimeout(() => {
+          if (aliveIds.length) return;                 // it worked; say nothing
+          splashAuto.disabled = false;
+          splashAuto.textContent = 'nothing started — show me the terminal';
+          splashAuto.onclick = () => {
+            splashAuto.disabled = true;
+            splashAuto.textContent = 'showing it…';
+            fetch('/api/reveal_terminal', { method: 'POST', body: '{}' }).catch(() => {});
+          };
+        }, 25000);
+      }
     } catch {
       splashAuto.disabled = false;
       splashAuto.textContent = 'could not start one — try the button above';

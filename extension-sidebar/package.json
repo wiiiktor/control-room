@@ -2,7 +2,7 @@
   "name": "control-room-sidebar",
   "displayName": "Control Room (sidebar)",
   "description": "The Control Room panel as a sidebar view: it keeps its place while you work in the editor.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "wiiiktor",
   "license": "MIT",
   "icon": "icon.png",
@@ -73,6 +73,21 @@
           "type": "boolean",
           "default": true,
           "description": "Copy the Claude tab's conversation into the room, so the view holds both sides rather than only what was typed in it. Mirrored lines are marked and are never answered a second time."
+        },
+        "controlRoomSidebar.startTerminal": {
+          "type": "string",
+          "enum": [
+            "hidden",
+            "tab",
+            "panel"
+          ],
+          "enumDescriptions": [
+            "Run it with hideFromUser: the process starts and no terminal is surfaced at all.",
+            "Open it as an editor tab rather than in the terminal view.",
+            "Open it in the terminal view at the bottom, unfocused."
+          ],
+          "default": "hidden",
+          "markdownDescription": "Where the terminal goes when the room starts a Claude session for you. `hidden` keeps it out of sight; if no session appears, the room offers to show it, because hiding it hides \"you are not logged in\" too."
         }
       }
     },

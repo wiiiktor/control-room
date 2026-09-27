@@ -202,20 +202,33 @@ async function openClaudeTab(dir) {
  * one thing that can actually start a session -- the native Claude tab is another
  * extension's webview, no command takes a prompt, and `type` does not reach a webview.
  *
- * The terminal is shown but NOT focused, on purpose. Hiding it would hide "you are not
- * logged in" too, and that is the one failure this path has.
+ * WHERE it goes is a setting, because a terminal appearing in the panel is in the way.
+ *   hidden (default) -- `hideFromUser`, so the process runs and nothing is surfaced at all
+ *   tab              -- `TerminalLocation.Editor`, a terminal as an editor tab
+ *   panel            -- the ordinary terminal view
+ *
+ * ⚠️ Hiding it hides "you are not logged in" as well, which is the one way this path fails.
+ * So the terminal is kept, and `/api/reveal_terminal` brings it up -- the view offers that
+ * when no session has appeared a while after starting one.
  */
-function startSessionInTerminal(dir, first) {
+let lastTerm = null;                     // so a hidden terminal can still be produced on demand
+
+function startSessionInTerminal(dir, first, mode) {
   // ⛔ cwd is the WORKSPACE, not the room: Claude files a session under the directory it
   // started in, and the hooks live in the workspace's .claude/. The room is found by the
   // .expect marker instead -- the same mechanism the "open a tab" button uses.
   try { fs.writeFileSync(path.join(dir, '.expect'), ''); } catch { /* read-only room */ }
-  const term = vscode.window.createTerminal({
+  const opts = {
     name: 'claude · ' + path.basename(dir),
     cwd: workspaceRoot(dir),
-  });
-  term.show(true);                       // true = preserve focus, so the view keeps it
+  };
+  if (mode === 'hidden') opts.hideFromUser = true;
+  else if (mode === 'tab') opts.location = vscode.TerminalLocation.Editor;
+  const term = vscode.window.createTerminal(opts);
+  // hidden means hidden: a show() here would defeat the whole setting
+  if (mode !== 'hidden') term.show(true);   // true = preserve focus, so the view keeps it
   term.sendText('claude ' + JSON.stringify(first));
+  lastTerm = term;
   return term;
 }
 
@@ -424,9 +437,19 @@ function activate(context) {
           // cannot be typed into. Sidebar only -- see startSessionInTerminal.
           if (route === '/api/autostart') {
             const first = 'Watch this control room and answer me in the panel.';
-            startSessionInTerminal(here.dir, first);
+            const mode = vscode.workspace.getConfiguration('controlRoomSidebar')
+              .get('startTerminal') || 'hidden';
+            startSessionInTerminal(here.dir, first, mode);
             view.show(true);                     // and put the room back in front
-            return reply({ ok: true, how: 'terminal', sent: first });
+            return reply({ ok: true, how: 'terminal', mode, sent: first });
+          }
+          // A hidden terminal still exists, and this is how it is produced -- offered by the
+          // view when a started session has not appeared, because `hideFromUser` hides the
+          // failure along with the success.
+          if (route === '/api/reveal_terminal') {
+            if (!lastTerm) return reply({ error: 'no terminal was started from here' });
+            lastTerm.show(false);                // false = take focus, they asked to see it
+            return reply({ ok: true });
           }
           if (route === '/api/start') {
             // ⛔ ASK FIRST. The button opened a tab whatever the state was -- including when
