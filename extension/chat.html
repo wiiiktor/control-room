@@ -299,6 +299,16 @@
     opacity: .85; transition: opacity .12s, background .12s;
   }
   #splash .x:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
+  /* The quiet alternative under the big button: it does the whole ritual -- open a session,
+     send it a first message, hand focus back -- so nothing has to be typed anywhere. */
+  #splash .auto {
+    display: block; margin: 14px auto 0; padding: 8px 16px; border-radius: 999px;
+    font: 700 15px/1.2 inherit; color: var(--ink); background: none;
+    border: 2px dashed var(--ink); opacity: .75; cursor: pointer; transition: opacity .12s, background .12s;
+  }
+  #splash .auto:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); border-style: solid; }
+  #splash .auto:disabled { cursor: default; border-style: solid; }
+
   #splash .info {
     display: block; margin: 16px auto 0; background: none; border: 0;
     font: inherit; font-size: 15px; font-weight: 700; color: var(--ink);
@@ -797,6 +807,7 @@
   <div id="splash" role="dialog" aria-label="Start a working session">
     <div class="wrap">
       <button class="go" type="button">Open the Claude session and write Hello in there to start connection</button>
+      <button class="auto" type="button">…or let me start one for you</button>
       <button class="x" type="button" title="Close" aria-label="Close">✕</button>
       <button class="info" type="button" aria-expanded="false">Info on how to set required Permission Mode</button>
       <div class="prompt" hidden>
@@ -1756,6 +1767,27 @@
     splashWatching = true;
     splashSay(false);
   }
+
+  /* The whole start ritual in one press. The native tab cannot be typed into -- it belongs to
+     another extension -- so this goes through a terminal, where `claude <prompt>` starts a
+     session with that first message. The terminal is shown unfocused rather than hidden: if you
+     are not logged in, that is where it says so. */
+  const splashAuto = splash.querySelector('.auto');
+  splashAuto.onclick = async () => {
+    splashAuto.disabled = true;
+    splashAuto.textContent = 'starting a session…';
+    try {
+      const r = await (await fetch('/api/autostart', { method: 'POST', body: '{}' })).json();
+      if (!r || !r.ok) throw new Error('refused');
+      addressWhoeverAnswers();
+      splashWaiting = true;
+      splashGo.textContent = 'A session is starting — it connects on its first turn';
+      splashAuto.textContent = 'started in a terminal, below';
+    } catch {
+      splashAuto.disabled = false;
+      splashAuto.textContent = 'could not start one — try the button above';
+    }
+  };
 
   const dismissSplash = () => { splashDismissed = true; splash.classList.remove('on'); };
   splash.onclick = (e) => { if (e.target === splash) dismissSplash(); };
