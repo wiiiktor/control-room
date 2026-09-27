@@ -299,8 +299,12 @@
     opacity: .85; transition: opacity .12s, background .12s;
   }
   #splash .x:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
-  /* The quiet alternative under the big button: it does the whole ritual -- open a session,
-     send it a first message, hand focus back -- so nothing has to be typed anywhere. */
+  /* ⛔ NO "…or let me start one for you" BUTTON HERE. Starting a session in a terminal is
+     the SIDEBAR extension's feature, and the tab version was asked to be clean of it: the
+     button, its handler and the route it called are absent, not hidden. */
+
+  /* The quiet alternative under the big button: it runs the whole opening ritual -- start a
+     session, send it a first message, hand focus back -- with nothing appearing anywhere. */
   #splash .auto {
     display: block; margin: 14px auto 0; padding: 8px 16px; border-radius: 999px;
     font: 700 15px/1.2 inherit; color: var(--ink); background: none;
@@ -308,6 +312,41 @@
   }
   #splash .auto:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); border-style: solid; }
   #splash .auto:disabled { cursor: default; border-style: solid; }
+
+  /* Sessions that already exist, on the splash. Starting a new one is not the only thing
+     somebody wants at this moment -- usually the session they want is sitting there, ended. */
+  /* The status the big button used to carry. A line, because it is a statement and not a
+     thing to press -- the list below is what you press. */
+  #splash .status {
+    margin: 0 auto 4px; max-width: 560px; font: 700 16px/1.35 inherit;
+    color: var(--ink); text-align: left;
+  }
+  #splash .status.live { color: var(--green-deep); }
+
+  #splash .sess {
+    margin: 18px auto 0; max-width: 560px; display: flex; flex-direction: column; gap: 6px;
+    text-align: left;
+  }
+  #splash .sess > b {
+    font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+    opacity: var(--dim-1); margin-bottom: 2px;
+  }
+  #splash .sess button {
+    display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 8px 12px;
+    font: 600 14px/1.3 inherit; color: var(--ink); text-align: left;
+    background: var(--panel); border: 2px solid var(--hair); border-radius: 10px;
+    cursor: pointer; transition: border-color .12s, background .12s;
+  }
+  #splash .sess button:hover { border-color: var(--ink); background: var(--yellow-soft); }
+  #splash .sess button span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #splash .sess button em {
+    font-style: normal; font-size: 11px; font-family: ui-monospace, monospace; opacity: var(--dim-2);
+  }
+  /* the two doing rows, marked apart from the remembering ones */
+  #splash .sess button.new { border-style: dashed; }
+  #splash .sess button.new:hover { border-style: solid; }
+  #splash .sess button.live { border-color: var(--green); }
+  #splash .sess button.live em { color: var(--green); opacity: 1; font-weight: 700; }
 
   #splash .info {
     display: block; margin: 16px auto 0; background: none; border: 0;
@@ -806,8 +845,8 @@
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
   <div id="splash" role="dialog" aria-label="Start a working session">
     <div class="wrap">
-      <button class="go" type="button">Open the Claude session and write Hello in there to start connection</button>
-      <button class="auto" type="button">…or let me start one for you</button>
+      <p class="status" id="splash-status"></p>
+      <div class="sess" id="splash-sess"></div>
       <button class="x" type="button" title="Close" aria-label="Close">✕</button>
       <button class="info" type="button" aria-expanded="false">Info on how to set required Permission Mode</button>
       <div class="prompt" hidden>
@@ -1190,6 +1229,16 @@
         // ⛔ The panel used to NAME this problem and stop there: a red NOT RUNNING with a
         // `claude --resume <id>` to copy into a terminal you had to open yourself. The
         // editor can open the terminal, so it does.
+        if (btn.dataset.cmd === '__reveal_terminal') {
+          btn.onclick = async () => {
+            btn.disabled = true;
+            btn.querySelector('span').textContent = 'showing it…';
+            try { await fetch('/api/reveal_terminal', { method: 'POST', body: '{}' }); }
+            catch { btn.querySelector('span').textContent = 'there is no terminal to show'; }
+          };
+          picks.append(btn);
+          continue;
+        }
         if (btn.dataset.cmd === '__resume') {
           btn.onclick = async () => {
             if (!resumeTarget) return;
@@ -1466,6 +1515,51 @@
     show([card], false);
   }
 
+  /** Write the message, then bring its session back. See the note in send().
+   *
+   *  This is what makes "pick a session from the list, read its last screen, and just type"
+   *  work: nothing is started when you choose a session, and the terminal only appears when
+   *  you actually have something to say. */
+  async function sendAndWake(text, name) {
+    lastCommand = text;
+    waiting(['writing it down', 'waking ' + name.slice(0, 40), 'it answers on its first turn']);
+    try {
+      await fetch('/api/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, to: target || '' }),
+      });
+    } catch {
+      showOffline();
+      return false;
+    }
+    try {
+      await fetch('/api/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: target }),
+      });
+    } catch { /* the message is on record either way; the session can be woken by hand */ }
+    poll();
+    // ⛔ A HIDDEN TERMINAL FAILS SILENTLY, and a woken session that never answers is the most
+    // confusing thing this panel can do: the message is written, nothing is on screen, and
+    // there is nowhere to look. Thirty seconds is long enough for a resume to connect; past
+    // that, say so and offer the terminal that was started.
+    setTimeout(() => {
+      if (aliveIds.length || !waitingNow) return;        // it woke up, or the screen moved on
+      show(build([
+        '::warn ' + name.slice(0, 40) + ' has not answered',
+        '::say The message is written down and it will be picked up whenever that session '
+          + 'comes back — nothing is lost. But the resume has not connected in thirty seconds, '
+          + 'which usually means the terminal is waiting on something.',
+        '::pick Show me the terminal => __reveal_terminal',
+        '::note Most often: not logged in, or a permission prompt. It is hidden by default, '
+          + 'which is why you cannot see it asking.',
+      ].join('\n')), false);
+    }, 30000);
+    return true;
+  }
+
   async function send(text, force) {
     text = (text || '').trim();
     if (!text) return true;
@@ -1475,6 +1569,13 @@
     // before it happens rather than letting it sit.
     if (!force && target && !aliveIds.includes(target)) {
       const name = (tlNames[target] || target).slice(0, 48);
+      // ⛔ A SESSION OF THIS ROOM THAT HAS ENDED IS NOT AN ERROR, IT IS THE NORMAL CASE.
+      // Nothing needs asking: write the message, then wake the session. `catch_up()` in
+      // watch.py announces everything after the last assistant reply the moment a watch
+      // starts, so a message written BEFORE the resume is answered as soon as it comes back.
+      // Order matters -- the message goes in first, so a failed resume still leaves it on
+      // record rather than losing it to a dialog nobody answered.
+      if (tlNames[target] && !elsewhereIn[target]) return sendAndWake(text, name);
       pendingText = text;
       show(build([
         '::ask Nobody there',
@@ -1717,9 +1818,18 @@
   /* Shown on every open, dismissed by a click anywhere off the button, and back again
      if the watch later dies. One sentence, on the thing you press. */
   const splash = document.getElementById('splash');
-  const splashGo = splash.querySelector('.go');
-  const SPLASH_TEXT = 'Open the Claude session and write Hello in there to start connection';
-  const WAITING_TEXT = 'I am waiting for a signal from Claude — write Hello in the tab that just opened';
+  // ⛔ THE STATUS MOVED OFF THE BUTTON, and the button is gone. Every splashGo.textContent
+  // below would have thrown on null and taken the whole script with it -- which is what
+  // "connection to Claude just does not work" looks like from the outside.
+  const splashGo = {
+    _el: document.getElementById('splash-status'),
+    set textContent(v) { this._el.textContent = v; },
+    get textContent() { return this._el.textContent; },
+    classList: { add: (c) => document.getElementById('splash-status').classList.add(c),
+                 remove: (c) => document.getElementById('splash-status').classList.remove(c) },
+  };
+  const SPLASH_TEXT = 'Nothing is reading this room yet — pick a session, or start one.';
+  const WAITING_TEXT = 'Waiting for the session to come up…';
   let splashDismissed = false;
   let splashWatching = null;
   let splashWaiting = false;   // pressed, and now watching for the session to appear
@@ -1743,7 +1853,7 @@
     // wording changes again in splashAnswered(), where a reply has actually arrived.
     if (watching && !splashLive) {
       splashWaiting = false;
-      splashGo.textContent = 'Session ok, I expect Claude to start talking to me';
+      splashGo.textContent = 'A session is reading this room — close this and write.';
       splashGo.classList.add('live');
     }
     splashWatching = watching;
@@ -1755,7 +1865,7 @@
     if (splashLive) return;
     splashLive = true;
     splashWaiting = false;
-    splashGo.textContent = 'Claude answered — close this and start writing';
+    splashGo.textContent = 'Claude answered — close this and write.';
     splashGo.classList.add('live', 'pulse');
     setTimeout(() => splashGo.classList.remove('pulse'), 600);
   }
@@ -1775,43 +1885,101 @@
     splashSay(false);
   }
 
-  /* The whole start ritual in one press. The native tab cannot be typed into -- it belongs to
-     another extension -- so this goes through a terminal, where `claude <prompt>` starts a
-     session with that first message. The terminal is shown unfocused rather than hidden: if you
-     are not logged in, that is where it says so. */
-  const splashAuto = splash.querySelector('.auto');
-  splashAuto.onclick = async () => {
-    splashAuto.disabled = true;
-    splashAuto.textContent = 'starting a session…';
+
+  /** The sessions that already exist, offered where the decision is made.
+   *
+   *  ⛔ The splash used to offer only "start a new one", and starting a new one is usually NOT
+   *  what somebody wants at this moment -- the session they mean is sitting there, ended, with
+   *  all of its context. Clicking one brings it back; clicking one that is already reading this
+   *  room just closes the splash, because there was nothing to do.
+   *
+   *  The labels are the sessions' own opening messages, which is what Claude Code's picker
+   *  shows too -- nothing here invents a name. Newest first: `labels()` sorts by mtime and an
+   *  object keeps its insertion order. */
+  const sessBox = document.getElementById('splash-sess');
+  let sessLoaded = false;
+  async function loadSplashSessions() {
+    if (sessLoaded) return;
+    let d;
     try {
-      const r = await (await fetch('/api/autostart', { method: 'POST', body: '{}' })).json();
-      if (!r || !r.ok) throw new Error('refused');
-      addressWhoeverAnswers();
-      splashWaiting = true;
-      splashGo.textContent = 'A session is starting — it connects on its first turn';
-      splashAuto.textContent = r.mode === 'hidden' ? 'started, out of sight'
-        : r.mode === 'tab' ? 'started in a terminal tab'
-        : 'started in a terminal below';
-      // ⛔ A HIDDEN TERMINAL HIDES THE FAILURE TOO. `hideFromUser` means "not logged in" is
-      // just as invisible as success, so if nothing is watching this room a while later, offer
-      // the terminal rather than leaving a button that says it started something.
-      if (r.mode === 'hidden') {
-        setTimeout(() => {
-          if (aliveIds.length) return;                 // it worked; say nothing
-          splashAuto.disabled = false;
-          splashAuto.textContent = 'nothing started — show me the terminal';
-          splashAuto.onclick = () => {
-            splashAuto.disabled = true;
-            splashAuto.textContent = 'showing it…';
-            fetch('/api/reveal_terminal', { method: 'POST', body: '{}' }).catch(() => {});
-          };
-        }, 25000);
+      d = await (await fetch('/api/sessions', { cache: 'no-store' })).json();
+    } catch { return; }
+    const names = d.sessions || {};
+    const live = new Set((d.watchers || []).map(w => w.session));
+    const away = d.elsewhere || {};
+    const ids = Object.keys(names).slice(0, 6);
+    sessLoaded = true;                       // ⛔ even with no sessions: the two rows below are
+                                             // the whole splash then, and returning early left
+                                             // it empty
+    sessBox.replaceChildren(el('b', '', ids.length ? 'pick a session' : 'no sessions here yet'));
+    ids.forEach((id) => {
+      const b = el('button');
+      b.type = 'button';
+      const where = live.has(id) ? 'reading this room' : away[id] ? 'in ' + away[id] : 'ended';
+      b.classList.toggle('live', live.has(id));
+      b.append(el('span', '', String(names[id]).replace(/\s+/g, ' ').slice(0, 90)),
+               el('em', '', where));
+      // ⛔ CHOOSING A SESSION STARTS NOTHING. It addresses it, shows you the last thing it
+      // said, and stops there -- the terminal appears when you have written something, not
+      // when you have merely looked. See sendAndWake().
+      b.onclick = async () => {
+        window.CONTROL_ROOM_SET_TARGET(id);
+        dismissSplash();
+        await refreshTimeline(true);             // so its past replies are available to draw
+        tlFilter = id;
+        tlChosen = true;
+        showSessionLatest(id);
+      };
+      sessBox.append(b);
+    });
+
+    // ⛔ ONE LIST, NOT A LIST PLUS TWO BUTTONS. Starting a new session is another row, because
+    // it is the same kind of choice as picking an old one -- and a big green button beside a
+    // list made the list look like the alternative rather than the point.
+    const fresh = el('button', 'new');
+    fresh.type = 'button';
+    fresh.append(el('span', '', 'Start a new session'),
+                 el('em', '', 'nothing appears'));
+    fresh.onclick = async () => {
+      fresh.disabled = true;
+      fresh.querySelector('em').textContent = 'starting…';
+      addressWhoeverAnswers();               // a new session is whoever answers, by definition
+      try {
+        const r = await (await fetch('/api/autostart', { method: 'POST', body: '{}' })).json();
+        if (!r || !r.ok) throw new Error('refused');
+        fresh.querySelector('em').textContent = 'started — it answers in a moment';
+        if (r.mode === 'hidden') {
+          setTimeout(() => {
+            if (aliveIds.length) return;
+            fresh.disabled = false;
+            fresh.querySelector('span').textContent = 'Nothing started — show me the terminal';
+            fresh.querySelector('em').textContent = '';
+            fresh.onclick = () => {
+              fresh.disabled = true;
+              fetch('/api/reveal_terminal', { method: 'POST', body: '{}' }).catch(() => {});
+            };
+          }, 25000);
+        }
+      } catch {
+        fresh.disabled = false;
+        fresh.querySelector('em').textContent = 'could not start one';
       }
-    } catch {
-      splashAuto.disabled = false;
-      splashAuto.textContent = 'could not start one — try the button above';
-    }
-  };
+    };
+    sessBox.append(fresh);
+
+    const tab = el('button', 'new');
+    tab.type = 'button';
+    tab.append(el('span', '', 'Open a Claude tab instead'), el('em', '', 'you type the first line'));
+    tab.onclick = async () => {
+      tab.disabled = true;
+      const how = await openClaudeTab();
+      if (how === null) { tab.disabled = false; return; }
+      addressWhoeverAnswers();
+      tab.querySelector('em').textContent = how === 'already' ? 'already connected'
+        : 'opened — write anything in it';
+    };
+    sessBox.append(tab);
+  }
 
   const dismissSplash = () => { splashDismissed = true; splash.classList.remove('on'); };
   splash.onclick = (e) => { if (e.target === splash) dismissSplash(); };
@@ -1879,6 +2047,7 @@
         : WAITING_TEXT;
   };
   splash.classList.add('on');          // before the first poll: a blank panel looks broken
+  loadSplashSessions();                // the list IS the splash, so it is never optional
 
   // ⛔ closeSheet and NOTHING else. The left pane keeps its reply, the timeline keeps its
   // filter, the composer keeps its text; the only mark removed outside this pane is the
@@ -2008,17 +2177,27 @@
         }).catch(() => stuckElsewhere(who, room));
         return;
       }
+      // ⛔ ASLEEP IS NOT BROKEN, AND THE LAST SCREEN IS WHAT YOU CAME FOR. This used to be a
+      // warning with two buttons, shown instead of the conversation -- so choosing a session
+      // hid the very thing choosing it was meant to reveal. If it has said anything in this
+      // room, show that, with one line saying typing will wake it. sendAndWake() then does,
+      // and watch.py's catch_up() delivers whatever was written before it came back.
+      if (last) {
+        lastCommand = last.asked || '';
+        show(build(last.text).concat(
+          build('::note ' + who + ' is asleep. Write anything and it wakes up — the message is '
+                + 'kept and answered on its first turn.')), false, last.ts);
+        return;
+      }
+      // Nothing to show: then the buttons are the only thing this screen can offer.
       splashAgain();
       show(build([
         '::warn Not running — ' + who,
-        '::say A session listens only while it is running. Bring this one back, or start a '
-          + 'fresh one: the panel talks to whichever answers.',
+        '::say This session has never written in this control room, so there is nothing of it '
+          + 'to show. Bring it back, or start a fresh one.',
         '::pick Resume this session in a terminal => __resume',
         '::pick Open a fresh Claude tab => __start_session',
-        '::note Resuming keeps this conversation and everything it knows. A fresh tab starts '
-          + 'a new one. Either way, one message is what arms the watch.',
-        last ? '::note Its last reply here is still in the strip below.'
-             : '::note It has never written in this control room.',
+        '::note Resuming keeps everything it knows. A fresh tab starts over.',
       ].join('\n')), false);
       return;
     }
