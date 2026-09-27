@@ -402,7 +402,10 @@ function activate(context) {
       trustSaid.add(dir);
       try {
         const pre = preflight.check(workspaceRoot(dir));
-        if (pre.untrusted) announce(dir, preflightSays(pre, 'this room'));
+        // and not twice: a restored panel and a startup open can both wire the same room
+        const last = log.read().filter(m => m.role === 'assistant').pop();
+        const already = last && /^::ask Trust this folder first/.test(last.text || '');
+        if (pre.untrusted && !already) announce(dir, preflightSays(pre, 'this room'));
       } catch { /* a check that cannot run is not a reason to break the panel */ }
     }
 
