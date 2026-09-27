@@ -1324,6 +1324,30 @@
           picks.append(btn);
           continue;
         }
+        if (btn.dataset.cmd === '__stop_others') {
+          btn.onclick = async () => {
+            btn.disabled = true;
+            const span = btn.querySelector('span');
+            let done = 0;
+            for (const id of stopOthers) {
+              span.textContent = 'Stopping ' + id.slice(0, 8) + '…';
+              try {
+                const r = await (await fetch('/api/stop_session', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ session: id }),
+                })).json();
+                if (r && r.ok) done++;
+              } catch { /* report what did happen, below */ }
+            }
+            span.textContent = done === stopOthers.length
+              ? 'Stopped ' + done + ' — one session left on this room'
+              : 'Stopped ' + done + ' of ' + stopOthers.length;
+            doubleSaid = '';
+          };
+          picks.append(btn);
+          continue;
+        }
         if (btn.dataset.cmd === '__stop_session') {
           btn.onclick = async () => {
             if (!resumeTarget) return;
@@ -1471,6 +1495,7 @@
   // because a resume of a live session becomes a copy. `claude agents --json` answers the second
   // question directly, so it is no longer inferred.
   let liveNow = {};
+  let stopOthers = [];   // the extra watchers, when more than one is reading this room
   let wakingNow = {};    // session id -> seconds since the extension asked it to wake
 
   function drawTarget() {
@@ -1517,11 +1542,38 @@
   window.CONTROL_ROOM_SET_TARGET = (id) => { target = id || ''; targetGuessed = false; drawTarget(); };
 
   let greeted = false;
+  let doubleSaid = '';
   function drawWatchers(list, away) {
     if (away) elsewhereIn = away;
     aliveIds = list.map(w => w.session);
     aliveIds.forEach(id => seenAlive.add(id));
     drawTarget();
+    // ⛔ TWO SESSIONS READING ONE ROOM ANSWER EVERYTHING TWICE, and nothing said so. It happens
+    // easily now that the panel can start and wake sessions: one started earlier is still reading,
+    // a second is woken, and both pick the message up. The room is the shared thing, so the panel
+    // is the only place this can be noticed -- neither session can see the other.
+    if (aliveIds.length > 1) {
+      const sig = aliveIds.slice().sort().join(',');
+      if (sig !== doubleSaid) {
+        doubleSaid = sig;
+        const rows = aliveIds.map(id => '::note ' + id.slice(0, 8) + ' · '
+          + String(tlNames[id] || 'no transcript').replace(/\s+/g, ' ').slice(0, 52));
+        const others = aliveIds.filter(id => id !== target);
+        show(build([
+          '::warn ' + aliveIds.length + ' sessions are reading this room',
+          '::say Every message will be answered ' + aliveIds.length + ' times, once by each of them. '
+            + 'Neither can see the other — the room is the only place this shows up.',
+        ].concat(rows).concat(
+          others.length ? ['::pick Stop the ' + (others.length > 1 ? 'others' : 'other')
+            + ' and keep ' + (target ? target.slice(0, 8) : 'one') + ' => __stop_others']
+                        : []
+        ).join('\n')), false);
+        stopOthers = others;
+      }
+    } else {
+      doubleSaid = '';
+      stopOthers = [];
+    }
     // Nobody reading the log: say so in the MIDDLE of the screen. A line inside a card
     // is no use when the panel is blank, which is exactly when this matters.
     // ⛔ ...and "nobody" depends on who you are writing to. Addressed to one session, only

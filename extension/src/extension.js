@@ -130,23 +130,6 @@ function pageHtml(extensionPath, dir, session, build) {
 const trustSaid = new Set();   // rooms already told to trust their folder
 let lastTerm = null;                     // a hidden terminal is still produced on demand
 let lastBg = null;                       // the short id of the last background session we started
-// \u26d4 THE THIRD SECOND OF A WAKE LOOKS LIKE THE WORST FAILURE THERE IS. `claude agents` lists a
-// session we have just resumed as LIVE immediately, but its watch heartbeat takes about ten seconds
-// to land -- so for that gap the panel had every fact right and drew the wrong conclusion:
-// "LIVE elsewhere -- cannot be woken", about the session it had itself just woken on request.
-// A wake we asked for is remembered here, and for 90 seconds the room says so.
-const waking = new Map();                // session id -> when we asked it to wake
-function noteWaking(sid) { if (sid) waking.set(sid, Date.now()); }
-function wakingNow(log, names) {
-  const out = {};
-  const live = new Set((log ? log.watchers(names || {}) : []).map(w => w.session));
-  for (const [sid, at] of waking) {
-    const age = Math.round((Date.now() - at) / 1000);
-    if (age > 90 || live.has(sid)) { waking.delete(sid); continue; }   // answered, or gave up
-    out[sid] = age;
-  }
-  return out;
-}
 // \u26d4 WAKING IS A STATE, AND THE PANEL DID NOT HAVE IT. A session takes a few seconds between
 // being asked to wake and its first heartbeat -- and in that gap it is live (claude agents lists it)
 // while reading nothing, which is exactly the shape of the ONE case that cannot be woken. So the
