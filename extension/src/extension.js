@@ -305,6 +305,24 @@ function liveSessions(cb) {
   });
 }
 
+/** Every session with a FRESH HEARTBEAT in any room of this workspace.
+ *
+ * ⛔ `claude agents --json` IS NOT A COMPLETE LIST, measured 2026-09-27: it reported one live session
+ * while three were beating heartbeats into this room and one of them was writing replies. It sees the
+ * sessions the CLI started; a session hosted inside a Claude tab can be missing from it. So it is a
+ * hint, not the authority, and anything that must not be wrong takes the union with this -- a file
+ * touched in the last 90 seconds is a session that exists, whoever started it.
+ */
+function beatingIds() {
+  const out = {};
+  for (const inst of instances()) {
+    for (const w of new Log(inst.dir).watchers({})) {
+      out[w.session] = { status: 'watching', kind: 'heartbeat', room: inst.name, age: w.age };
+    }
+  }
+  return out;
+}
+
 /** Stop a live session by id. `claude stop` takes the short form as well as the full uuid. */
 function stopSession(id, cb) {
   const bin = preflight.findClaude();
@@ -742,8 +760,8 @@ function activate(context) {
           const live = await new Promise(res => liveSessions(res));
           return reply({
             sessions: names, watchers: here, elsewhere: elsewhere(names, here),
-            live: Object.fromEntries(live.map(r => [r.sessionId,
-              { status: r.status || '', kind: r.kind || '', name: r.name || '' }])),
+            live: Object.assign(beatingIds(), Object.fromEntries(live.map(r => [r.sessionId,
+              { status: r.status || '', kind: r.kind || '', name: r.name || '' }]))),
             waking: wakingIds(),
           });
         }
@@ -769,7 +787,12 @@ function activate(context) {
           // and it happens once, with a message already on record to answer.
           liveCache = { at: 0, rows: [] };           // this decision may not run on a stale answer
           const live = await new Promise(res => liveSessions(res));
-          const row = live.find(r => r.sessionId === sid);
+          // \u26d4 AND THE HEARTBEATS, because `claude agents` misses tab-hosted sessions -- measured:
+          // one reported while three were beating. Resuming one it failed to mention would spawn the
+          // copy this guard exists to prevent, so a fresh beat counts as live too.
+          const beating = beatingIds();
+          const row = live.find(r => r.sessionId === sid)
+            || (beating[sid] ? { sessionId: sid, kind: 'heartbeat', status: 'watching' } : null);
           let stopped = false;
           if (row) {
             const r = await new Promise(res => stopSession(sid, res));
