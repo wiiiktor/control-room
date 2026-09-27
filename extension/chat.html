@@ -315,6 +315,14 @@
 
   /* Sessions that already exist, on the splash. Starting a new one is not the only thing
      somebody wants at this moment -- usually the session they want is sitting there, ended. */
+  /* The status the big button used to carry. A line, because it is a statement and not a
+     thing to press -- the list below is what you press. */
+  #splash .status {
+    margin: 0 auto 4px; max-width: 560px; font: 700 16px/1.35 inherit;
+    color: var(--ink); text-align: left;
+  }
+  #splash .status.live { color: var(--green-deep); }
+
   #splash .sess {
     margin: 18px auto 0; max-width: 560px; display: flex; flex-direction: column; gap: 6px;
     text-align: left;
@@ -334,6 +342,9 @@
   #splash .sess button em {
     font-style: normal; font-size: 11px; font-family: ui-monospace, monospace; opacity: var(--dim-2);
   }
+  /* the two doing rows, marked apart from the remembering ones */
+  #splash .sess button.new { border-style: dashed; }
+  #splash .sess button.new:hover { border-style: solid; }
   #splash .sess button.live { border-color: var(--green); }
   #splash .sess button.live em { color: var(--green); opacity: 1; font-weight: 700; }
 
@@ -834,9 +845,8 @@
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
   <div id="splash" role="dialog" aria-label="Start a working session">
     <div class="wrap">
-      <button class="go" type="button">Open the Claude session and write Hello in there to start connection</button>
-      <button class="auto" type="button">…or let me start one in the background</button>
-      <div class="sess" id="splash-sess" hidden></div>
+      <p class="status" id="splash-status"></p>
+      <div class="sess" id="splash-sess"></div>
       <button class="x" type="button" title="Close" aria-label="Close">✕</button>
       <button class="info" type="button" aria-expanded="false">Info on how to set required Permission Mode</button>
       <div class="prompt" hidden>
@@ -1782,9 +1792,18 @@
   /* Shown on every open, dismissed by a click anywhere off the button, and back again
      if the watch later dies. One sentence, on the thing you press. */
   const splash = document.getElementById('splash');
-  const splashGo = splash.querySelector('.go');
-  const SPLASH_TEXT = 'Open the Claude session and write Hello in there to start connection';
-  const WAITING_TEXT = 'I am waiting for a signal from Claude — write Hello in the tab that just opened';
+  // ⛔ THE STATUS MOVED OFF THE BUTTON, and the button is gone. Every splashGo.textContent
+  // below would have thrown on null and taken the whole script with it -- which is what
+  // "connection to Claude just does not work" looks like from the outside.
+  const splashGo = {
+    _el: document.getElementById('splash-status'),
+    set textContent(v) { this._el.textContent = v; },
+    get textContent() { return this._el.textContent; },
+    classList: { add: (c) => document.getElementById('splash-status').classList.add(c),
+                 remove: (c) => document.getElementById('splash-status').classList.remove(c) },
+  };
+  const SPLASH_TEXT = 'Nothing is reading this room yet — pick a session, or start one.';
+  const WAITING_TEXT = 'Waiting for the session to come up…';
   let splashDismissed = false;
   let splashWatching = null;
   let splashWaiting = false;   // pressed, and now watching for the session to appear
@@ -1808,7 +1827,7 @@
     // wording changes again in splashAnswered(), where a reply has actually arrived.
     if (watching && !splashLive) {
       splashWaiting = false;
-      splashGo.textContent = 'Session ok, I expect Claude to start talking to me';
+      splashGo.textContent = 'A session is reading this room — close this and write.';
       splashGo.classList.add('live');
     }
     splashWatching = watching;
@@ -1820,7 +1839,7 @@
     if (splashLive) return;
     splashLive = true;
     splashWaiting = false;
-    splashGo.textContent = 'Claude answered — close this and start writing';
+    splashGo.textContent = 'Claude answered — close this and write.';
     splashGo.classList.add('live', 'pulse');
     setTimeout(() => splashGo.classList.remove('pulse'), 600);
   }
@@ -1840,42 +1859,6 @@
     splashSay(false);
   }
 
-  /* The opening ritual in one press, with nothing surfaced. The Claude tab cannot be typed
-     into -- it belongs to another extension -- so this goes through a terminal, where
-     `claude <prompt>` starts a session with that first message. Under the default setting the
-     terminal is created with `hideFromUser`, so it runs and never appears. */
-  const splashAuto = splash.querySelector('.auto');
-  splashAuto.onclick = async () => {
-    splashAuto.disabled = true;
-    splashAuto.textContent = 'starting a session…';
-    try {
-      const r = await (await fetch('/api/autostart', { method: 'POST', body: '{}' })).json();
-      if (!r || !r.ok) throw new Error('refused');
-      addressWhoeverAnswers();
-      splashWaiting = true;
-      splashGo.textContent = 'A session is starting — it connects on its first turn';
-      splashAuto.textContent = r.mode === 'hidden' ? 'started, out of sight'
-        : r.mode === 'tab' ? 'started in a terminal tab' : 'started in a terminal below';
-      // ⛔ A HIDDEN TERMINAL HIDES THE FAILURE TOO. "You are not logged in" is exactly as
-      // invisible as success, so if nothing is watching this room a while later, stop claiming
-      // it started something and offer the terminal instead.
-      if (r.mode === 'hidden') {
-        setTimeout(() => {
-          if (aliveIds.length) return;               // it worked; say nothing
-          splashAuto.disabled = false;
-          splashAuto.textContent = 'nothing started — show me the terminal';
-          splashAuto.onclick = () => {
-            splashAuto.disabled = true;
-            splashAuto.textContent = 'showing it…';
-            fetch('/api/reveal_terminal', { method: 'POST', body: '{}' }).catch(() => {});
-          };
-        }, 25000);
-      }
-    } catch {
-      splashAuto.disabled = false;
-      splashAuto.textContent = 'could not start one — try the button above';
-    }
-  };
 
   /** The sessions that already exist, offered where the decision is made.
    *
@@ -1901,7 +1884,7 @@
     const ids = Object.keys(names).slice(0, 6);
     if (!ids.length) return;
     sessLoaded = true;
-    sessBox.replaceChildren(el('b', '', 'or pick up a session you already had'));
+    sessBox.replaceChildren(el('b', '', ids.length ? 'pick a session' : 'no sessions here yet'));
     ids.forEach((id) => {
       const b = el('button');
       b.type = 'button';
@@ -1922,7 +1905,53 @@
       };
       sessBox.append(b);
     });
-    sessBox.hidden = false;
+
+    // ⛔ ONE LIST, NOT A LIST PLUS TWO BUTTONS. Starting a new session is another row, because
+    // it is the same kind of choice as picking an old one -- and a big green button beside a
+    // list made the list look like the alternative rather than the point.
+    const fresh = el('button', 'new');
+    fresh.type = 'button';
+    fresh.append(el('span', '', 'Start a new session'),
+                 el('em', '', 'nothing appears'));
+    fresh.onclick = async () => {
+      fresh.disabled = true;
+      fresh.querySelector('em').textContent = 'starting…';
+      addressWhoeverAnswers();               // a new session is whoever answers, by definition
+      try {
+        const r = await (await fetch('/api/autostart', { method: 'POST', body: '{}' })).json();
+        if (!r || !r.ok) throw new Error('refused');
+        fresh.querySelector('em').textContent = 'started — it answers in a moment';
+        if (r.mode === 'hidden') {
+          setTimeout(() => {
+            if (aliveIds.length) return;
+            fresh.disabled = false;
+            fresh.querySelector('span').textContent = 'Nothing started — show me the terminal';
+            fresh.querySelector('em').textContent = '';
+            fresh.onclick = () => {
+              fresh.disabled = true;
+              fetch('/api/reveal_terminal', { method: 'POST', body: '{}' }).catch(() => {});
+            };
+          }, 25000);
+        }
+      } catch {
+        fresh.disabled = false;
+        fresh.querySelector('em').textContent = 'could not start one';
+      }
+    };
+    sessBox.append(fresh);
+
+    const tab = el('button', 'new');
+    tab.type = 'button';
+    tab.append(el('span', '', 'Open a Claude tab instead'), el('em', '', 'you type the first line'));
+    tab.onclick = async () => {
+      tab.disabled = true;
+      const how = await openClaudeTab();
+      if (how === null) { tab.disabled = false; return; }
+      addressWhoeverAnswers();
+      tab.querySelector('em').textContent = how === 'already' ? 'already connected'
+        : 'opened — write anything in it';
+    };
+    sessBox.append(tab);
   }
 
   const dismissSplash = () => { splashDismissed = true; splash.classList.remove('on'); };
@@ -1991,7 +2020,7 @@
         : WAITING_TEXT;
   };
   splash.classList.add('on');          // before the first poll: a blank panel looks broken
-  loadSplashSessions();                // and fill the list while it is up
+  loadSplashSessions();                // the list IS the splash, so it is never optional
 
   // ⛔ closeSheet and NOTHING else. The left pane keeps its reply, the timeline keeps its
   // filter, the composer keeps its text; the only mark removed outside this pane is the

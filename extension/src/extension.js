@@ -580,8 +580,18 @@ function activate(context) {
   }));
 
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.open', async () => {
-    const picked = await pickSession('Which session do you want to talk to?');
-    if (picked) open(picked.inst, picked.session);
+    // ⛔ NO QUESTION HERE ANY MORE. This used to ask which session before the room existed --
+    // a decision demanded before anything was on screen, about a list whose entries mostly
+    // ended days ago, and it handed over a target that then went stale. The room opens; the
+    // sessions are offered inside it, where you can see what each one last said.
+    // ⚠️ And no handover: a target chosen out here is the one that made messages go to a
+    // session that could not see them.
+    const found = instances();
+    if (found.length === 1) return open(found[0]);
+    const pick = await vscode.window.showQuickPick(
+      found.map(inst => ({ label: inst.name, description: inst.dir, inst })),
+      { placeHolder: 'Which control room?' });
+    if (pick) open(pick.inst);
   }));
 
   // every instance at once, for the two-session case this was built for
