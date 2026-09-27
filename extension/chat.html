@@ -1785,7 +1785,8 @@
         body: JSON.stringify({ session: target }),
       })).json();
       if (r && r.error) {
-        show(build([
+        // the extension says why in the room's own words when it can (src/wake.js)
+        show(build(r.screen || [
           '::warn ' + name.slice(0, 40) + ' could not be woken',
           '::say Your message is written down and nothing is lost — it will be picked up whenever '
             + 'that session next runs.',
@@ -1793,9 +1794,13 @@
         ].join('\n')), false);
         return true;
       }
-      if (r && r.stopped) waiting(['it was running, so I stopped it',
-                                   'waking ' + name.slice(0, 32) + ' with your message',
-                                   'it answers on its first turn']);
+      if (r && r.how === 'listening') waiting(['it is listening', 'it answers in a moment']);
+      if (r && r.how === 'rearming') waiting(['it is running, between two steps',
+                                             'it reads your message as soon as its watch is back']);
+      if (r && r.how === 'taken-from-window') waiting(['its Claude tab was closed, so it can run here',
+                                                      'waking ' + name.slice(0, 32) + ' with your message']);
+      if (r && r.how === 'taken-from-background') waiting(['it was running for another room, so I stopped it',
+                                                          'waking ' + name.slice(0, 32) + ' here']);
     } catch { /* the message is on record either way; the session can be woken by hand */ }
     poll();
     // ⛔ A HIDDEN TERMINAL FAILS SILENTLY, and a woken session that never answers is the most
@@ -1824,6 +1829,13 @@
     // session in the project, and the rooms are separate files. Addressed that way, the
     // message is appended, skipped by the only watcher present, and never answered. Say so
     // before it happens rather than letting it sit.
+    // \u26d4 EVERY MESSAGE TO A KNOWN SESSION GOES THROUGH THE WAKE CHECK, not only ones to a session
+    // that looks silent. A heartbeat stays fresh for up to 90 s after its session is gone, and in that
+    // window "it is listening" meant a message nobody would ever read. The check costs one
+    // `claude agents` (~0.15 s) and answers "listening" when nothing needs doing.
+    if (!force && target && aliveIds.includes(target) && tlNames[target] && !elsewhereIn[target]) {
+      return sendAndWake(text, (tlNames[target] || target).slice(0, 48));
+    }
     if (!force && target && !aliveIds.includes(target)) {
       const name = (tlNames[target] || target).slice(0, 48);
       // ⛔ A SESSION OF THIS ROOM THAT HAS ENDED IS NOT AN ERROR, IT IS THE NORMAL CASE.
@@ -1914,8 +1926,10 @@
       // session (below), but every user line still changed "you said" and started the wait --
       // so a message typed to another session (the Claude tab, mirrored in) put its question on
       // this screen and left it waiting for an answer that was never going to be shown here.
+      // a notice from the machinery (no session: the extension, the handoff wrapper) concerns the
+      // room itself -- "moved to the Claude window", "was let go" -- and is shown whoever is chosen
       const belongs = (m) => !tlChosen
-        || (m.role === 'user' ? (m.to || '') === tlFilter : (m.session || '') === tlFilter);
+        || (m.role === 'user' ? (m.to || '') === tlFilter : !m.session || m.session === tlFilter);
       const ours = data.messages.filter(belongs);
 
       // Walk the batch in order: questions pile up until a reply answers them all.

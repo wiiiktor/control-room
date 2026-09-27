@@ -424,6 +424,18 @@ def launched_by_room(rooms, sid, cwd):
     just asked for it (the .expect marker, or this session's .session binding, written seconds ago).
     """
     import time as _t
+    import os as _os
+    # hosted by the Claude window (the handoff wrapper marks it with its own pid, which exec keeps):
+    # never the room's, whatever the files say -- it cannot keep a watch
+    if _os.environ.get("CONTROL_ROOM_HOST") == "claude-window":
+        host = _os.environ.get("CONTROL_ROOM_HOST_PID", "")
+        parent = str(_os.getppid())
+        try:
+            grand = _os.popen("ps -o ppid= -p " + parent).read().strip()
+        except OSError:
+            grand = ""
+        if host and host in (parent, grand):
+            return False
     now = _t.time()
     here = Path(cwd).resolve() if cwd else None
     for d in rooms:

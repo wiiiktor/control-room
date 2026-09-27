@@ -21,6 +21,7 @@ const runtime = require('./runtime');
 const diagnose = require('./diagnose');
 const preflight = require('./preflight');
 const handoff = require('./handoff');
+const wake = require('./wake');
 
 /** "control-room-medicover" -> "Control Room · medicover"; the plain one keeps its name. */
 function instanceName(folder) {
@@ -284,24 +285,26 @@ function startHeadless(dir, args, what, done) {
 // session list is built, and immediately before a resume, which is the call that would otherwise
 // spawn a copy. The cache is long because liveness only matters at those two moments.
 let liveCache = { at: 0, rows: [] };
+let liveKnown = true;                      // false when the last `claude agents` could not be read
 function liveSessions(cb) {
   if (Date.now() - liveCache.at < 45000) { cb(liveCache.rows); return; }
   const bin = preflight.findClaude();
-  if (!bin) { cb([]); return; }
+  if (!bin) { liveKnown = false; cb([]); return; }
   const cp = require('child_process');
   let out = '';
   let p;
   try {
     p = cp.spawn(bin, ['agents', '--json'], { cwd: workspaceRoot(''), env: process.env });
-  } catch { cb(liveCache.rows); return; }
+  } catch { liveKnown = false; cb(liveCache.rows); return; }
   p.stdout.on('data', d => { out += String(d); });
-  p.on('error', () => cb(liveCache.rows));
+  p.on('error', () => { liveKnown = false; cb(liveCache.rows); });
   p.on('close', () => {
     let rows = [];
     try {
       const d = JSON.parse(out);
       rows = Array.isArray(d) ? d : (d.sessions || d.agents || []);
-    } catch { /* not json: an older CLI, or nothing running */ }
+      liveKnown = true;
+    } catch { liveKnown = false; /* not json: an older CLI -- nothing to decide on */ }
     liveCache = { at: Date.now(), rows: rows.filter(r => r && r.sessionId) };
     cb(liveCache.rows);
   });
@@ -383,8 +386,8 @@ function claudeTerminal(opts, args) {
 
 /** Say something in the room itself. Not a reply and not a message to the session: a line from
  *  the extension, which is the only voice that can report a terminal nobody can see. */
-function announce(dir, markup) {
-  try { new Log(dir).append('assistant', markup); } catch { /* read-only room */ }
+function announce(dir, markup, about) {
+  try { new Log(dir).append('assistant', markup, null, about); } catch { /* read-only room */ }
 }
 
 /** A started session must PROVE it started.
@@ -394,14 +397,19 @@ function announce(dir, markup) {
  *  start paths. This watches for the thing that actually proves life -- a watcher heartbeat in
  *  the room -- and when it does not appear, it surfaces the terminal ITSELF and says why in the
  *  log. No button, no guessing, and the same net on every path that starts a session. */
-function proveItStarted(dir, term, what) {
+function proveItStarted(dir, term, what, onUp) {
   const log = new Log(dir);
   const before = new Set(log.watchers({}).map(w => w.session));
   const t0 = Date.now();
   const tick = setInterval(() => {
     let live = [];
     try { live = log.watchers({}); } catch { /* room went away */ }
-    if (live.some(w => !before.has(w.session))) { clearInterval(tick); return; }
+    const fresh = live.find(w => !before.has(w.session));
+    if (fresh) {
+      clearInterval(tick);
+      if (onUp) try { onUp(fresh.session); } catch { /* best effort */ }
+      return;
+    }
     if (Date.now() - t0 < 60000) return;
     clearInterval(tick);
     // \u26d4 A BACKGROUND SESSION HAS NO TERMINAL TO SHOW, and pretending otherwise was the point
@@ -466,7 +474,8 @@ function resumeIn(dir, sid) {
               + 'the window restarts it, and until it takes a turn it is not reading this room.',
           ].join('\n'));
         }
-        proveItStarted(dir, null, 'Session ' + sid.slice(0, 8) + ' was asked to wake up.');
+        proveItStarted(dir, null, 'Session ' + sid.slice(0, 8) + ' was asked to wake up.',
+          () => releaseOthers(dir, sid));
         return;
       }
       headlessFailed(dir, r, 'Waking session ' + sid.slice(0, 8) + '.');
@@ -637,7 +646,7 @@ function startSessionInTerminal(dir, first) {
     startHeadless(dir, [first], 'Starting a session for this room.', (r) => {
       if (r.ok) {
         lastBg = r.id;
-        proveItStarted(dir, null, 'A new session was started for this room.');
+        proveItStarted(dir, null, 'A new session was started for this room.', (sid) => releaseOthers(dir, sid));
         return;
       }
       headlessFailed(dir, r, 'Starting a session for this room.');
@@ -707,6 +716,100 @@ function preflightSays(pre, doing) {
 /** Said whenever a panel is opened with nothing reading it: the one step people miss. */
 const NO_SESSION = 'Control Room: no Claude session is watching this panel yet. Open the Claude tab and send it any message — that starts the session that reads what you write here. Your messages are kept until then.';
 
+/** How many Claude tabs in this window carry this conversation's title. */
+function claudeTabsFor(title) {
+  let n = 0;
+  try {
+    for (const group of vscode.window.tabGroups.all) {
+      for (const tab of group.tabs) {
+        const view = String((tab.input && tab.input.viewType) || '');
+        if (/claude/i.test(view) && !/controlroom/i.test(view) && labelMatchesTitle(tab.label, title)) n++;
+      }
+    }
+  } catch { /* no tab API */ }
+  return n;
+}
+
+/** Wait until `claude agents` no longer lists a session. */
+async function goneWithin(sid, ms) {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    liveCache = { at: 0, rows: [] };
+    const rows = await new Promise(res => liveSessions(res));
+    if (!rows.some(r => r.sessionId === sid)) return true;
+    await new Promise(res => setTimeout(res, 500));
+  }
+  return false;
+}
+
+/** Bring one conversation to this room, or say why not. See src/wake.js for the rules.
+ *  Reached from the panel (a message was just written to it) and from a room request. */
+async function wakeForRoom(dir, sid) {
+  const log = new Log(dir);
+  liveCache = { at: 0, rows: [] };                 // this decision may not run on a stale answer
+  const rows = await new Promise(res => liveSessions(res));
+  const row = rows.find(r => r.sessionId === sid) || null;
+  const listeningHere = log.watchers({}).some(w => w.session === sid);
+  const boundHere = fs.existsSync(path.join(dir, '.watch.' + sid)) || fs.existsSync(path.join(dir, '.session.' + sid))
+    || !!(row && row.cwd && path.resolve(row.cwd) === path.resolve(dir));
+  const title = titleOf(sid, workspaceRoot(dir), dir);
+  // \u26d4 A TAB IS KNOWN ONLY BY ITS TITLE, and titles repeat -- two conversations were both called
+  // "uncommitted changes review". With more than one match the wrong tab could be closed, so the tab
+  // counts as not found and the room says so instead of guessing.
+  const tabs = title ? claudeTabsFor(title) : 0;
+  const tabFound = tabs === 1;
+  const p = wake.plan({ row, listeningHere, boundHere, tabFound, known: liveKnown });
+  const name = title || sid.slice(0, 8);
+  if (p.do === 'refuse' && tabs > 1) {
+    return { error: 'refused', why: 'ambiguous', screen: [
+      '::warn ' + tabs + ' Claude tabs are called "' + name.slice(0, 40) + '"',
+      '::say I cannot tell which one holds this conversation, so I closed none. Close its tab yourself, '
+        + 'then write again here — your message is already written down.',
+    ].join('\n') };
+  }
+  if (p.do === 'none') return { ok: true, how: p.how };
+  if (p.do === 'refuse') return { error: 'refused', why: p.why, screen: wake.refusalScreen(p.why, name, row) };
+  if (p.do === 'stop-then-wake') {
+    const r = await new Promise(res => stopSession(sid, res));
+    if (!r.ok) return { error: 'could not stop it', why: r.why };
+    if (!await goneWithin(sid, 10000)) return { error: 'still running', why: name + ' did not stop in 10 s' };
+  }
+  if (p.do === 'close-tab-then-wake') {
+    const r = await closeClaudeTabs(title);
+    if (!r.ok || !r.closed) return { error: 'refused', why: 'open-elsewhere', screen: wake.refusalScreen('open-elsewhere', name, row) };
+    // the tab's process ends with the tab; a resume before that would make a copy
+    if (!await goneWithin(sid, 15000)) {
+      return { error: 'still running', why: name + ' was still running 15 s after its Claude tab closed' };
+    }
+    announce(dir, [
+      '::note ' + name + ' moved here from the Claude window',
+      '::say You wrote to it from this room, so its Claude tab was closed and it continues here — a '
+        + 'conversation runs in one place at a time. Opening it in the Claude window moves it back.',
+    ].join('\n'), sid);
+  }
+  resumeIn(dir, sid);
+  return { ok: true, how: p.how, stopped: p.do !== 'wake' };
+}
+
+/** A room talks to one session: once `keep` is up, let the other background listeners go. */
+function releaseOthers(dir, keep) {
+  const listening = new Log(dir).watchers({}).map(w => w.session);
+  if (!listening.some(s => s !== keep)) return;
+  liveCache = { at: 0, rows: [] };
+  liveSessions((rows) => {
+    for (const sid of wake.toRelease(listening, rows, keep)) {
+      stopSession(sid, (r) => {
+        if (!r.ok) return;
+        try { fs.unlinkSync(path.join(dir, '.watch.' + sid)); } catch { /* already gone */ }
+        const t = titleOf(sid, workspaceRoot(dir), dir) || sid.slice(0, 8);
+        const k = titleOf(keep, workspaceRoot(dir), dir) || keep.slice(0, 8);
+        announce(dir, '::note ' + t + ' was let go — this room talks to one session at a time, and now '
+          + 'that is ' + k + '. Writing to ' + t + ' brings it back.', sid);
+      });
+    }
+  });
+}
+
 /** One request from a room (see request.py). Returns what happened, for the asker. */
 async function handleRequest(dir, req) {
   const sid = String(req.session || '');
@@ -714,6 +817,10 @@ async function handleRequest(dir, req) {
   if (req.action === 'open-in-claude') {
     if (!valid) return { ok: false, why: 'not a session id' };
     return { ok: await openInClaude(sid), action: req.action, session: sid };
+  }
+  if (req.action === 'wake') {
+    if (!valid) return { ok: false, why: 'not a session id' };
+    return wakeForRoom(dir, sid);
   }
   if (req.action === 'close-claude-tab') {
     if (sid && !valid) return { ok: false, why: 'not a session id' };
@@ -920,66 +1027,14 @@ function activate(context) {
           const sid = (JSON.parse(req.body || '{}').session || '').trim();
           if (!/^[0-9a-f-]{8,36}$/.test(sid)) return reply({ error: 'not a session id' });
           const r = await new Promise(res => stopSession(sid, res));
+          // the room forgets it at once, instead of calling it "listening" for another 90 s
+          if (r.ok) try { fs.unlinkSync(path.join(dir, '.watch.' + sid)); } catch { /* not here */ }
           return reply(r);
         }
         if (route === '/api/resume') {
-          const body = JSON.parse(req.body || '{}');
-          const sid = (body.session || '').trim();
+          const sid = (JSON.parse(req.body || '{}').session || '').trim();
           if (!/^[0-9a-f-]{36}$/.test(sid)) return reply({ error: 'not a session id' });
-          // ⛔⛔ NEVER RESUME A SESSION THAT IS ALREADY RUNNING. `claude --resume` on a live session
-          // does not join it -- it starts a COPY under a NEW id, and that is what filled this room
-          // with Claudes: two became three became four, each answering everything, while the reader
-          // pressed "stop the other" against a queue that refilled itself.
-          //
-          // ⭐ SO IT IS STOPPED FIRST, AND ONLY HERE. This endpoint is reached from one place: the
-          // reader pressing Send. "Any live session should be killed only AFTER the user clicks SEND"
-          // -- so stopping is no longer a button to press in advance, it is the first half of waking,
-          // and it happens once, with a message already on record to answer.
-          liveCache = { at: 0, rows: [] };           // this decision may not run on a stale answer
-          const live = await new Promise(res => liveSessions(res));
-          // \u26d4 AND THE HEARTBEATS, because `claude agents` misses tab-hosted sessions -- measured:
-          // one reported while three were beating. Resuming one it failed to mention would spawn the
-          // copy this guard exists to prevent, so a fresh beat counts as live too.
-          const beating = beatingIds();
-          const row = live.find(r => r.sessionId === sid)
-            || (beating[sid] ? { sessionId: sid, kind: 'heartbeat', status: 'watching' } : null);
-          let stopped = false;
-          if (row) {
-            const r = await new Promise(res => stopSession(sid, res));
-            if (!r.ok) {
-              return reply({ error: 'could not stop it', session: sid, why: r.why });
-            }
-            stopped = true;
-            // ⛔ AN INTERACTIVE SESSION IS SOMEBODY'S WINDOW, AND STOPPING IT MAKES THAT WINDOW SHOUT.
-            // `claude agents --json` marks ours `background` and a tab's or a terminal's
-            // `interactive`. When the one we just stopped was interactive, the Claude tab that owned
-            // it prints "Claude Code process exited with code 1" over a screenful of debug -- which
-            // is how the reader met this, in the other extension, with nothing here to explain it.
-            // The stop is still right (it is the only way to talk to that session here), so the room
-            // says what it did and that the alarm next door is expected.
-            if (row.kind === 'interactive') {
-              announce(dir, [
-                '::warn I stopped the session your Claude tab was running',
-                '::say That is what waking it here means: nothing can reach into a live session, so it '
-                  + 'is stopped and resumed under the same id, with its whole history.',
-                '::note The Claude tab will say "Claude Code process exited with code 1" over a page of '
-                  + 'debug output. That is expected and nothing is broken — the conversation is intact '
-                  + 'and is now answering in this room instead.',
-                '::note To keep a tab conversation AND talk here, start a separate session from the '
-                  + 'list instead of waking that one.',
-                '::pick Close that Claude tab for me => __close_claude_tab',
-              ].join('\n'));
-            }
-            // it has to be GONE before the resume, or the resume makes the copy anyway
-            for (let i = 0; i < 20; i++) {
-              const now = await new Promise(res => liveSessions(res));
-              if (!now.some(r2 => r2.sessionId === sid)) break;
-              liveCache = { at: 0, rows: [] };
-              await new Promise(res => setTimeout(res, 500));
-            }
-          }
-          resumeIn(dir, sid);
-          return reply({ ok: true, stopped, kind: row ? row.kind : '' });
+          return reply(await wakeForRoom(dir, sid));
         }
         // Hide one reply from the timeline strip.
         //

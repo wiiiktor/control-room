@@ -60,7 +60,7 @@ class Log {
     return out;
   }
 
-  append(role, text, to) {
+  append(role, text, to, about) {
     const existing = this.read();
     let high = 0;
     try {
@@ -71,6 +71,7 @@ class Log {
     fs.writeFileSync(this.seq, String(id));
     const msg = { id, role, text, ts: localStamp() };
     if (to) msg.to = to;
+    if (about) msg.about = about;       // a notice from the machinery about one session
     fs.appendFileSync(this.file, JSON.stringify(msg) + '\n');
     this.clearStatus();
     return msg;

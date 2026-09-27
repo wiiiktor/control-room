@@ -112,3 +112,18 @@ End to end, isolated VS Code instance (`--user-data-dir`/`--extensions-dir` in t
   moves to the window (agents: interactive), room told. URL triggers need a click in VS Code, so rooms got
   a request inbox (`request.py`: open-in-claude, close-claude-tab) — also answers "close the tab for me".
 - Labels: sessions named by `aiTitle` like the Claude window (cached; P7).
+- 02:10 — M2: `src/wake.js` decision table (U2 13/13, including the property "no plan resumes a live
+  session without ending it first"); `wakeForRoom()` serves the panel and a `wake` request; the false
+  "I stopped the session your Claude tab was running" notice removed (`claude stop` never reached tabs).
+  A room releases its previous background listener once the new one is up (C4). Tabs are matched by
+  title, and an ambiguous title (two tabs) is refused rather than guessed.
+- Measured: a background session gets the DAEMON's environment, not the launcher's (this daemon even
+  carries CLAUDE_CODE_CHILD_SESSION=1). So the Claude-window marker carries the wrapper's pid, and the
+  hook trusts it only from its parent. U4/U5/U6 8/8. S4 (room round trip, real hooks): watch armed,
+  answer in the room as itself.
+- E2 in the isolated VS Code (real Claude extension): X idle in a Claude tab, Y listening; waking X
+  closed X's tab, X runs in the room under the same id and listens, Y let go, no background copy, no
+  error in the Claude window. 10/10.
+- P9: `claude agents` overrides a stale heartbeat (a session that is not running is woken even if its
+  file is fresh); every panel message to a known session goes through the check.
+

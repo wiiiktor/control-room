@@ -67,10 +67,11 @@ for room in sorted(glob.glob(os.path.join(cwd, 'control-room*'))):
     bound = [os.path.join(room, n) for n in ('.watch.' + sid, '.session.' + sid)]
     if not any(os.path.exists(p) for p in bound) or not os.path.exists(os.path.join(room, 'chatlog.py')):
         continue
-    try:
-        os.unlink(os.path.join(room, '.watch.' + sid))   # the panel sees at once that it left
-    except OSError:
-        pass
+    for gone in ('.watch.' + sid, '.session.' + sid):  # the panel sees at once that it left, and the
+        try:                                           # hooks no longer treat it as the room's session
+            os.unlink(os.path.join(room, gone))
+        except OSError:
+            pass
     os.environ['CONTROL_ROOM_DIR'] = room
     sys.path.insert(0, room)
     import chatlog
@@ -95,6 +96,12 @@ esac
 
 # Sessions the Claude window hosts are marked, so the room's session-start hook never tells them to
 # watch a room: they cannot keep a watch, and a second watcher answers everything twice.
+# ⛔ WITH THIS PROCESS'S PID. A background session does not get the environment of the command that
+# started it -- it gets the long-lived daemon's (measured), and the daemon was started by whichever
+# `claude --bg` came first, possibly one run from inside a Claude window. A bare marker could then
+# end up on every room session. exec keeps the pid, so the hook trusts the marker only when this
+# claude is its parent.
 CONTROL_ROOM_HOST=claude-window
-export CONTROL_ROOM_HOST
+CONTROL_ROOM_HOST_PID=$$
+export CONTROL_ROOM_HOST CONTROL_ROOM_HOST_PID
 exec "$real" "$@"

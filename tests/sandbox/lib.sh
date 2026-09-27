@@ -65,3 +65,39 @@ wait_idle() {
   done
   return 1
 }
+
+# ---- isolated VS Code (for the e2e tests) -------------------------------------------------------
+CODE=${CODE:-"/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"}
+UD=$SB/vscode/ud; EXT=$SB/vscode/ext
+
+# vs_start <handoff:true|false> -- launch an isolated window on the sandbox workspace; sets CLOG to
+# THIS window's Claude extension log (an older run's log already exists and must not be read)
+vs_start() {
+  mkdir -p "$UD/User"
+  pkill -f "$UD" 2>/dev/null; sleep 2
+  cat > "$UD/User/settings.json" <<JSON
+{ "security.workspace.trust.enabled": false, "claudeCode.hideOnboarding": true,
+  "claudeCode.preferredLocation": "panel", "controlRoom.claudeWindowHandoff": ${1:-true},
+  "workbench.startupEditor": "none", "extensions.autoUpdate": false }
+JSON
+  old_logs=$(ls "$UD"/logs 2>/dev/null)
+  CONTROL_ROOM_STATE=$state clean "$CODE" --user-data-dir "$UD" --extensions-dir "$EXT" --new-window "$WS" >/dev/null 2>&1 &
+  CLOG=""
+  for _ in $(seq 1 60); do
+    for d in $(ls "$UD"/logs 2>/dev/null); do
+      printf '%s\n' "$old_logs" | grep -qx "$d" && continue
+      f="$UD/logs/$d/window1/exthost/Anthropic.claude-code/Claude VSCode.log"
+      [ -f "$f" ] && CLOG=$f
+    done
+    [ -n "$CLOG" ] && break; sleep 1
+  done
+  sleep 8                                        # both extensions activated
+  [ -n "$CLOG" ]
+}
+vs_stop() { pkill -f "$UD" 2>/dev/null; sleep 2; }
+# lines of the Claude log after line $1
+vs_log_since() { tail -n +"$(($1 + 1))" "$CLOG"; }
+# ask the extension, as a session in the room would
+request() { (cd "$ROOM" && python3 request.py "$@"); }
+# wait up to $2 seconds for a condition
+wait_for() { for _ in $(seq 1 "$2"); do eval "$1" && return 0; sleep 1; done; return 1; }

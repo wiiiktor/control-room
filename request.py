@@ -3,10 +3,11 @@
 
     python3 request.py open-in-claude <session-id>    open that conversation in the Claude window
     python3 request.py close-claude-tab [<session-id>] close the Claude tab(s) -- one conversation's, or all
+    python3 request.py wake <session-id>               bring a conversation to this room, as writing to it does
 
 A session in the room cannot reach VS Code; the extension can, and it checks every room for a
 request once a second. The request is a file, written whole and renamed into place, so the
-extension never reads half of one. Waits up to 10 s for the answer and prints it.
+extension never reads half of one. Waits up to 30 s for the answer and prints it.
 """
 import json
 import os
@@ -16,7 +17,7 @@ from pathlib import Path
 
 _HERE = Path(sys.argv[0]).absolute().parent
 ROOM = Path(os.environ.get("CONTROL_ROOM_DIR") or _HERE)
-ACTIONS = {"open-in-claude", "close-claude-tab"}
+ACTIONS = {"open-in-claude", "close-claude-tab", "wake"}
 
 
 def main(argv):
@@ -27,7 +28,7 @@ def main(argv):
     tmp.write_text(json.dumps(req))
     tmp.rename(ROOM / (".request.%s" % req["id"]))
     done = ROOM / (".request.%s.done" % req["id"])
-    for _ in range(100):
+    for _ in range(300):
         if done.exists():
             print(done.read_text().strip())
             done.unlink()
