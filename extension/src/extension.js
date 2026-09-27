@@ -216,11 +216,32 @@ async function openClaudeTab(dir) {
   return 'terminal';
 }
 
-/* ⛔ NO startSessionInTerminal HERE. Starting a session by running `claude <prompt>` in a
- * terminal belongs to the SIDEBAR extension (../../extension-sidebar), which is a separate
- * codebase for exactly this reason. The tab version reaches a session through the Claude tab
- * and nowhere else; resumeIn() above is the one terminal it opens, and only when you ask it
- * to bring a dormant session back. */
+/** Start a session WITHOUT the reader typing anything, and without anything appearing.
+ *
+ * ⛔ THIS WAS TAKEN OUT OF THE TAB VERSION ONCE, for a reason that no longer holds: "a
+ * terminal appearing by itself is in the way of the code". It was `show()`n then. Under
+ * `hideFromUser` nothing is surfaced at all -- the process runs, there is no terminal in the
+ * panel, none in the terminal list -- so the objection is gone and the tab version can have
+ * the one thing that removes its opening ritual.
+ *
+ * The Claude tab itself still cannot be driven: it is another extension's webview, none of its
+ * commands takes a prompt, and `type` does not reach a webview. A terminal can, because
+ * `claude [prompt]` starts an interactive session with that first message.
+ */
+let lastTerm = null;                     // a hidden terminal is still produced on demand
+
+function startSessionInTerminal(dir, first) {
+  // ⛔ cwd is the WORKSPACE, not the room: Claude files a session under the directory it
+  // started in, and the hooks live in the workspace's .claude/. The room is found by the
+  // .expect marker instead -- the same mechanism the "open a tab" button uses.
+  try { fs.writeFileSync(path.join(dir, '.expect'), ''); } catch { /* read-only room */ }
+  const { opts, reveal } = termOpts('claude · ' + path.basename(dir), workspaceRoot(dir), false);
+  const term = vscode.window.createTerminal(opts);
+  if (reveal) term.show(true);
+  term.sendText('claude ' + JSON.stringify(first));
+  lastTerm = term;
+  return term;
+}
 
 /** Said whenever a panel is opened with nothing reading it: the one step people miss. */
 const NO_SESSION = 'Control Room: no Claude session is watching this panel yet. Open the Claude tab and send it any message — that starts the session that reads what you write here. Your messages are kept until then.';
@@ -362,6 +383,22 @@ function activate(context) {
             }
           }
           return reply({ error: 'no room is listening for that session' });
+        }
+        // Start a session on the reader's behalf, in the background. See
+        // startSessionInTerminal for why it is a terminal and not the tab.
+        if (route === '/api/autostart') {
+          const first = 'Watch this control room and answer me in the panel.';
+          startSessionInTerminal(dir, first);
+          panel.reveal(panel.viewColumn, false);   // and put the room back in front
+          const mode = vscode.workspace.getConfiguration('controlRoom').get('startTerminal') || 'hidden';
+          return reply({ ok: true, how: 'terminal', mode, sent: first });
+        }
+        // `hideFromUser` hides the failure as well as the success, so the terminal is kept and
+        // this produces it -- offered by the panel when a started session never appears.
+        if (route === '/api/reveal_terminal') {
+          if (!lastTerm) return reply({ error: 'no terminal was started from here' });
+          lastTerm.show(false);
+          return reply({ ok: true });
         }
         if (route === '/api/start') {
           // ⛔ ASK FIRST. The button opened a tab whatever the state was -- including when
