@@ -323,7 +323,22 @@ function beatingIds() {
   return out;
 }
 
-/** Stop a live session by id. `claude stop` takes the short form as well as the full uuid. */
+/** Stop a live session.
+ *
+ * ⛔⛔ `claude stop` TAKES THE SHORT ID ONLY, and I wrote the long one. Measured:
+ *   claude stop 843769ac                              -> exit 0, "stopped 843769ac"
+ *   claude stop 843769ac-d26d-493b-9cd3-32001bca3d6e  -> exit 1, "No job matching ..."
+ * So every stop this extension has ever issued failed, silently as far as the reader could tell: the
+ * "stop the other" button they pressed over and over did nothing each time, and once stopping became
+ * the first half of waking, a live session reported "could not be woken" instead. The id printed by
+ * `claude agents --json` in its `id` field IS the short form; the first eight characters are the same
+ * thing, and are what to fall back on.
+ */
+function shortId(id) {
+  const row = (liveCache.rows || []).find(r => r.sessionId === id || r.id === id);
+  return (row && row.id) || String(id).slice(0, 8);
+}
+
 function stopSession(id, cb) {
   const bin = preflight.findClaude();
   if (!bin) { cb({ ok: false, why: 'claude is not on the PATH' }); return; }
@@ -331,7 +346,7 @@ function stopSession(id, cb) {
   let out = '', err = '';
   let p;
   try {
-    p = cp.spawn(bin, ['stop', id], { cwd: workspaceRoot(''), env: process.env });
+    p = cp.spawn(bin, ['stop', shortId(id)], { cwd: workspaceRoot(''), env: process.env });
   } catch (e) { cb({ ok: false, why: String(e && e.message || e) }); return; }
   p.stdout.on('data', d => { out += String(d); });
   p.stderr.on('data', d => { err += String(d); });
