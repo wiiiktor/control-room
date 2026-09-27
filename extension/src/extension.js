@@ -945,20 +945,6 @@ function activate(context) {
 
   // Opening the workspace is enough: the panel is the point of installing this, and a
   // panel nobody opened helps nobody. Off with one setting for people who want it quiet.
-  if (vscode.workspace.getConfiguration('controlRoom').get('openOnStartup') !== false) {
-    // ⛔ NOT "only when there is exactly one room". That guard was the whole reason the panel
-    // had to be summoned from the palette at all: this workspace holds two rooms, so nothing
-    // opened by itself and every visit began with Ctrl+Shift+P -- a choice made before
-    // anything was on screen, on top of the choice made inside the room. `instances()` sorts
-    // the plain room first, so opening it is right nearly always, and the room itself is
-    // where switching belongs. "Open every control room" is still there for the rest.
-    open(instances()[0], '');
-  }
-
-  // ⛔ Installing ANY extension restarts VS Code's extension host, and a webview whose
-  // host has gone is dead -- which made every update end with "control room has no
-  // connection" and a tab to close by hand. VS Code will hand the panel back instead, if
-  // the extension says it can rebuild one. The dir comes from the state the page stored.
   if (vscode.window.registerWebviewPanelSerializer) {
     context.subscriptions.push(vscode.window.registerWebviewPanelSerializer('controlRoom', {
       async deserializeWebviewPanel(panel, state) {
@@ -969,6 +955,35 @@ function activate(context) {
     }));
   }
 
+  // \u26d4 THE RESTORED PANEL COMES FIRST, OR YOU GET TWO. VS Code hands a saved webview back
+  // through the serializer, and this block opens one of its own -- so whichever runs second has to
+  // find the first already in `panels`. Registering the serializer AFTER this block left a window in
+  // which both created a panel for the same room, and the reader got the session list twice.
+  // Registration is cheap and creates nothing; opening is the side effect, so opening goes last.
+  if (vscode.workspace.getConfiguration('controlRoom').get('openOnStartup') !== false) {
+    // ⛔ NOT "only when there is exactly one room". That guard was the whole reason the panel
+    // had to be summoned from the palette at all: this workspace holds two rooms, so nothing
+    // opened by itself and every visit began with Ctrl+Shift+P -- a choice made before
+    // anything was on screen, on top of the choice made inside the room. `instances()` sorts
+    // the plain room first, so opening it is right nearly always, and the room itself is
+    // where switching belongs. "Open every control room" is still there for the rest.
+    //
+    // \u26d4 BUT NOT IMMEDIATELY. VS Code restores the panel that was open before the reload by
+    // calling the serializer -- AFTER activation finishes. Opening one here and now means the
+    // restore arrives to find a panel already registered, disposes itself, and in the meantime the
+    // reader has two Control Room tabs, each with its own session list. Waiting a moment lets the
+    // restore go first: if it happens there is nothing to open, and if it does not this opens the
+    // room exactly as before.
+    setTimeout(() => {
+      if (panels.size) return;              // VS Code restored one: that is the panel
+      open(instances()[0], '');
+    }, 1200);
+  }
+
+  // ⛔ Installing ANY extension restarts VS Code's extension host, and a webview whose
+  // host has gone is dead -- which made every update end with "control room has no
+  // connection" and a tab to close by hand. VS Code will hand the panel back instead, if
+  // the extension says it can rebuild one. The dir comes from the state the page stored.
   // A window already running keeps the extension it started with, and nothing on the
   // command line can reload it -- but a URI can, because opening one activates this
   // extension and hands it the path. `code --open-url vscode://wiiiktor.control-room/reload`

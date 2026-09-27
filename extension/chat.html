@@ -2079,11 +2079,16 @@
   const sessBox = document.getElementById('splash-sess');
   let sessLoaded = false;
   async function loadSplashSessions() {
+    // \u26d4 THE GUARD WAS AFTER THE AWAIT, so two calls could both be inside this function at
+    // once -- and the rows were appended to the box rather than built and swapped in, so a second
+    // pass could leave the list on screen twice. Both halves are fixed: the door shuts first, and
+    // the list is assembled off-screen and put in with one replaceChildren.
     if (sessLoaded) return;
+    sessLoaded = true;
     let d;
     try {
       d = await (await fetch('/api/sessions', { cache: 'no-store' })).json();
-    } catch { return; }
+    } catch { sessLoaded = false; return; }
     const names = d.sessions || {};
     const live = new Set((d.watchers || []).map(w => w.session));
     const away = d.elsewhere || {};
@@ -2096,10 +2101,8 @@
     // entry. The splash now hands over what it just learned.
     elsewhereIn = Object.assign({}, elsewhereIn, away);
     const ids = Object.keys(names).slice(0, 6);
-    sessLoaded = true;                       // ⛔ even with no sessions: the two rows below are
-                                             // the whole splash then, and returning early left
-                                             // it empty
-    sessBox.replaceChildren(el('b', '', ids.length ? 'pick a session' : 'no sessions here yet'));
+    // (the guard is set at the top of the function now, before the await)
+    const built = [el('b', '', ids.length ? 'pick a session' : 'no sessions here yet')];
     ids.forEach((id) => {
       const b = el('button');
       b.type = 'button';
@@ -2131,7 +2134,7 @@
         tlChosen = true;
         showSessionLatest(id);
       };
-      sessBox.append(b);
+      built.push(b);
     });
 
     // ⛔ ONE LIST, NOT A LIST PLUS TWO BUTTONS. Starting a new session is another row, because
@@ -2166,7 +2169,8 @@
         fresh.querySelector('em').textContent = 'could not start one';
       }
     };
-    sessBox.append(fresh);
+    built.push(fresh);
+    sessBox.replaceChildren.apply(sessBox, built);   // one swap: the list cannot end up doubled
 
     const tab = el('button', 'new');
     tab.type = 'button';
