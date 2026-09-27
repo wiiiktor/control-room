@@ -923,6 +923,7 @@
   }
 
   function show(nodes, crumb = true, ts = null) {
+    stopWords();          // whatever replaces the screen ends the wait
     closeSheet();          // a new reply invalidates whatever detail was open
     // ...and it invalidates a held live screen: what was held is no longer live
     held = null; pinned = null;
@@ -1357,10 +1358,52 @@
     splashSay(target && !elsewhereIn[target] ? aliveIds.includes(target) : !!aliveIds.length);
   }
 
+  /* Claude Code's own waiting words, read out of the CLI binary rather than remembered --
+     `2.1.282` carries these 180 and the panel may as well say the same thing the terminal
+     says. One changes to another every five seconds while a reply is outstanding. */
+  const WAIT_WORDS = [
+    'Accomplishing', 'Actioning', 'Actualizing', 'Architecting', 'Baking', 'Beaming',
+    'Befuddling', 'Billowing', 'Blanching', 'Bloviating', 'Boogieing', 'Boondoggling',
+    'Booping', 'Bootstrapping', 'Brewing', 'Bunning', 'Burrowing', 'Calculating', 'Canoodling',
+    'Caramelizing', 'Cascading', 'Catapulting', 'Cerebrating', 'Channeling', 'Choreographing',
+    'Churning', 'Clauding', 'Coalescing', 'Cogitating', 'Combobulating', 'Composing',
+    'Computing', 'Concocting', 'Considering', 'Contemplating', 'Cooking', 'Crafting',
+    'Creating', 'Crunching', 'Crystallizing', 'Cultivating', 'Deciphering', 'Deliberating',
+    'Determining', 'Discombobulating', 'Doodling', 'Drizzling', 'Ebbing', 'Effecting',
+    'Elucidating', 'Embellishing', 'Enchanting', 'Envisioning', 'Fermenting', 'Finagling',
+    'Flibbertigibbeting', 'Flowing', 'Flummoxing', 'Fluttering', 'Forging', 'Forming',
+    'Frolicking', 'Frosting', 'Gallivanting', 'Galloping', 'Garnishing', 'Generating',
+    'Germinating', 'Gesticulating', 'Gitifying', 'Grooving', 'Gusting', 'Harmonizing',
+    'Hashing', 'Hatching', 'Herding', 'Honking', 'Hullaballooing', 'Hyperspacing', 'Ideating',
+    'Imagining', 'Improvising', 'Incubating', 'Inferring', 'Infusing', 'Ionizing',
+    'Jitterbugging', 'Julienning', 'Kerfuffling', 'Kneading', 'Leavening', 'Levitating',
+    'Lollygagging', 'Manifesting', 'Marinating', 'Meandering', 'Metamorphosing', 'Misting',
+    'Moonwalking', 'Moseying', 'Mulling', 'Musing', 'Mustering', 'Nebulizing', 'Nesting',
+    'Newspapering', 'Noodling', 'Nucleating', 'Onioning', 'Orbiting', 'Orchestrating',
+    'Osmosing', 'Perambulating', 'Percolating', 'Perusing', 'Philosophizing',
+    'Photosynthesizing', 'Polishing', 'Pollinating', 'Pondering', 'Pontificating', 'Pouncing',
+    'Precipitating', 'Prestidigitating', 'Processing', 'Proofing', 'Propagating', 'Puttering',
+    'Puzzling', 'Quantumizing', 'Razzmatazzing', 'Recombobulating', 'Reticulating', 'Roosting',
+    'Ruminating', 'Scampering', 'Schlepping', 'Scurrying', 'Seasoning', 'Shenaniganing',
+    'Shimmying', 'Simmering', 'Skedaddling', 'Sketching', 'Slithering', 'Smooshing',
+    'Spelunking', 'Spinning', 'Sprouting', 'Stewing', 'Sublimating', 'Swirling', 'Swooping',
+    'Symbioting', 'Synthesizing', 'Tempering', 'Thinking', 'Thundering', 'Tinkering',
+    'Tomfoolering', 'Transfiguring', 'Transmogrifying', 'Transmuting', 'Twisting', 'Undulating',
+    'Unfurling', 'Unraveling', 'Vibing', 'Waddling', 'Wandering', 'Warping',
+    'Whatchamacalliting', 'Whirlpooling', 'Whirring', 'Whisking', 'Wibbling', 'Working',
+    'Wrangling', 'Zesting', 'Zigzagging',
+  ];
+  let wordTimer = null;
+  const aWord = () => WAIT_WORDS[Math.floor(Math.random() * WAIT_WORDS.length)] + '…';
+  function stopWords() {
+    if (wordTimer) { clearInterval(wordTimer); wordTimer = null; }
+  }
+
   function waiting(status) {
     waitingNow = true;
     const box = el('div', 'thinking');
-    box.append(el('i'), el('i'), el('i'), el('span', '', 'Working on it…'));
+    const word = el('span', '', aWord());
+    box.append(el('i'), el('i'), el('i'), word);
     const kids = [box];
     if (status && status.length) {
       // newest last, the way a log reads; the last line is the one happening now
@@ -1373,6 +1416,16 @@
       kids.push(log);
     }
     show(kids);
+    // ⛔ AFTER show(), not before: show() stops the timer, because anything replacing the
+    // screen ends the wait -- and waiting() goes through show() itself, so a timer armed
+    // first would be cleared a line later and the word would never change.
+    // ⛔ And exactly one timer: waiting() is called again on every status line, so arming
+    // without clearing stacks intervals and the word starts flickering.
+    stopWords();
+    wordTimer = setInterval(() => {
+      if (!word.isConnected) return stopWords();   // replaced by a reply; do not write to it
+      word.textContent = aWord();
+    }, 5000);
   }
 
   /** The only time words appear about the connection: when it is broken.
@@ -1487,6 +1540,7 @@
         return;
       }
       waitingNow = false;
+      stopWords();
       // ⛔ only if it belongs to the session being read. Otherwise choosing a session was
       // undone by the next reply from any other one, seconds later, for no visible reason.
       if (!tlChosen || (newest.session || '') === tlFilter) {
