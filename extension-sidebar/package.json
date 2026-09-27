@@ -2,7 +2,7 @@
   "name": "control-room-sidebar",
   "displayName": "Control Room (sidebar)",
   "description": "The Control Room panel as a sidebar view: it keeps its place while you work in the editor.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "wiiiktor",
   "license": "MIT",
   "icon": "icon.png",

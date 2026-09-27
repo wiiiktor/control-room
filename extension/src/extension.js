@@ -284,7 +284,9 @@ function activate(context) {
     // ignored, so the tab itself says so
     let title = name;
     const retitle = (watchers) => {
-      const want = name + (watchers.length ? '' : ' (no watcher)');
+      // the version in the TAB TITLE as well: visible without opening anything, which is the
+      // only way "am I looking at the new one" stops being a matter of opinion
+      const want = name + ' ' + BUILD + (watchers.length ? '' : ' (no watcher)');
       if (want !== title) { title = want; panel.title = want; }
     };
 

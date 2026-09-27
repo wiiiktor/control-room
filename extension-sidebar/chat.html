@@ -323,6 +323,16 @@
   }
   #splash .status.live { color: var(--green-deep); }
 
+  /* ⛔ THE BUILD, ON SCREEN. Four releases in a row were reported as "zero difference", and
+     every check I could run said the new page was live -- because I was checking my own files
+     and not the screen. A version nobody can see makes that argument unresolvable. Now it is
+     one glance. */
+  #splash .build {
+    margin: 0 auto 12px; max-width: 560px; text-align: left;
+    font: 600 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+    opacity: var(--dim-2); letter-spacing: .04em;
+  }
+
   #splash .sess {
     margin: 18px auto 0; max-width: 560px; display: flex; flex-direction: column; gap: 6px;
     text-align: left;
@@ -846,6 +856,7 @@
   <div id="splash" role="dialog" aria-label="Start a working session">
     <div class="wrap">
       <p class="status" id="splash-status"></p>
+      <p class="build" id="splash-build"></p>
       <div class="sess" id="splash-sess"></div>
       <button class="x" type="button" title="Close" aria-label="Close">✕</button>
       <button class="info" type="button" aria-expanded="false">Info on how to set required Permission Mode</button>
@@ -1896,6 +1907,12 @@
    *  The labels are the sessions' own opening messages, which is what Claude Code's picker
    *  shows too -- nothing here invents a name. Newest first: `labels()` sorts by mtime and an
    *  object keeps its insertion order. */
+  (function stampBuild() {
+    const b = document.getElementById('splash-build');
+    b.textContent = BUILD === '__BUILD__' ? 'control room · build not stamped'
+                                          : 'control room · ' + BUILD;
+  })();
+
   const sessBox = document.getElementById('splash-sess');
   let sessLoaded = false;
   async function loadSplashSessions() {
