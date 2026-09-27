@@ -25,7 +25,10 @@ if [ -z "$EDITOR_CLI" ]; then
     command -v "$c" >/dev/null && { EDITOR_CLI=$c; break; }
   done
 fi
-[ -n "$EDITOR_CLI" ] || { echo "no editor CLI found (code / cursor / codium). Set CONTROL_ROOM_CODE." >&2; exit 1; }
+# download-only needs no editor; macOS has no `code` on the PATH until it is installed from
+# the palette, so try the app bundle before giving up
+[ -n "$EDITOR_CLI" ] || { m="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"; [ -x "$m" ] && EDITOR_CLI=$m; }
+[ -n "$EDITOR_CLI" ] || [ "${CONTROL_ROOM_NO_INSTALL:-}" = 1 ] || { echo "no editor CLI found (code / cursor / codium). Set CONTROL_ROOM_CODE." >&2; exit 1; }
 
 if [ $# -ge 1 ]; then
   NAME="control-room-$1.vsix"
