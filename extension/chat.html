@@ -856,6 +856,12 @@
     color: var(--paper); background: var(--alert); opacity: 1; font-weight: 800;
     padding: 3px 12px; border-radius: 999px; right: 16px; bottom: 12px;
   }
+  /* Asleep: legible, unalarming, and shaped like the live hint rather than like the alarm. */
+  #to-hint.sleeping {
+    opacity: .78; font-weight: 700;
+    padding: 3px 12px; border-radius: 999px; right: 16px; bottom: 12px;
+    border: 2px solid var(--ink);
+  }
 
   form button {
     font: inherit; font-size: 20px; font-weight: 900; height: 104px; padding: 0 34px;
@@ -1456,12 +1462,20 @@
     // and the third was reported as the second, under a red pill telling you to resume a
     // session that was answering the whole time, somewhere else.
     const away = !alive && elsewhereIn[target];
+    // ⛔ ASLEEP IS NOT BROKEN, AND RED SAID IT WAS. Choosing a dormant session from the list is the
+    // NORMAL first move -- nothing starts until you write, by design -- and the panel answered it
+    // with a red NOT RUNNING alarm, which reads as "this is broken, do something". It is neither an
+    // error nor nothing: it is the third state, and it gets its own calm tone and the one
+    // instruction that applies. Red is kept for a session that is running somewhere this room
+    // cannot reach, which IS a thing you have to act on.
+    const id8 = target ? target.slice(0, 8) : '';
     toHint.textContent = !target ? ''
-      : alive ? 'you are talking to session: ' + name.slice(0, 40)
-      : away  ? 'it is listening in ' + String(away).slice(0, 30) + ' — not here'
-              : 'NOT RUNNING — ' + name.slice(0, 32) + ' · claude --resume ' + target.slice(0, 8);
+      : alive ? id8 + ' · ' + name.slice(0, 36)
+      : away  ? id8 + ' · listening in ' + String(away).slice(0, 26) + ' — not here'
+              : id8 + ' · asleep — write and it wakes';
     toHint.classList.toggle('on', !!target);
-    toHint.classList.toggle('dead', !!target && !alive);
+    toHint.classList.toggle('dead', !!target && !alive && !!away);
+    toHint.classList.toggle('sleeping', !!target && !alive && !away);
   }
 
   // The VS Code extension asks WHICH SESSION in the command palette, before this page
@@ -1999,8 +2013,11 @@
       const where = live.has(id) ? 'reading this room'
         : away[id] ? 'in ' + away[id] + ' — opens that room' : 'ended';
       b.classList.toggle('live', live.has(id));
-      b.append(el('span', '', String(names[id]).replace(/\s+/g, ' ').slice(0, 90)),
-               el('em', '', where));
+      // \u2b50 THE ID, ON EVERY ROW. Asked for by name: without it two sessions that opened with
+      // the same words are impossible to tell apart, and there is nothing to quote when one of
+      // them misbehaves. It is what `claude --resume`, `claude logs` and every log line use.
+      b.append(el('span', '', String(names[id]).replace(/\s+/g, ' ').slice(0, 84)),
+               el('em', '', id.slice(0, 8) + ' · ' + where));
       // ⛔ CHOOSING A SESSION STARTS NOTHING. It addresses it, shows you the last thing it
       // said, and stops there -- the terminal appears when you have written something, not
       // when you have merely looked. See sendAndWake().
