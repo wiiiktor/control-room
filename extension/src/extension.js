@@ -756,13 +756,33 @@ function activate(context) {
           // -- so stopping is no longer a button to press in advance, it is the first half of waking,
           // and it happens once, with a message already on record to answer.
           const live = await new Promise(res => liveSessions(res));
+          const row = live.find(r => r.sessionId === sid);
           let stopped = false;
-          if (live.some(r => r.sessionId === sid)) {
+          if (row) {
             const r = await new Promise(res => stopSession(sid, res));
             if (!r.ok) {
               return reply({ error: 'could not stop it', session: sid, why: r.why });
             }
             stopped = true;
+            // ⛔ AN INTERACTIVE SESSION IS SOMEBODY'S WINDOW, AND STOPPING IT MAKES THAT WINDOW SHOUT.
+            // `claude agents --json` marks ours `background` and a tab's or a terminal's
+            // `interactive`. When the one we just stopped was interactive, the Claude tab that owned
+            // it prints "Claude Code process exited with code 1" over a screenful of debug -- which
+            // is how the reader met this, in the other extension, with nothing here to explain it.
+            // The stop is still right (it is the only way to talk to that session here), so the room
+            // says what it did and that the alarm next door is expected.
+            if (row.kind === 'interactive') {
+              announce(dir, [
+                '::warn I stopped the session your Claude tab was running',
+                '::say That is what waking it here means: nothing can reach into a live session, so it '
+                  + 'is stopped and resumed under the same id, with its whole history.',
+                '::note The Claude tab will say "Claude Code process exited with code 1" over a page of '
+                  + 'debug output. That is expected and nothing is broken — the conversation is intact '
+                  + 'and is now answering in this room instead.',
+                '::note To keep a tab conversation AND talk here, start a separate session from the '
+                  + 'list instead of waking that one.',
+              ].join('\n'));
+            }
             // it has to be GONE before the resume, or the resume makes the copy anyway
             for (let i = 0; i < 20; i++) {
               const now = await new Promise(res => liveSessions(res));
@@ -772,7 +792,7 @@ function activate(context) {
             }
           }
           resumeIn(dir, sid);
-          return reply({ ok: true, stopped });
+          return reply({ ok: true, stopped, kind: row ? row.kind : '' });
         }
         // Hide one reply from the timeline strip.
         //
