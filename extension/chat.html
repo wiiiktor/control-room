@@ -1380,21 +1380,33 @@
             btn.disabled = true;
             const span = btn.querySelector('span');
             let done = 0;
+            const failed = [];
             for (const id of stopOthers) {
               span.textContent = 'Stopping ' + id.slice(0, 8) + '…';
+              let why = 'no answer';
               try {
                 const r = await (await fetch('/api/stop_session', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ session: id }),
                 })).json();
-                if (r && r.ok) done++;
-              } catch { /* report what did happen, below */ }
+                if (r && r.ok) { done++; continue; }
+                why = (r && (r.why || r.error)) || why;
+              } catch { /* reported below */ }
+              failed.push({ id, why });
             }
-            span.textContent = done === stopOthers.length
-              ? 'Stopped ' + done + ' — one session left on this room'
-              : 'Stopped ' + done + ' of ' + stopOthers.length;
             doubleSaid = '';
+            // \u26d4 A BUTTON THAT SAYS "Stopped 0 of 2" AND NOTHING ELSE LOOKS BROKEN. The usual reason
+            // is a session hosted by a Claude window or terminal: \`claude stop\` reaches only background
+            // sessions. Say which ones, and what closes them.
+            if (!failed.length) { span.textContent = 'Stopped ' + done + ' — one session left on this room'; return; }
+            show(build([
+              '::warn Stopped ' + done + ' of ' + stopOthers.length,
+              '::say These are not background sessions, so they cannot be stopped from here. Each one is'
+                + ' open in a Claude window or a terminal: close it there, or send /exit in it.',
+            ].concat(failed.map(f => '::li ! ' + f.id.slice(0, 8) + ' · '
+              + String(tlNames[f.id] || 'no transcript').replace(/\s+/g, ' ').slice(0, 48)
+              + ' — ' + String(f.why).replace(/\s+/g, ' ').slice(0, 90))).join('\n')), false);
           };
           picks.append(btn);
           continue;

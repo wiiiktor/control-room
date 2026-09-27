@@ -413,11 +413,38 @@ def unanswered(log):
     return sum(1 for m in msgs if m.get("id", 0) > last and m.get("role") == "user")
 
 
+def launched_by_room(rooms, sid, cwd):
+    """Is this a session the ROOM started or woke -- the only kind that should watch it?
+
+    \u26d4 EVERY SESSION IN THE WORKSPACE USED TO BE TOLD TO WATCH. An old conversation opened in the
+    Claude window for unrelated work got the same instruction, armed a watch, and joined the room:
+    four sessions answered each message, and "stop the others" could not stop them, because a
+    session hosted by the Claude window is not a background session \`claude stop\` can reach.
+    A room session is recognisable: it runs IN the room (new ones start there), or the room has
+    just asked for it (the .expect marker, or this session's .session binding, written seconds ago).
+    """
+    import time as _t
+    now = _t.time()
+    here = Path(cwd).resolve() if cwd else None
+    for d in rooms:
+        if here is not None and (here == d.resolve() or d.resolve() in here.parents):
+            return True
+        for marker in ([d / ".expect"] + ([d / (".session." + sid)] if sid else [])):
+            try:
+                if now - marker.stat().st_mtime < 120:
+                    return True
+            except OSError:
+                pass
+    return False
+
+
 def main():
     try:
-        sid = (json.load(sys.stdin) or {}).get("session_id", "")
+        data = json.load(sys.stdin) or {}
     except (json.JSONDecodeError, ValueError):
-        sid = ""
+        data = {}
+    sid = data.get("session_id", "")
+    cwd = data.get("cwd", "")
 
     # ⛔ NOT "has a chat.jsonl": that file appears with the FIRST message, so a room
     # nobody had written in yet was invisible here, no session was ever told to watch
@@ -428,6 +455,8 @@ def main():
                    key=lambda d: len(d.name))
     if not rooms:
         return
+    if not launched_by_room(rooms, sid, cwd):
+        return                       # someone's own conversation: not the room's business
 
     mine = pick_room(rooms, sid)
     waiting = unanswered(mine / "chat.jsonl")
