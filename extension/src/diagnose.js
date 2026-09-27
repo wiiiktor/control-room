@@ -31,7 +31,7 @@ function ageOf(file) {
 }
 
 /** @returns {string} the whole report */
-function report({ version, root, rooms, runtimeFiles, hookInstalled, hookPath }) {
+function report({ version, root, rooms, runtimeFiles, hookInstalled, hookPath, handoff }) {
   const L = [];
   L.push('CONTROL ROOM — diagnostics', '='.repeat(26), '');
   L.push(`extension   ${version}`);
@@ -40,6 +40,15 @@ function report({ version, root, rooms, runtimeFiles, hookInstalled, hookPath })
   L.push(`${pythonReport()}`);
   L.push('');
   L.push(`hook        ${hookInstalled ? 'installed' : 'NOT INSTALLED'}  (${hookPath})`);
+  // the wrapper that stops the Claude window failing on a conversation the room holds
+  const h = handoff || {};
+  const hs = {
+    set: 'installed just now', keep: h.path ? 'installed' : 'off (controlRoom.claudeWindowHandoff)',
+    clear: 'removed (turned off)', foreign: 'NOT INSTALLED — claudeCode.claudeProcessWrapper is already '
+      + 'set to ' + h.path + '; the Claude window will fail on a conversation this room holds',
+    unsupported: 'not available on this platform', error: 'FAILED — ' + (h.why || ''),
+  }[h.action] || 'not configured yet';
+  L.push(`handoff     ${hs}${h.path && h.action !== 'foreign' ? '  (' + h.path + ')' : ''}`);
   L.push('');
   for (const dir of rooms) {
     L.push(`room        ${dir}`);

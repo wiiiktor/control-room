@@ -42,7 +42,7 @@ def read_messages(since=0):
     return out
 
 
-def append_message(role, text, session=None, to=None, mirror=False):
+def append_message(role, text, session=None, to=None, mirror=False, about=None):
     # LOCK guards threads inside this process; flock guards the other processes writing
     # the same log (the extension host and reply.py).
     with LOCK, LOG.open("a+", encoding="utf-8") as handle:
@@ -72,6 +72,10 @@ def append_message(role, text, session=None, to=None, mirror=False):
         # these: they are a record, not a request, and answering them would loop.
         if mirror:
             msg["mirror"] = True
+        # a notice from the machinery (not a session's reply) about one session: the panel shows
+        # it whichever session is chosen, and can tell which session it concerns
+        if about:
+            msg["about"] = about
         handle.write(json.dumps(msg, ensure_ascii=False) + "\n")
         handle.flush()
         fcntl.flock(handle, fcntl.LOCK_UN)

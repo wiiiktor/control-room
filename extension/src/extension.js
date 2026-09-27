@@ -20,6 +20,7 @@ const hook = require('./hook');
 const runtime = require('./runtime');
 const diagnose = require('./diagnose');
 const preflight = require('./preflight');
+const handoff = require('./handoff');
 
 /** "control-room-medicover" -> "Control Room · medicover"; the plain one keeps its name. */
 function instanceName(folder) {
@@ -128,6 +129,7 @@ function pageHtml(extensionPath, dir, session, build) {
 }
 
 const trustSaid = new Set();   // rooms already told to trust their folder
+let handoffState = null;       // what handoff.configure() did, for diagnose
 let lastTerm = null;                     // a hidden terminal is still produced on demand
 let lastBg = null;                       // the short id of the last background session we started
 // \u26d4 WAKING IS A STATE, AND THE PANEL DID NOT HAVE IT. A session takes a few seconds between
@@ -694,6 +696,15 @@ function activate(context) {
   // told them somebody was listening when nobody was, and the message was appended and never woken.
   // A session that survived beats again in seconds and comes straight back.
   setFloor(Date.now());
+  // \u2b50 THE CLAUDE WINDOW'S "exited with code 1", AT ITS ROOT. See src/handoff.js: the Claude
+  // extension launches claude through a wrapper we install, which releases a conversation the room
+  // holds in the background before the window resumes it. Re-done when the opt-out changes.
+  const configureHandoff = () => handoff.configure(vscode, context.extensionPath)
+    .then((r) => { handoffState = r; }, (err) => { handoffState = { action: 'error', why: String(err) }; });
+  configureHandoff();
+  context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((e) => {
+    if (e.affectsConfiguration('controlRoom.claudeWindowHandoff')) configureHandoff();
+  }));
   // \u26d4 AND SWEEP THE DEAD HEARTBEAT FILES. Every session that ever watched a room leaves its
   // `.watch.<id>` behind for good: eight of them had piled up here for six sessions that no longer
   // exist. The age filter means they cannot fake a watcher, but they are the room's own record of
@@ -1197,6 +1208,7 @@ function activate(context) {
       hookInstalled: hook.installed(root),
       hookPath: path.join(root, '.claude', 'settings.json'),
       preflight: preflight.check(root),
+      handoff: handoffState,
     });
     const doc = await vscode.workspace.openTextDocument({ content: text, language: 'plaintext' });
     await vscode.window.showTextDocument(doc, { preview: false });
