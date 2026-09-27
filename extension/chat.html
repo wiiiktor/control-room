@@ -1324,6 +1324,29 @@
           picks.append(btn);
           continue;
         }
+        if (btn.dataset.cmd === '__stop_session') {
+          btn.onclick = async () => {
+            if (!resumeTarget) return;
+            btn.disabled = true;
+            const span = btn.querySelector('span');
+            span.textContent = 'Stopping ' + resumeTarget.slice(0, 8) + '…';
+            try {
+              const r = await (await fetch('/api/stop_session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session: resumeTarget }),
+              })).json();
+              span.textContent = r && r.ok
+                ? 'Stopped — write anything and it wakes here'
+                : 'Could not stop it' + (r && r.why ? ': ' + String(r.why).slice(0, 80) : '');
+              if (r && r.ok) delete liveNow[resumeTarget];
+            } catch {
+              btn.disabled = false;
+            }
+          };
+          picks.append(btn);
+          continue;
+        }
         if (btn.dataset.cmd === '__open_room') {
           btn.onclick = async () => {
             if (!resumeTarget) return;
@@ -1442,6 +1465,12 @@
   // session id -> the room it IS listening to, when that room is not this one. Absent from
   // this room's watchers is not the same thing as stopped.
   let elsewhereIn = {};
+  // \u26d4 "IS IT READING THIS ROOM" AND "IS IT RUNNING" ARE DIFFERENT QUESTIONS, and the panel only
+  // ever asked the first. A session can be running hard and reading nothing -- the editor's own
+  // session right after a reload is exactly that -- and it is the one kind the room cannot wake,
+  // because a resume of a live session becomes a copy. `claude agents --json` answers the second
+  // question directly, so it is no longer inferred.
+  let liveNow = {};
 
   function drawTarget() {
     try { target ? localStorage.setItem('ctrl-to', target) : localStorage.removeItem('ctrl-to'); } catch {}
@@ -1469,13 +1498,15 @@
     // instruction that applies. Red is kept for a session that is running somewhere this room
     // cannot reach, which IS a thing you have to act on.
     const id8 = target ? target.slice(0, 8) : '';
+    const busyElsewhere = !alive && !away && liveNow[target];
     toHint.textContent = !target ? ''
       : alive ? id8 + ' · ' + name.slice(0, 36)
       : away  ? id8 + ' · listening in ' + String(away).slice(0, 26) + ' — not here'
+      : busyElsewhere ? id8 + ' · LIVE elsewhere — cannot be woken'
               : id8 + ' · asleep — write and it wakes';
     toHint.classList.toggle('on', !!target);
-    toHint.classList.toggle('dead', !!target && !alive && !!away);
-    toHint.classList.toggle('sleeping', !!target && !alive && !away);
+    toHint.classList.toggle('dead', !!target && !alive && (!!away || !!busyElsewhere));
+    toHint.classList.toggle('sleeping', !!target && !alive && !away && !busyElsewhere);
   }
 
   // The VS Code extension asks WHICH SESSION in the command palette, before this page
@@ -1698,6 +1729,7 @@
       // the watcher touches .watch every 30s; 3 missed beats means the watch is gone
       lastWatchAge = data.watch;
       if (data.hidden) tlHidden = new Set(data.hidden);
+      if (data.live) liveNow = data.live;
       drawWatchers(data.watchers || [], data.elsewhere);
       const dead = lastWatchAge === null || lastWatchAge === undefined || lastWatchAge > 90;
       deaf.classList.toggle('on', dead);
@@ -2015,8 +2047,11 @@
       // own id, with its whole history, and it answers here. What the panel cannot do is wake a
       // session that is running RIGHT NOW somewhere else -- resume would start a copy. So the row
       // says what will happen when it is picked, not whether it is over.
+      const l = (d.live || {})[id];
       const where = live.has(id) ? 'reading this room'
-        : away[id] ? 'in ' + away[id] + ' — opens that room' : 'asleep — write and it wakes';
+        : away[id] ? 'in ' + away[id] + ' — opens that room'
+        : l ? 'LIVE ' + (l.status || l.kind || '') + ' — reading nothing here'
+        : 'asleep — write and it wakes';
       b.classList.toggle('live', live.has(id));
       // \u2b50 THE ID, ON EVERY ROW. Asked for by name: without it two sessions that opened with
       // the same words are impossible to tell apart, and there is nothing to quote when one of
@@ -2255,6 +2290,26 @@
       const who = full.length > 44 ? full.slice(0, 44) + '…' : full;
       // Running, just not here. Resuming it would start a second copy and a fresh tab is
       // beside the point: the move that works is opening the room it is reading.
+      // A live session that is not reading this room cannot be woken and cannot be reached. The
+      // one move that helps is stopping it -- then it is an ordinary sleeping session and a write
+      // wakes it with its whole history intact.
+      if (liveNow[id] && !elsewhereIn[id]) {
+        resumeTarget = id;
+        dismissSplash();
+        show(build([
+          '::err ' + id.slice(0, 8) + ' is running right now, and reading nothing here',
+          '::say Nothing can reach into a live session. Writing to it from here would start a COPY '
+            + 'under a new id — the copy answers, the original carries on.',
+          '::note ' + who + (liveNow[id].status ? ' · ' + liveNow[id].status : '')
+            + (liveNow[id].kind ? ' · ' + liveNow[id].kind : ''),
+          '::say Stop it and it becomes an ordinary sleeping session: its whole history is kept, and '
+            + 'the next thing you write wakes it here.',
+          '::pick Stop it, then talk to it here => __stop_session',
+          '::note If this is the Claude session in your editor, stopping it closes that conversation. '
+            + 'A fresh background session is the alternative: it owns this room from the start.',
+        ].join('\n')), false);
+        return;
+      }
       if (elsewhereIn[id]) {
         lastCommand = '';
         // ⛔ AND THE SPLASH HAS TO GO. It asks "is anybody reading this room", which is

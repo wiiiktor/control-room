@@ -241,6 +241,64 @@ function startHeadless(dir, args, what, done) {
   });
 }
 
+/** Which sessions are ALIVE right now, from Claude Code's own mouth.
+ *
+ * ⭐ `claude agents --json` answers the question the panel could only guess at: it lists every live
+ * session with its `sessionId`, `pid`, `kind` (interactive / background), `status` (idle / busy) and
+ * `cwd`. Measured 2026-09-27: it needs no TTY, returns in well under a second, and it listed this
+ * very editor session as `busy` while it was mid-turn.
+ *
+ * ⛔ WHY THE PANEL NEEDS IT. A session that is live somewhere else is the ONE kind the room cannot
+ * wake -- a resume of it becomes a copy under a new id. Until now the panel inferred liveness from a
+ * heartbeat in its own folder, which says "is it reading THIS room", a different question. A session
+ * can be running hard and reading nothing.
+ *
+ * Cached for a few seconds: the page polls every second and this is a process spawn.
+ */
+let liveCache = { at: 0, rows: [] };
+function liveSessions(cb) {
+  if (Date.now() - liveCache.at < 5000) { cb(liveCache.rows); return; }
+  const bin = preflight.findClaude();
+  if (!bin) { cb([]); return; }
+  const cp = require('child_process');
+  let out = '';
+  let p;
+  try {
+    p = cp.spawn(bin, ['agents', '--json'], { cwd: workspaceRoot(''), env: process.env });
+  } catch { cb(liveCache.rows); return; }
+  p.stdout.on('data', d => { out += String(d); });
+  p.on('error', () => cb(liveCache.rows));
+  p.on('close', () => {
+    let rows = [];
+    try {
+      const d = JSON.parse(out);
+      rows = Array.isArray(d) ? d : (d.sessions || d.agents || []);
+    } catch { /* not json: an older CLI, or nothing running */ }
+    liveCache = { at: Date.now(), rows: rows.filter(r => r && r.sessionId) };
+    cb(liveCache.rows);
+  });
+}
+
+/** Stop a live session by id. `claude stop` takes the short form as well as the full uuid. */
+function stopSession(id, cb) {
+  const bin = preflight.findClaude();
+  if (!bin) { cb({ ok: false, why: 'claude is not on the PATH' }); return; }
+  const cp = require('child_process');
+  let out = '', err = '';
+  let p;
+  try {
+    p = cp.spawn(bin, ['stop', id], { cwd: workspaceRoot(''), env: process.env });
+  } catch (e) { cb({ ok: false, why: String(e && e.message || e) }); return; }
+  p.stdout.on('data', d => { out += String(d); });
+  p.stderr.on('data', d => { err += String(d); });
+  p.on('error', e => cb({ ok: false, why: String(e && e.message || e) }));
+  p.on('close', (code) => {
+    liveCache = { at: 0, rows: [] };                 // the answer just changed
+    cb(code === 0 ? { ok: true, out: out.trim() }
+                  : { ok: false, code, why: (err.trim() || out.trim() || 'exited ' + code) });
+  });
+}
+
 /** The room says what happened, with the process's own words. No guessing, no spinner. */
 function headlessFailed(dir, r, what) {
   announce(dir, [
@@ -618,12 +676,26 @@ function activate(context) {
             hidden: hiddenIds(),
             watchers,
             elsewhere: elsewhere(names, watchers),
+            live: Object.fromEntries((await new Promise(res => liveSessions(res)))
+              .map(r => [r.sessionId, { status: r.status || '', kind: r.kind || '' }])),
           });
         }
         if (route === '/api/sessions') {
           const names = await labels(workspaceRoot(dir));
           const here = log.watchers(names);
-          return reply({ sessions: names, watchers: here, elsewhere: elsewhere(names, here) });
+          const live = await new Promise(res => liveSessions(res));
+          return reply({
+            sessions: names, watchers: here, elsewhere: elsewhere(names, here),
+            live: Object.fromEntries(live.map(r => [r.sessionId,
+              { status: r.status || '', kind: r.kind || '', name: r.name || '' }])),
+          });
+        }
+        // Kill a session that is live and therefore unreachable from here. `claude stop <id>`.
+        if (route === '/api/stop_session') {
+          const sid = (JSON.parse(req.body || '{}').session || '').trim();
+          if (!/^[0-9a-f-]{8,36}$/.test(sid)) return reply({ error: 'not a session id' });
+          const r = await new Promise(res => stopSession(sid, res));
+          return reply(r);
         }
         if (route === '/api/resume') {
           // Only the editor can do this: give a dormant session a REAL window by
