@@ -1615,7 +1615,7 @@
             + 'Neither can see the other — the room is the only place this shows up.',
         ].concat(rows).concat(
           others.length ? ['::pick Stop the ' + (others.length > 1 ? 'others' : 'other')
-            + ' and keep ' + (target ? target.slice(0, 8) : 'one') + ' => __stop_others']
+            + ' and keep ' + (target ? target.slice(0, 8) : 'one') + ' here => __stop_others']
                         : []
         ).join('\n')), false);
         stopOthers = others;
