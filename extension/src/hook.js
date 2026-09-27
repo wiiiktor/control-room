@@ -527,4 +527,30 @@ function install(root, room) {
   return { script, settings: file, already };
 }
 
-module.exports = { install, installed, current, hookSource, mirrorSource, SCRIPT, MIRROR };
+
+/** Give a ROOM folder the same hooks as the workspace.
+ *
+ * New room sessions now start IN the room (see sessionHome in extension.js), and Claude Code reads
+ * project hooks from the folder a session starts in -- so without this, a session started there
+ * would never be told to arm its watch. The entries point at the workspace's own scripts, which
+ * find the room by heartbeat and marker, not by cwd. Idempotent; the rest of the file is kept. */
+function linkRoom(room, root, mirror) {
+  const file = path.join(room, '.claude', 'settings.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  let settings = {};
+  try { settings = JSON.parse(fs.readFileSync(file, 'utf8')) || {}; } catch { /* fresh */ }
+  settings.hooks = settings.hooks || {};
+  const hooks = path.join(root, '.claude', 'hooks');
+  const want = [['SessionStart', path.join(hooks, SCRIPT)]];
+  if (mirror) want.push(['UserPromptSubmit', path.join(hooks, MIRROR)], ['Stop', path.join(hooks, MIRROR)]);
+  for (const [event, script] of want) {
+    const list = settings.hooks[event] = settings.hooks[event] || [];
+    if (!list.some(g => (g.hooks || []).some(h => String(h.command || '').includes(path.basename(script))))) {
+      list.push({ hooks: [{ type: 'command', command: `python3 ${script}`, timeout: 10 }] });
+    }
+  }
+  fs.writeFileSync(file, JSON.stringify(settings, null, 2) + '\n');
+  return file;
+}
+
+module.exports = { install, installed, current, hookSource, mirrorSource, linkRoom, SCRIPT, MIRROR };

@@ -72,19 +72,25 @@ async function firstLine(file) {
   return machine ? '(nothing was typed in this session)' : '';
 }
 
-async function labels(workspacePath) {
-  const dir = projectDir(workspacePath);
-  let files;
-  try {
-    files = fs.readdirSync(dir).filter(f => f.endsWith('.jsonl'));
-  } catch {
-    return {};
+/** Session labels for the workspace AND any extra folders -- the rooms, where new room sessions
+ *  are now filed so the Claude window's "Open" never picks them up. Newest first overall. */
+async function labels(workspacePath, ...extra) {
+  const all = [];
+  for (const p of [workspacePath].concat(extra.filter(Boolean))) {
+    const dir = projectDir(p);
+    let files;
+    try { files = fs.readdirSync(dir).filter(f => f.endsWith('.jsonl')); } catch { continue; }
+    for (const f of files) {
+      try { all.push({ file: path.join(dir, f), id: f.replace(/\.jsonl$/, ''), t: fs.statSync(path.join(dir, f)).mtimeMs }); }
+      catch { /* vanished */ }
+    }
   }
-  files.sort((a, b) => fs.statSync(path.join(dir, b)).mtimeMs - fs.statSync(path.join(dir, a)).mtimeMs);
+  all.sort((a, b) => b.t - a.t);
   const out = {};
-  for (const f of files) {
-    const label = await firstLine(path.join(dir, f));
-    out[f.replace(/\.jsonl$/, '')] = label.replace(/\s+/g, ' ').slice(0, 90) || '(empty)';
+  for (const e of all) {
+    if (e.id in out) continue;
+    const label = await firstLine(e.file);
+    out[e.id] = label.replace(/\s+/g, ' ').slice(0, 90) || '(empty)';
   }
   return out;
 }

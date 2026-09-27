@@ -236,7 +236,7 @@ function startHeadless(dir, args, what, done) {
   let out = '', err = '';
   let p;
   try {
-    p = cp.spawn(bin, ['--bg'].concat(args), { cwd: workspaceRoot(dir), env: process.env });
+    p = cp.spawn(bin, ['--bg'].concat(args), { cwd: sessionHome(dir, args), env: process.env });
   } catch (e) {
     done({ ok: false, why: 'could not run claude — ' + (e && e.message || e) });
     return;
@@ -612,7 +612,7 @@ function startSessionInTerminal(dir, first) {
   // .expect marker instead -- the same mechanism the "open a tab" button uses.
   try { fs.writeFileSync(path.join(dir, '.expect'), ''); } catch { /* read-only room */ }
   if (headlessWanted()) {
-    carryTrust(workspaceRoot(dir));
+    carryTrust(dir);
     startHeadless(dir, [first], 'Starting a session for this room.', (r) => {
       if (r.ok) {
         lastBg = r.id;
@@ -627,9 +627,22 @@ function startSessionInTerminal(dir, first) {
   return startInTerminal(dir, first);
 }
 
+/** Where a session the room launches runs from.
+ *
+ * \u26d4 A NEW SESSION STARTS IN THE ROOM, NOT THE WORKSPACE. Claude files a session under the folder
+ * it started in, and the Claude window's "Open" resumes the most recent conversation of ITS folder.
+ * A room session filed under the workspace was always that most recent one -- it writes constantly
+ * -- so every "Open" tried to resume a session the room was running in the background, and the
+ * window showed "exited with code 1" for good. Filed under the room, the window never sees it.
+ * A RESUME keeps the workspace: resuming works from any folder and the transcript stays where it
+ * was, so the folder does not matter there, and the old behaviour is kept. */
+function sessionHome(dir, args) {
+  return (args || []).includes('--resume') ? workspaceRoot(dir) : dir;
+}
+
 /** The terminal path, for `tab`/`panel` and as the fallback. */
 function startInTerminal(dir, first) {
-  const { opts, reveal, pre } = termOpts('claude · ' + path.basename(dir), workspaceRoot(dir), false);
+  const { opts, reveal, pre } = termOpts('claude · ' + path.basename(dir), sessionHome(dir, [first]), false);
   const term = claudeTerminal(opts, [first]);
   if (reveal) term.show(true);
   if (pre && !pre.ok) announce(dir, preflightSays(pre, 'starting a session'));
@@ -796,7 +809,7 @@ function activate(context) {
         if (route === '/api/messages') {
           const since = parseInt(new URLSearchParams(query || '').get('since') || '0', 10) || 0;
           const messages = log.read(since);
-          const names = await labels(workspaceRoot(dir));
+          const names = await labels(workspaceRoot(dir), dir);
           const watchers = log.watchers(names);
           retitle(watchers);
           return reply({
@@ -817,7 +830,7 @@ function activate(context) {
           });
         }
         if (route === '/api/sessions') {
-          const names = await labels(workspaceRoot(dir));
+          const names = await labels(workspaceRoot(dir), dir);
           const here = log.watchers(names);
           const live = await new Promise(res => liveSessions(res));
           return reply({
@@ -919,7 +932,7 @@ function activate(context) {
         if (route === '/api/open_room') {
           const sid = (JSON.parse(req.body || '{}').session || '').trim();
           if (!/^[0-9a-f-]{36}$/.test(sid)) return reply({ error: 'not a session id' });
-          const names = await labels(workspaceRoot(dir));
+          const names = await labels(workspaceRoot(dir), dir);
           for (const inst of instances()) {
             if (inst.dir === dir) continue;
             if (new Log(inst.dir).watchers(names).some(w => w.session === sid)) {
@@ -972,7 +985,7 @@ function activate(context) {
           // Nothing needed opening; the answer was "it is already there, write here".
           const want = (JSON.parse(req.body || '{}').session || '').trim();
           if (want) {
-            const names = await labels(workspaceRoot(dir));
+            const names = await labels(workspaceRoot(dir), dir);
             if (log.watchers(names).some(w => w.session === want)) {
               try { await vscode.commands.executeCommand('claude-vscode.focus'); } catch { /* optional */ }
               return reply({ ok: true, how: 'already' });
@@ -1019,6 +1032,7 @@ function activate(context) {
       const mirror = vscode.workspace.getConfiguration('controlRoom').get('mirrorEditorChat') !== false;
       if (!hook.installed(hookRoot) || !hook.current(hookRoot) || mirror) {
         const out = hook.install(hookRoot, mirror ? dir : null);
+        try { hook.linkRoom(dir, hookRoot, !!mirror); } catch { /* read-only room */ }
         hooked = !out.already;                // a refreshed script is not news
       }
       if (added.length || hooked) {
@@ -1041,7 +1055,7 @@ function activate(context) {
    *  control room that session is listening to, already addressed to it. */
   const pickSession = async (placeHolder) => {
     const found = instances();
-    const names = await labels(workspaceRoot(found[0].dir));
+    const names = await labels(workspaceRoot(found[0].dir), ...found.map(i => i.dir));
     const items = [];
     let live = 0;
     for (const inst of found) {
