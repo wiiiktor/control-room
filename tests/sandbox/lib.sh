@@ -30,7 +30,7 @@ check() { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 # A fresh sandbox workspace with a room, trusted the way the extension trusts it.
 setup_ws() {
   mkdir -p "$ROOM"
-  cp "$REPO"/chatlog.py "$REPO"/reply.py "$REPO"/status.py "$REPO"/watch.py "$ROOM"/
+  cp "$REPO"/chatlog.py "$REPO"/reply.py "$REPO"/status.py "$REPO"/watch.py "$REPO"/request.py "$ROOM"/
   node -e "const p=require('$REPO/extension/src/preflight.js'); p.grantTrust('$WS'); p.grantTrust('$ROOM')"
 }
 

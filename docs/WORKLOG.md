@@ -105,3 +105,10 @@ End to end, isolated VS Code instance (`--user-data-dir`/`--extensions-dir` in t
 ## 7. Log
 
 - 2026-09-28 01:20 — research done; F1–F9 measured; plan written.
+- 01:30 — M1: `handoff/claude-handoff` + `src/handoff.js` (install at a stable path, set the setting,
+  opt-out, never overwrite a foreign wrapper). U1 13/13, S1+S2 11/11.
+- 01:45 — E1 with the REAL Claude extension in an isolated VS Code: control (wrapper off) reproduces
+  "running as a background session" → "Error spawning Claude"; with the wrapper: no error, conversation
+  moves to the window (agents: interactive), room told. URL triggers need a click in VS Code, so rooms got
+  a request inbox (`request.py`: open-in-claude, close-claude-tab) — also answers "close the tab for me".
+- Labels: sessions named by `aiTitle` like the Claude window (cached; P7).

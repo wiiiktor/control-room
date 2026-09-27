@@ -72,8 +72,48 @@ async function firstLine(file) {
   return machine ? '(nothing was typed in this session)' : '';
 }
 
+/** The title the Claude window gives a conversation: its latest `ai-title` entry, from the tail.
+ *
+ * \u2b50 NAME SESSIONS THE WAY THE CLAUDE WINDOW DOES. "I don't know which session is 8ef64249": the
+ * panel named a session by its id or first message, the Claude window by an `aiTitle` ("uncommitted
+ * changes review") -- two names for one thing. The title is rewritten as the conversation goes on, so
+ * the newest one is at the END of the transcript; only the last 256 KB is read. */
+function aiTitle(file) {
+  let fd;
+  try {
+    fd = fs.openSync(file, 'r');
+    const size = fs.fstatSync(fd).size;
+    const len = Math.min(size, 262144);
+    const buf = Buffer.alloc(len);
+    fs.readSync(fd, buf, 0, len, size - len);
+    const lines = buf.toString('utf8').split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (!lines[i].includes('"ai-title"')) continue;
+      try {
+        const d = JSON.parse(lines[i]);
+        if (d.type === 'ai-title' && d.aiTitle) return String(d.aiTitle);
+      } catch { /* a line cut by the window */ }
+    }
+  } catch { /* unreadable */ } finally {
+    if (fd !== undefined) try { fs.closeSync(fd); } catch { /* closed */ }
+  }
+  return '';
+}
+
+// \u26d4 THE PAGE ASKS EVERY SECOND. Reading every transcript's head and tail on each poll is what
+// a label must not cost, so one is worked out once per version of the file (size + mtime).
+const labelCache = new Map();
+async function labelOf(file, st) {
+  const key = st.size + ':' + st.mtimeMs;
+  const hit = labelCache.get(file);
+  if (hit && hit.key === key) return hit.label;
+  const label = (aiTitle(file) || await firstLine(file)).replace(/\s+/g, ' ').slice(0, 90) || '(empty)';
+  labelCache.set(file, { key, label });
+  return label;
+}
+
 /** Session labels for the workspace AND any extra folders -- the rooms, where new room sessions
- *  are now filed so the Claude window's "Open" never picks them up. Newest first overall. */
+ *  are filed so they never appear in the Claude window's own list. Newest first overall. */
 async function labels(workspacePath, ...extra) {
   const all = [];
   for (const p of [workspacePath].concat(extra.filter(Boolean))) {
@@ -81,18 +121,37 @@ async function labels(workspacePath, ...extra) {
     let files;
     try { files = fs.readdirSync(dir).filter(f => f.endsWith('.jsonl')); } catch { continue; }
     for (const f of files) {
-      try { all.push({ file: path.join(dir, f), id: f.replace(/\.jsonl$/, ''), t: fs.statSync(path.join(dir, f)).mtimeMs }); }
-      catch { /* vanished */ }
+      try {
+        const file = path.join(dir, f);
+        all.push({ file, id: f.replace(/\.jsonl$/, ''), st: fs.statSync(file) });
+      } catch { /* vanished */ }
     }
   }
-  all.sort((a, b) => b.t - a.t);
+  all.sort((a, b) => b.st.mtimeMs - a.st.mtimeMs);
   const out = {};
   for (const e of all) {
     if (e.id in out) continue;
-    const label = await firstLine(e.file);
-    out[e.id] = label.replace(/\s+/g, ' ').slice(0, 90) || '(empty)';
+    out[e.id] = await labelOf(e.file, e.st);
   }
   return out;
 }
 
-module.exports = { labels, projectDir };
+/** The Claude window's title for one conversation, wherever its transcript is filed. */
+function titleOf(sid, ...paths) {
+  for (const p of paths.filter(Boolean)) {
+    const t = aiTitle(path.join(projectDir(p), sid + '.jsonl'));
+    if (t) return t;
+  }
+  return '';
+}
+
+/** Does a Claude tab's label name this conversation? VS Code keeps the tab title the Claude
+ *  extension set -- the aiTitle, cut with "…" when long ("uncommitted changes revi…"). */
+function labelMatchesTitle(label, title) {
+  const l = String(label || '').replace(/\u2026$/, '').replace(/\.\.\.$/, '').trim();
+  const t = String(title || '').trim();
+  if (!l || !t || l.length < 4) return false;
+  return t === l || t.startsWith(l) || l.startsWith(t);
+}
+
+module.exports = { labels, projectDir, aiTitle, titleOf, labelMatchesTitle };

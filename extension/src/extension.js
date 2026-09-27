@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
 const { Log, setFloor } = require('./log');
-const { labels } = require('./sessions');
+const { labels, titleOf, labelMatchesTitle } = require('./sessions');
 const hook = require('./hook');
 const runtime = require('./runtime');
 const diagnose = require('./diagnose');
@@ -500,6 +500,16 @@ function resumeInTerminal(dir, sid) {
   proveItStarted(dir, term, 'It was asked to resume session ' + sid.slice(0, 8) + '.');
 }
 
+/** Open one conversation in the Claude window.
+ *
+ * `claude-vscode.editor.open <sessionId>` opens or reveals a Claude tab on that conversation. If the
+ * room holds it in the background, the handoff wrapper releases it as the tab's claude starts, and
+ * the room is told -- so this is also the way to MOVE a conversation from the panel to the window. */
+async function openInClaude(sid) {
+  try { await vscode.commands.executeCommand('claude-vscode.editor.open', sid); return true; }
+  catch { return false; }        // no Claude extension installed
+}
+
 /** Open the Claude Code extension in an editor tab.
  *
  * Its commands are not API and it may not be installed, so each is tried in turn and a
@@ -536,7 +546,7 @@ function claudeTabOpen() {
  * ⛔ It never closes THIS panel. Our own webview is `mainThreadWebview-controlRoom`; a Claude tab is
  * `mainThreadWebview-claudeVSCodePanel`. Matching "claude" alone would shut the room as well.
  */
-async function closeClaudeTabs() {
+async function closeClaudeTabs(onlyTitle) {
   const found = [];
   try {
     for (const group of vscode.window.tabGroups.all) {
@@ -544,11 +554,20 @@ async function closeClaudeTabs() {
         const view = String((tab.input && tab.input.viewType) || '');
         if (!/claude/i.test(view)) continue;
         if (/controlroom/i.test(view)) continue;       // the room itself
+        // one conversation's tab only, recognised by the title the Claude extension gave it
+        if (onlyTitle !== undefined && !labelMatchesTitle(tab.label, onlyTitle)) continue;
         found.push(tab);
       }
     }
   } catch {
     return { ok: false, why: 'this VS Code has no tab API' };
+  }
+  if (onlyTitle !== undefined) {
+    // closing one conversation's tab never touches the Claude view, and never other tabs
+    if (!found.length) return { ok: true, closed: 0, titles: [] };
+    try { await vscode.window.tabGroups.close(found, false); }
+    catch (err) { return { ok: false, why: (err && err.message) || String(err) }; }
+    return { ok: true, closed: found.length, titles: found.map(t => String(t.label || '')) };
   }
   const titles = found.map(t => String(t.label || '').slice(0, 60));
   if (found.length) {
@@ -688,6 +707,24 @@ function preflightSays(pre, doing) {
 /** Said whenever a panel is opened with nothing reading it: the one step people miss. */
 const NO_SESSION = 'Control Room: no Claude session is watching this panel yet. Open the Claude tab and send it any message — that starts the session that reads what you write here. Your messages are kept until then.';
 
+/** One request from a room (see request.py). Returns what happened, for the asker. */
+async function handleRequest(dir, req) {
+  const sid = String(req.session || '');
+  const valid = /^[0-9a-f]{8}-[0-9a-f-]{27}$/.test(sid);
+  if (req.action === 'open-in-claude') {
+    if (!valid) return { ok: false, why: 'not a session id' };
+    return { ok: await openInClaude(sid), action: req.action, session: sid };
+  }
+  if (req.action === 'close-claude-tab') {
+    if (sid && !valid) return { ok: false, why: 'not a session id' };
+    if (!sid) return closeClaudeTabs();
+    const title = titleOf(sid, workspaceRoot(dir), dir);
+    if (!title) return { ok: false, why: 'no title recorded for ' + sid.slice(0, 8) + ', so its tab cannot be told apart' };
+    return closeClaudeTabs(title);
+  }
+  return { ok: false, why: 'unknown action ' + String(req.action).slice(0, 40) };
+}
+
 function activate(context) {
   // \u26d4 EVERY HEARTBEAT OLDER THAN THIS MOMENT BELONGS TO A SESSION THAT IS GONE. Reloading the
   // window kills the Claude session the editor hosts -- which is the session this panel is usually
@@ -705,6 +742,29 @@ function activate(context) {
   context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((e) => {
     if (e.affectsConfiguration('controlRoom.claudeWindowHandoff')) configureHandoff();
   }));
+
+  // \u2b50 REQUESTS FROM THE ROOMS. A session in a room cannot reach VS Code -- "close the Claude tab
+  // for me" had no answer but "do it yourself". request.py leaves a file in the room; this picks it up
+  // within a second, does it, and answers in a file beside it. A short list of actions, nothing else.
+  const inbox = setInterval(() => {
+    for (const inst of instances()) {
+      let names;
+      try { names = fs.readdirSync(inst.dir); } catch { continue; }
+      for (const n of names) {
+        const m = /^\.request\.(\d+)-(\d+)$/.exec(n);
+        if (!m) continue;
+        const f = path.join(inst.dir, n);
+        let req = null;
+        try { req = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { /* half-written: never, it is renamed in */ }
+        try { fs.unlinkSync(f); } catch { continue; }                 // someone else took it
+        const answer = (a) => { try { fs.writeFileSync(f + '.done', JSON.stringify(a)); } catch { /* room gone */ } };
+        // a request older than half a minute was left by a window that was not running: stale
+        if (!req || Date.now() - Number(m[1]) > 30000) { answer({ ok: false, why: 'expired or unreadable' }); continue; }
+        handleRequest(inst.dir, req).then(answer, (err) => answer({ ok: false, why: String(err && err.message || err) }));
+      }
+    }
+  }, 1000);
+  context.subscriptions.push({ dispose: () => clearInterval(inbox) });
   // \u26d4 AND SWEEP THE DEAD HEARTBEAT FILES. Every session that ever watched a room leaves its
   // `.watch.<id>` behind for good: eight of them had piled up here for six sessions that no longer
   // exist. The age filter means they cannot fake a watcher, but they are the room's own record of
@@ -1192,6 +1252,11 @@ function activate(context) {
         if (uri.path === '/diagnose') return vscode.commands.executeCommand('controlRoom.diagnose');
         // so a session can clear the Claude tab/view that keeps failing to resume it, from outside
         if (uri.path === '/close-claude-tab') return vscode.commands.executeCommand('controlRoom.closeClaudeTab');
+        // open one conversation in the Claude window -- the move the handoff wrapper makes safe
+        if (uri.path === '/open-in-claude') {
+          const sid = new URLSearchParams(uri.query || '').get('session') || '';
+          if (/^[0-9a-f-]{36}$/.test(sid)) return openInClaude(sid);
+        }
       },
     }));
   }

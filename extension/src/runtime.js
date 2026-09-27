@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const FILES = ['chatlog.py', 'reply.py', 'status.py', 'watch.py'];
+const FILES = ['chatlog.py', 'reply.py', 'status.py', 'watch.py', 'request.py'];
 
 /** Put the helpers in `dir`, and REFRESH one the extension has outgrown.
  *

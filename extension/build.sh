@@ -4,6 +4,6 @@
 set -e
 cd "$(dirname "$0")"
 mkdir -p runtime
-cp ../chatlog.py ../reply.py ../status.py ../watch.py runtime/
+cp ../chatlog.py ../reply.py ../status.py ../watch.py ../request.py runtime/
 vsce package --allow-missing-repository
 ls -la *.vsix
