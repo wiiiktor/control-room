@@ -1495,6 +1495,35 @@
     show([card], false);
   }
 
+  /** Write the message, then bring its session back. See the note in send().
+   *
+   *  This is what makes "pick a session from the list, read its last screen, and just type"
+   *  work: nothing is started when you choose a session, and the terminal only appears when
+   *  you actually have something to say. */
+  async function sendAndWake(text, name) {
+    lastCommand = text;
+    waiting(['writing it down', 'waking ' + name.slice(0, 40), 'it answers on its first turn']);
+    try {
+      await fetch('/api/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, to: target || '' }),
+      });
+    } catch {
+      showOffline();
+      return false;
+    }
+    try {
+      await fetch('/api/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: target }),
+      });
+    } catch { /* the message is on record either way; the session can be woken by hand */ }
+    poll();
+    return true;
+  }
+
   async function send(text, force) {
     text = (text || '').trim();
     if (!text) return true;
@@ -1504,6 +1533,13 @@
     // before it happens rather than letting it sit.
     if (!force && target && !aliveIds.includes(target)) {
       const name = (tlNames[target] || target).slice(0, 48);
+      // ⛔ A SESSION OF THIS ROOM THAT HAS ENDED IS NOT AN ERROR, IT IS THE NORMAL CASE.
+      // Nothing needs asking: write the message, then wake the session. `catch_up()` in
+      // watch.py announces everything after the last assistant reply the moment a watch
+      // starts, so a message written BEFORE the resume is answered as soon as it comes back.
+      // Order matters -- the message goes in first, so a failed resume still leaves it on
+      // record rather than losing it to a dialog nobody answered.
+      if (tlNames[target] && !elsewhereIn[target]) return sendAndWake(text, name);
       pendingText = text;
       show(build([
         '::ask Nobody there',
@@ -1873,25 +1909,16 @@
       b.classList.toggle('live', live.has(id));
       b.append(el('span', '', String(names[id]).replace(/\s+/g, ' ').slice(0, 90)),
                el('em', '', where));
+      // ⛔ CHOOSING A SESSION STARTS NOTHING. It addresses it, shows you the last thing it
+      // said, and stops there -- the terminal appears when you have written something, not
+      // when you have merely looked. See sendAndWake().
       b.onclick = async () => {
-        if (live.has(id)) {                      // already here: nothing to start
-          window.CONTROL_ROOM_SET_TARGET(id);
-          return dismissSplash();
-        }
-        b.disabled = true;
-        b.querySelector('em').textContent = 'bringing it back…';
-        splashWaiting = true;
-        splashGo.textContent = 'Resuming that session — it connects on its first turn';
-        try {
-          await fetch('/api/resume', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ session: id }),
-          });
-        } catch {
-          b.disabled = false;
-          b.querySelector('em').textContent = 'could not resume';
-        }
+        window.CONTROL_ROOM_SET_TARGET(id);
+        dismissSplash();
+        await refreshTimeline(true);             // so its past replies are available to draw
+        tlFilter = id;
+        tlChosen = true;
+        showSessionLatest(id);
       };
       sessBox.append(b);
     });
@@ -2094,17 +2121,27 @@
         }).catch(() => stuckElsewhere(who, room));
         return;
       }
+      // ⛔ ASLEEP IS NOT BROKEN, AND THE LAST SCREEN IS WHAT YOU CAME FOR. This used to be a
+      // warning with two buttons, shown instead of the conversation -- so choosing a session
+      // hid the very thing choosing it was meant to reveal. If it has said anything in this
+      // room, show that, with one line saying typing will wake it. sendAndWake() then does,
+      // and watch.py's catch_up() delivers whatever was written before it came back.
+      if (last) {
+        lastCommand = last.asked || '';
+        show(build(last.text).concat(
+          build('::note ' + who + ' is asleep. Write anything and it wakes up — the message is '
+                + 'kept and answered on its first turn.')), false, last.ts);
+        return;
+      }
+      // Nothing to show: then the buttons are the only thing this screen can offer.
       splashAgain();
       show(build([
         '::warn Not running — ' + who,
-        '::say A session listens only while it is running. Bring this one back, or start a '
-          + 'fresh one: the panel talks to whichever answers.',
+        '::say This session has never written in this control room, so there is nothing of it '
+          + 'to show. Bring it back, or start a fresh one.',
         '::pick Resume this session in a terminal => __resume',
         '::pick Open a fresh Claude tab => __start_session',
-        '::note Resuming keeps this conversation and everything it knows. A fresh tab starts '
-          + 'a new one. Either way, one message is what arms the watch.',
-        last ? '::note Its last reply here is still in the strip below.'
-             : '::note It has never written in this control room.',
+        '::note Resuming keeps everything it knows. A fresh tab starts over.',
       ].join('\n')), false);
       return;
     }
