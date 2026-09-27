@@ -11,3 +11,4 @@ chat.jsonl
 __pycache__/
 *.pyc
 extension/runtime/
+extension-sidebar/runtime/

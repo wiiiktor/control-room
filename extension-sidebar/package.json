@@ -1,0 +1,104 @@
+{
+  "name": "control-room-sidebar",
+  "displayName": "Control Room (sidebar)",
+  "description": "The Control Room panel as a sidebar view: it keeps its place while you work in the editor.",
+  "version": "0.1.1",
+  "publisher": "wiiiktor",
+  "license": "MIT",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wiiiktor/control-room"
+  },
+  "engines": {
+    "vscode": "^1.84.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "controlRoomSidebar",
+          "title": "Control Room",
+          "icon": "media/room.svg"
+        }
+      ]
+    },
+    "views": {
+      "controlRoomSidebar": [
+        {
+          "id": "controlRoomSidebar.room",
+          "name": "Room",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "controlRoomSidebar.show",
+        "title": "Control Room (sidebar): Show the room"
+      },
+      {
+        "command": "controlRoomSidebar.pickSession",
+        "title": "Control Room (sidebar): Choose which session to talk to"
+      },
+      {
+        "command": "controlRoomSidebar.resume",
+        "title": "Control Room (sidebar): Resume a Claude session in a terminal"
+      },
+      {
+        "command": "controlRoomSidebar.installHook",
+        "title": "Control Room (sidebar): Install the session-start watch hook"
+      },
+      {
+        "command": "controlRoomSidebar.diagnose",
+        "title": "Control Room (sidebar): Diagnose the bridge"
+      }
+    ],
+    "configuration": {
+      "title": "Control Room (sidebar)",
+      "properties": {
+        "controlRoomSidebar.logPath": {
+          "type": "string",
+          "default": "",
+          "description": "Where chat.jsonl lives. Empty means every control-room* folder in the workspace is offered as a room the view can switch to; setting it pins the view to one log."
+        },
+        "controlRoomSidebar.mirrorEditorChat": {
+          "type": "boolean",
+          "default": true,
+          "description": "Copy the Claude tab's conversation into the room, so the view holds both sides rather than only what was typed in it. Mirrored lines are marked and are never answered a second time."
+        }
+      }
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "controlRoomSidebar.show",
+          "when": "true"
+        },
+        {
+          "command": "controlRoomSidebar.pickSession",
+          "when": "true"
+        },
+        {
+          "command": "controlRoomSidebar.resume",
+          "when": "false"
+        },
+        {
+          "command": "controlRoomSidebar.installHook",
+          "when": "false"
+        },
+        {
+          "command": "controlRoomSidebar.diagnose",
+          "when": "true"
+        }
+      ]
+    }
+  }
+}

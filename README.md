@@ -130,11 +130,29 @@ Room**. The same scheme takes `/open` and `/diagnose`.
 A workspace can hold several rooms — one folder per session, each with its own
 `chat.jsonl` — and every `control-room*` folder is offered as a separate panel.
 
+## Two surfaces, two extensions
+
+The panel exists twice, on purpose, as **two extensions with two codebases**:
+
+| | tab | sidebar |
+|---|---|---|
+| folder | `extension/` | `extension-sidebar/` |
+| id | `wiiiktor.control-room` | `wiiiktor.control-room-sidebar` |
+| where it sits | an editor tab, one **per room** | the activity bar, one view that **switches** room |
+| settings | `controlRoom.*` | `controlRoomSidebar.*` |
+| can start a session in a terminal | no | yes, from the splash |
+
+Install either or both — different ids, different `.vsix`, and they read the same
+`control-room*/chat.jsonl`, so one session answers whichever you are looking at. Nothing is
+shared in the source: a fix made in one is made in the other by hand, which is the price of
+being able to change one without weighing up the other.
+
 ## What runs where
 
 | File | What it does | Needs |
 |---|---|---|
-| `extension/` | the panel: reads and writes `chat.jsonl` itself | VS Code 1.84+ |
+| `extension/` | the panel as an **editor tab**: reads and writes `chat.jsonl` itself | VS Code 1.84+ |
+| `extension-sidebar/` | the same room as a **sidebar view**, a separate codebase and a separate extension | VS Code 1.84+ |
 | `watch.py` | prints each new message for the session to answer, and announces anything unanswered when it starts | Python 3 |
 | `reply.py` | posts an assistant reply into the log | Python 3 |
 | `status.py` | progress lines shown while a reply is being worked on | Python 3 |
