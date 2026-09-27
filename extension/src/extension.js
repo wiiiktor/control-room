@@ -126,6 +126,8 @@ function pageHtml(extensionPath, dir, session, build) {
   return html.replace('<script>', shim + '\n<script>', 1);
 }
 
+let lastTerm = null;                     // a hidden terminal is still produced on demand
+
 /** Where a terminal this extension opens should go.
  *
  * ⛔ THE SETTING HAS TO COVER EVERY TERMINAL, not just the one it was added for. "I do not
@@ -160,10 +162,16 @@ function resumeIn(dir, sid) {
   // project folder -- so `--resume` run from control-room/ looks for the id somewhere it
   // was never written, and finds nothing. The room is still where the log is; the
   // session-start hook finds it by heartbeat, not by cwd.
-  const { opts, reveal } = termOpts('claude · ' + sid.slice(0, 8), workspaceRoot(dir), true);
+  // ⛔ NOT interactive any more. Resume used to mean "give me a terminal to type in", so it
+  // got an editor tab. It now means "wake the session I just wrote to", and the writing
+  // happens in the room -- so there is nothing to type in the terminal and no reason to look
+  // at it. Fire-and-forget, hidden under the default setting, and kept in lastTerm so the
+  // room can produce it when the session fails to answer.
+  const { opts, reveal } = termOpts('claude · ' + sid.slice(0, 8), workspaceRoot(dir), false);
   const term = vscode.window.createTerminal(opts);
   if (reveal) term.show(true);
   term.sendText('claude --resume ' + sid);
+  lastTerm = term;
 }
 
 /** Open the Claude Code extension in an editor tab.
@@ -228,8 +236,6 @@ async function openClaudeTab(dir) {
  * commands takes a prompt, and `type` does not reach a webview. A terminal can, because
  * `claude [prompt]` starts an interactive session with that first message.
  */
-let lastTerm = null;                     // a hidden terminal is still produced on demand
-
 function startSessionInTerminal(dir, first) {
   // ⛔ cwd is the WORKSPACE, not the room: Claude files a session under the directory it
   // started in, and the hooks live in the workspace's .claude/. The room is found by the
@@ -586,12 +592,11 @@ function activate(context) {
     // sessions are offered inside it, where you can see what each one last said.
     // ⚠️ And no handover: a target chosen out here is the one that made messages go to a
     // session that could not see them.
-    const found = instances();
-    if (found.length === 1) return open(found[0]);
-    const pick = await vscode.window.showQuickPick(
-      found.map(inst => ({ label: inst.name, description: inst.dir, inst })),
-      { placeHolder: 'Which control room?' });
-    if (pick) open(pick.inst);
+    // ⛔ AND NO LIST AT ALL. Not sessions, not rooms: every choice belongs inside the room,
+    // where you can see what you are choosing between. `instances()` returns rooms sorted with
+    // the plain one first, so this opens the one you meant in the overwhelming majority of
+    // cases -- and "Control Room: open every room" is still there for the rest.
+    open(instances()[0]);
   }));
 
   // every instance at once, for the two-session case this was built for

@@ -1229,6 +1229,16 @@
         // ⛔ The panel used to NAME this problem and stop there: a red NOT RUNNING with a
         // `claude --resume <id>` to copy into a terminal you had to open yourself. The
         // editor can open the terminal, so it does.
+        if (btn.dataset.cmd === '__reveal_terminal') {
+          btn.onclick = async () => {
+            btn.disabled = true;
+            btn.querySelector('span').textContent = 'showing it…';
+            try { await fetch('/api/reveal_terminal', { method: 'POST', body: '{}' }); }
+            catch { btn.querySelector('span').textContent = 'there is no terminal to show'; }
+          };
+          picks.append(btn);
+          continue;
+        }
         if (btn.dataset.cmd === '__resume') {
           btn.onclick = async () => {
             if (!resumeTarget) return;
@@ -1531,6 +1541,22 @@
       });
     } catch { /* the message is on record either way; the session can be woken by hand */ }
     poll();
+    // ⛔ A HIDDEN TERMINAL FAILS SILENTLY, and a woken session that never answers is the most
+    // confusing thing this panel can do: the message is written, nothing is on screen, and
+    // there is nowhere to look. Thirty seconds is long enough for a resume to connect; past
+    // that, say so and offer the terminal that was started.
+    setTimeout(() => {
+      if (aliveIds.length || !waitingNow) return;        // it woke up, or the screen moved on
+      show(build([
+        '::warn ' + name.slice(0, 40) + ' has not answered',
+        '::say The message is written down and it will be picked up whenever that session '
+          + 'comes back — nothing is lost. But the resume has not connected in thirty seconds, '
+          + 'which usually means the terminal is waiting on something.',
+        '::pick Show me the terminal => __reveal_terminal',
+        '::note Most often: not logged in, or a permission prompt. It is hidden by default, '
+          + 'which is why you cannot see it asking.',
+      ].join('\n')), false);
+    }, 30000);
     return true;
   }
 
@@ -1882,8 +1908,9 @@
     const live = new Set((d.watchers || []).map(w => w.session));
     const away = d.elsewhere || {};
     const ids = Object.keys(names).slice(0, 6);
-    if (!ids.length) return;
-    sessLoaded = true;
+    sessLoaded = true;                       // ⛔ even with no sessions: the two rows below are
+                                             // the whole splash then, and returning early left
+                                             // it empty
     sessBox.replaceChildren(el('b', '', ids.length ? 'pick a session' : 'no sessions here yet'));
     ids.forEach((id) => {
       const b = el('button');
