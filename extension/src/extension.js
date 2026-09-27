@@ -295,9 +295,11 @@ function activate(context) {
     // ignored, so the tab itself says so
     let title = name;
     const retitle = (watchers) => {
-      // the version in the TAB TITLE as well: visible without opening anything, which is the
-      // only way "am I looking at the new one" stops being a matter of opinion
-      const want = name + ' ' + BUILD + (watchers.length ? '' : ' (no watcher)');
+      // \u26d4 NO VERSION HERE. It went in when "I see zero difference" needed settling from
+      // outside, and it settled it -- but a tab is read a hundred times after that and the
+      // number is noise in all of them. The splash still stamps the build, which is where you
+      // look when the question is which build you are on.
+      const want = name + (watchers.length ? '' : ' (no watcher)');
       if (want !== title) { title = want; panel.title = want; }
     };
 
