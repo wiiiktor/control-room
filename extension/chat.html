@@ -1358,40 +1358,42 @@
     splashSay(target && !elsewhereIn[target] ? aliveIds.includes(target) : !!aliveIds.length);
   }
 
-  /* Claude Code's own waiting words, read out of the CLI binary rather than remembered --
-     `2.1.282` carries these 180 and the panel may as well say the same thing the terminal
-     says. One changes to another every five seconds while a reply is outstanding. */
+  /* OUR words, not Anthropic's. The first version of this lifted the 180 gerunds out of the
+     Claude Code binary with a string extraction -- which is what the Consumer Terms mean by
+     reducing the Services to human-readable form, and is not something to ship. These 190 are
+     written here: a workshop, a kitchen, weather, small animals going about their business, a
+     library, a lab, the sky, a garden, the road, and a pile of nonsense. Checked against the
+     extracted list: zero overlap, and no duplicates among themselves. */
   const WAIT_WORDS = [
-    'Accomplishing', 'Actioning', 'Actualizing', 'Architecting', 'Baking', 'Beaming',
-    'Befuddling', 'Billowing', 'Blanching', 'Bloviating', 'Boogieing', 'Boondoggling',
-    'Booping', 'Bootstrapping', 'Brewing', 'Bunning', 'Burrowing', 'Calculating', 'Canoodling',
-    'Caramelizing', 'Cascading', 'Catapulting', 'Cerebrating', 'Channeling', 'Choreographing',
-    'Churning', 'Clauding', 'Coalescing', 'Cogitating', 'Combobulating', 'Composing',
-    'Computing', 'Concocting', 'Considering', 'Contemplating', 'Cooking', 'Crafting',
-    'Creating', 'Crunching', 'Crystallizing', 'Cultivating', 'Deciphering', 'Deliberating',
-    'Determining', 'Discombobulating', 'Doodling', 'Drizzling', 'Ebbing', 'Effecting',
-    'Elucidating', 'Embellishing', 'Enchanting', 'Envisioning', 'Fermenting', 'Finagling',
-    'Flibbertigibbeting', 'Flowing', 'Flummoxing', 'Fluttering', 'Forging', 'Forming',
-    'Frolicking', 'Frosting', 'Gallivanting', 'Galloping', 'Garnishing', 'Generating',
-    'Germinating', 'Gesticulating', 'Gitifying', 'Grooving', 'Gusting', 'Harmonizing',
-    'Hashing', 'Hatching', 'Herding', 'Honking', 'Hullaballooing', 'Hyperspacing', 'Ideating',
-    'Imagining', 'Improvising', 'Incubating', 'Inferring', 'Infusing', 'Ionizing',
-    'Jitterbugging', 'Julienning', 'Kerfuffling', 'Kneading', 'Leavening', 'Levitating',
-    'Lollygagging', 'Manifesting', 'Marinating', 'Meandering', 'Metamorphosing', 'Misting',
-    'Moonwalking', 'Moseying', 'Mulling', 'Musing', 'Mustering', 'Nebulizing', 'Nesting',
-    'Newspapering', 'Noodling', 'Nucleating', 'Onioning', 'Orbiting', 'Orchestrating',
-    'Osmosing', 'Perambulating', 'Percolating', 'Perusing', 'Philosophizing',
-    'Photosynthesizing', 'Polishing', 'Pollinating', 'Pondering', 'Pontificating', 'Pouncing',
-    'Precipitating', 'Prestidigitating', 'Processing', 'Proofing', 'Propagating', 'Puttering',
-    'Puzzling', 'Quantumizing', 'Razzmatazzing', 'Recombobulating', 'Reticulating', 'Roosting',
-    'Ruminating', 'Scampering', 'Schlepping', 'Scurrying', 'Seasoning', 'Shenaniganing',
-    'Shimmying', 'Simmering', 'Skedaddling', 'Sketching', 'Slithering', 'Smooshing',
-    'Spelunking', 'Spinning', 'Sprouting', 'Stewing', 'Sublimating', 'Swirling', 'Swooping',
-    'Symbioting', 'Synthesizing', 'Tempering', 'Thinking', 'Thundering', 'Tinkering',
-    'Tomfoolering', 'Transfiguring', 'Transmogrifying', 'Transmuting', 'Twisting', 'Undulating',
-    'Unfurling', 'Unraveling', 'Vibing', 'Waddling', 'Wandering', 'Warping',
-    'Whatchamacalliting', 'Whirlpooling', 'Whirring', 'Whisking', 'Wibbling', 'Working',
-    'Wrangling', 'Zesting', 'Zigzagging',
+    'Whittling', 'Sanding', 'Planing', 'Dovetailing', 'Riveting', 'Soldering', 'Smelting',
+    'Annealing', 'Quenching', 'Filing', 'Lathing', 'Chiselling', 'Burnishing', 'Lacquering',
+    'Distilling', 'Steeping', 'Reducing', 'Deglazing', 'Clarifying', 'Folding', 'Basting',
+    'Poaching', 'Curing', 'Pickling', 'Candying', 'Whipping', 'Sieving', 'Scalding',
+    'Squalling', 'Drifting', 'Thawing', 'Condensing', 'Trickling', 'Eddying', 'Cresting',
+    'Brimming', 'Sluicing', 'Seeping', 'Rimefrosting', 'Hailing', 'Dewing', 'Gathering',
+    'Snuffling', 'Rummaging', 'Foraging', 'Hoarding', 'Preening', 'Nuzzling', 'Scuttling',
+    'Hibernating', 'Molting', 'Fledging', 'Wallowing', 'Grazing', 'Perching', 'Denning',
+    'Ambling', 'Sauntering', 'Trundling', 'Pootling', 'Bimbling', 'Mooching', 'Traipsing',
+    'Gadding', 'Cavorting', 'Capering', 'Prancing', 'Sashaying', 'Tottering', 'Careening',
+    'Surmising', 'Inducting', 'Abducting', 'Weighing', 'Reckoning', 'Divining', 'Auguring',
+    'Construing', 'Adducing', 'Extrapolating', 'Interpolating', 'Triangulating',
+    'Disambiguating', 'Guesstimating', 'Annotating', 'Glossing', 'Collating', 'Indexing',
+    'Footnoting', 'Rubricating', 'Redrafting', 'Proofreading', 'Transcribing', 'Illuminating',
+    'Palimpsesting', 'Anthologizing', 'Abridging', 'Emending', 'Squizzling', 'Bumblefussing',
+    'Thinkerating', 'Wobbulating', 'Kerplunking', 'Flimflaming', 'Snorkelling', 'Widgeting',
+    'Sprocketing', 'Gubbinsing', 'Thingumbobbing', 'Doohickeying', 'Whatnotting', 'Oojahing',
+    'Bodging', 'Faffing', 'Footling', 'Dithering', 'Havering', 'Wittering', 'Blethering',
+    'Nattering', 'Yammering', 'Waffling', 'Burbling', 'Prattling', 'Gibbering', 'Jabbering',
+    'Titrating', 'Centrifuging', 'Pipetting', 'Culturing', 'Assaying', 'Calibrating',
+    'Sequencing', 'Staining', 'Refracting', 'Diffracting', 'Polarizing', 'Sintering',
+    'Electroplating', 'Vulcanizing', 'Stargazing', 'Constellating', 'Eclipsing', 'Transiting',
+    'Conjuncting', 'Zenithing', 'Accreting', 'Redshifting', 'Lensing', 'Spiralling',
+    'Culminating', 'Librating', 'Precessing', 'Occulting', 'Mulching', 'Pruning', 'Grafting',
+    'Deadheading', 'Composting', 'Espaliering', 'Coppicing', 'Layering', 'Hardening', 'Potting',
+    'Dibbling', 'Earthing', 'Staking', 'Thinning', 'Wayfinding', 'Portaging', 'Fording',
+    'Switchbacking', 'Scrambling', 'Bushwhacking', 'Beachcombing', 'Mudlarking', 'Wildcamping',
+    'Hitching', 'Freewheeling', 'Coasting', 'Bivouacking', 'Yomping', 'Marvelling', 'Dawdling',
+    'Loafing', 'Idling', 'Pottering', 'Mooncalfing', 'Mithering', 'Rejigging',
   ];
   let wordTimer = null;
   const aWord = () => WAIT_WORDS[Math.floor(Math.random() * WAIT_WORDS.length)] + '…';
