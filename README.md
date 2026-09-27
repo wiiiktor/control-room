@@ -279,7 +279,7 @@ needs reopening from the session list, and the watch needs one message to start 
 
 ## The markup
 
-[MARKUP.md](MARKUP.md) is the whole language: `::ask ::say ::note ::kv ::ok ::warn ::err
+[MARKUP.md](MARKUP.md) is the whole language: `::ask ::say ::note ::kv ::li ::ok ::warn ::err
 ::wait ::pick ::fill ::chart ::html ::card`. Replies also take `**bold**`, `` `code` `` and
 `*italic*` inline.
 

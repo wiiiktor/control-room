@@ -11,8 +11,10 @@
     ::ask   <text>              huge headline question
     ::say   <text>              lead statement
     ::note  <text>              small secondary detail
-    ::kv    <key> = <value>     yellow stat tile (they tile into a grid)
-    ::ok|::warn|::err <text>    status badge
+    ::kv    <key> = <value>     stat tile for a NUMBER or short value (they tile into a grid)
+    ::li    <text>              list item; "- <text>" works too. Consecutive items form one list
+    ::li +|!|!! <text>          list item with a tone dot: + good, ! caution, !! blocker
+    ::ok|::warn|::err <text>    status badge -- a short status, not a sentence
     ::wait  <text>              pending badge
     ::pick  <label>             big green choice button — click sends <label>
     ::pick  <label> => <cmd>    button showing <label>, sending <cmd>
@@ -536,8 +538,12 @@
      a centred flex item overflows in BOTH directions and the part above the start edge
      cannot be scrolled to. Auto margins centre the same way while it fits and collapse
      to zero when it does not, so the top stays reachable. */
+  /* ⛔ the scrollbar is drawn INSIDE the column, so without a gutter it sat on the right
+     edge of the content -- and the 4px pop shadows were clipped under it. The gutter is
+     reserved even while nothing scrolls, so the layout does not jump when it appears. */
   #left {
     overflow-y: auto; overflow-x: hidden;
+    scrollbar-gutter: stable; padding-right: 16px;
     display: flex; flex-direction: column; align-items: center;
   }
   #fit { width: 100%; max-width: 760px; margin: auto 0; }
@@ -616,12 +622,13 @@
   .badge {
     align-self: flex-start; font-size: 17px; font-weight: 800; letter-spacing: .01em;
     padding: 9px 18px; border: 3px solid var(--ink); border-radius: 999px;
-    text-transform: uppercase;
   }
+  /* ⛔ no text-transform here: a badge that held a sentence came out as a shouted
+     paragraph. Capitals are for the small LABELS (.stat b, .chart b), which are headers. */
   .badge.ok { background: var(--green); color: var(--on-green); }
   .badge.warn { background: var(--yellow); color: var(--on-yellow); }
   .badge.err { background: var(--red); color: var(--on-red); }
-  .badge.wait { background: var(--panel); text-transform: none; }
+  .badge.wait { background: var(--panel); }
 
   .ask {
     margin: 0; font-size: clamp(30px, 5vw, 46px); line-height: 1.08;
@@ -661,6 +668,19 @@
   .md-p { margin: 0; font-size: 18px; line-height: 1.45; }
   .md-list { margin: 0; padding-left: 1.4em; font-size: 18px; line-height: 1.45; }
   .md-list li { margin: 0 0 4px; }
+  /* ::li with a tone: the colour is a DOT, never a fill -- a list is structure, and
+     colour is only allowed to say how an item stands. */
+  .md-list li.tone { list-style: none; position: relative; }
+  .md-list li.tone::before {
+    /* centred on the FIRST line box (line-height 1.45, from .md-list), border included --
+       a fixed top of .5em plus a content-box border sat ~3px under the text's middle */
+    content: ""; position: absolute; left: -1.05em; box-sizing: border-box;
+    width: .65em; height: .65em; top: calc((1.45em - .65em) / 2);
+    border-radius: 50%; border: 2px solid var(--ink);
+  }
+  .md-list li.tone.ok::before { background: var(--green); }
+  .md-list li.tone.warn::before { background: var(--yellow); }
+  .md-list li.tone.err::before { background: var(--red); }
   .md-hr { border: 0; border-top: 2px solid currentColor; opacity: .25; margin: 4px 0; width: 100%; }
   .md-pre {
     margin: 0; padding: 12px 14px; background: var(--panel); border-radius: 10px;
@@ -680,7 +700,7 @@
 
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 12px; }
   .stat {
-    background: var(--yellow-soft); border: 3px solid var(--ink);
+    background: var(--panel); border: 3px solid var(--ink);
     border-radius: 14px; padding: 13px 16px;
   }
   .stat b {
@@ -1016,7 +1036,11 @@
       const line = raw.trim();
       if (!line) continue;
       const m = line.match(/^::(\w+)\s*(.*)$/);
-      blocks.push(m ? { type: m[1].toLowerCase(), body: m[2] } : { type: 'plain', body: line });
+      // "- text" is a list item too: it is how a list gets typed without thinking
+      const dash = !m && line.match(/^[-•]\s+(.*)$/);
+      blocks.push(m ? { type: m[1].toLowerCase(), body: m[2] }
+                    : dash ? { type: 'li', body: dash[1] }
+                    : { type: 'plain', body: line });
     }
     return blocks;
   }
@@ -1173,10 +1197,20 @@
   /** Render parsed blocks. Called again for each ::card body, so windows nest naturally. */
   function buildBlocks(blocks) {
     const nodes = [];
-    let picks = null, stats = null, cards = null;
+    let picks = null, stats = null, cards = null, list = null;
 
     for (let i = 0; i < blocks.length; i++) {
       const b = blocks[i];
+      if (b.type !== 'li') list = null;         // anything else ends the running list
+      if (b.type === 'li') {
+        picks = null; stats = null;
+        if (!list) { list = el('ul', 'md-list'); nodes.push(list); }
+        // an optional tone in front: "+" good, "!" caution, "!!" blocker -- as a dot
+        const t = b.body.match(/^(\+|!!|!)\s+(.*)$/);
+        const tone = t ? { '+': 'ok', '!': 'warn', '!!': 'err' }[t[1]] : '';
+        list.append(rich('li', tone ? 'tone ' + tone : '', t ? t[2] : b.body));
+        continue;
+      }
       if (b.type === 'card') {
         picks = null; stats = null;
         // collect to the matching ::endcard, counting nested ::card so inner windows survive

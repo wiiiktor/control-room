@@ -13,7 +13,9 @@ card you open, and it may scroll.
 | `::ask <text>` | headline question — the one thing to decide |
 | `::say <text>` | lead statement — the summary in one sentence |
 | `::note <text>` | small grey detail line |
-| `::kv <key> = <value>` | stat box; consecutive ones tile into a grid |
+| `::kv <key> = <value>` | stat box for a number or short value; consecutive ones tile into a grid |
+| `::li <text>` or `- <text>` | list item; consecutive items form one list |
+| `::li + <text>` / `::li ! <text>` / `::li !! <text>` | list item with a green / amber / red dot: good, caution, blocker |
 | `::ok <text>` | green status pill |
 | `::warn <text>` | amber status pill |
 | `::err <text>` | red status pill |
@@ -27,7 +29,7 @@ card you open, and it may scroll.
 | `::card <title>` … `::endcard` | tile; clicking it shows everything between in the right pane |
 
 Bare (non-`::`) lines render as plain text, so nothing is lost if a directive is
-malformed.
+malformed. A bare line starting with `- ` or `• ` is a list item.
 
 ## Rules
 
@@ -46,6 +48,14 @@ malformed.
 - `code` wears no box and no colour of its own: it inherits whatever it sits on. In
   a VS Code webview the editor's own stylesheet paints and boxes `<code>`, and the
   page overrides both.
+
+## Keeping a screen calm
+
+Colour says how something *stands*, never what *shape* it is. A list of points is
+`::li`, not a row of pills: a pill is for a short status ("Tests pass — 41/41"), and
+one per screen is usually enough. `::kv` is for figures; a description belongs in
+`::say`. When a point needs a status, give it a tone dot (`::li ! …`) rather than
+promoting it to a badge.
 
 ## Example
 
