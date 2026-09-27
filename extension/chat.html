@@ -223,6 +223,31 @@
   #pal-btn:hover, #pal-btn.on { opacity: 1; }
   #pal-btn.on { box-shadow: 0 0 0 4px var(--ring-ink); }
 
+  /* fifth lamp: the session picker, moved out of the timeline strip.
+     ⛔ IT DOES NOT BELONG UNDER T. Choosing which Claude answers is not a way of looking at old
+     replies, and burying it in the timeline meant opening one thing to do another. It is an action,
+     so it joins the column of things you act with.
+     It grows a label under the pointer rather than relying on the tooltip: 20px closed, and wide
+     enough for the word when open -- 30px cannot hold SESSIONS at this weight, so the width is the
+     label's own, capped, with the circle becoming a pill. */
+  #sess-btn {
+    position: fixed; top: 148px; right: 18px; z-index: 6;
+    display: flex; align-items: center; justify-content: center; gap: 0; padding: 0;
+    width: 20px; height: 20px; border-radius: 50%;
+    font: 900 11px/1 inherit; color: var(--on-yellow);
+    background: var(--yellow); border: 3px solid var(--ink);
+    box-shadow: 0 0 0 4px var(--ring-yellow);
+    cursor: pointer; opacity: .75; overflow: hidden; white-space: nowrap;
+    transition: opacity .12s, width .14s ease, border-radius .14s ease;
+  }
+  #sess-btn i { font-style: normal; }
+  #sess-btn b { display: none; font: 900 10px/1 inherit; letter-spacing: .06em; }
+  #sess-btn:hover, #sess-btn.on { opacity: 1; width: 104px; border-radius: 999px; }
+  #sess-btn:hover i, #sess-btn.on i { display: none; }
+  #sess-btn:hover b, #sess-btn.on b { display: block; }
+  #sess-btn.on { box-shadow: 0 0 0 4px var(--ring-ink); }
+  @media (prefers-reduced-motion: reduce) { #sess-btn { transition: opacity .12s; } }
+
   /* fifth and sixth lamps: text size. Quiet like the ✕ -- they are a preference, not a
      thing you act with. The stage and the composer zoom together so the card and the
      box you type in never disagree about how big a word is. */
@@ -876,6 +901,7 @@
   <button id="wipe" type="button" title="Clear the screen">✕</button>
   <button id="tl-btn" type="button" title="Timeline — past replies">T</button>
   <button id="pal-btn" type="button" title="Colour palette">C</button>
+  <button id="sess-btn" type="button" title="Sessions — choose which Claude answers"><i>S</i><b>SESSIONS</b></button>
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
   <div id="lamp" title="Connected"></div>
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
@@ -921,6 +947,7 @@
   const form  = document.getElementById('form');
   const lamp  = document.getElementById('lamp');
   const toHint = document.getElementById('to-hint');
+  const sessBtn = document.getElementById('sess-btn');
   const deaf  = document.getElementById('deaf');
   let since = 0, fails = 0, offline = false, lastCommand = '';
   let waitingNow = false, lastStatusSig = '', lastWatchAge = null, lastWatcherSig = '';
@@ -1803,6 +1830,10 @@
   async function loadSessions() {
     try {
       tlNames = (await (await fetch('/api/sessions', { cache: 'no-store' })).json()).sessions || {};
+      // the corner lamp's list is built from these, so it is rebuilt with them. \u26d4 Nothing else
+      // calls sessionMenu() any more: it used to be rebuilt by every timeline redraw, and the
+      // timeline no longer holds it.
+      try { sessionMenu(); } catch { /* the page is still coming up */ }
       lastWatcherSig = '';                 // force the "to:" list to rebuild with names
     } catch { /* offline; the poll will try again with the next name it needs */ }
   }
@@ -2566,13 +2597,11 @@
 
   function closeSessionMenu() {
     if (menuList) menuList.classList.remove('open');
+    sessBtn.classList.remove('on');
   }
 
   function sessionMenu() {
-    const wrap = el('div', 'tl-menu');
-    const cur = tlNames[tlFilter] || (tlFilter === '' ? 'before sessions were recorded' : '');
-    const btn = el('button', '', 'session: ' + (cur ? cur.slice(0, 28) : '—') + ' ▾');
-    btn.type = 'button';
+    const btn = sessBtn;                     // the corner lamp is the anchor now
     const list = el('div', 'tl-list');
     const ids = [...new Set(tlRows.map(m => m.session || ''))];
     // every session that HAS a transcript, newest first, plus any in the log without one
@@ -2603,9 +2632,13 @@
     });
     const openAt = () => {
       const r = btn.getBoundingClientRect();
-      list.style.left = Math.round(r.left) + 'px';
-      list.style.top = Math.round(r.bottom + 6) + 'px';
+      // it hangs from the lamp's RIGHT edge: the button sits 18px from the window's right, so a
+      // left-anchored list would run off the screen the moment a session has a long opening line
+      list.style.right = Math.round(window.innerWidth - r.right) + 'px';
+      list.style.left = 'auto';
+      list.style.top = Math.round(r.bottom + 8) + 'px';
       list.classList.add('open');
+      sessBtn.classList.add('on');
     };
     // hover opens it; it closes when the pointer leaves BOTH the button and the list,
     // which are not nested (the list lives on <body> to escape the strip's clipping)
@@ -2619,13 +2652,11 @@
     btn.onclick = openAt;
     if (menuList) menuList.remove();
     menuList = list;
-    document.body.append(list);              // out of the strip, so nothing clips it
-    wrap.append(btn);
-    return wrap;
+    document.body.append(list);              // on <body>, so nothing clips it
   }
 
   function drawTimeline() {
-    tlHead.replaceChildren(sessionMenu());   // fixed: it never scrolls away
+    tlHead.replaceChildren();                // the session picker lives in the corner now
     const nodes = [];
     let seen = null, nth = 0, shown = 0;
     tlRows.forEach((m, i) => {
