@@ -1358,6 +1358,23 @@
           picks.append(btn);
           continue;
         }
+        if (btn.dataset.cmd === '__close_claude_tab') {
+          btn.onclick = async () => {
+            btn.disabled = true;
+            const span = btn.querySelector('span');
+            span.textContent = 'closing it…';
+            try {
+              const r = await (await fetch('/api/close_claude_tab', { method: 'POST', body: '{}' })).json();
+              span.textContent = !r || !r.ok ? 'Could not close it' + (r && r.why ? ': ' + String(r.why).slice(0, 70) : '')
+                : r.closed ? 'Closed ' + r.closed + ' — the stale reference goes with it'
+                           : 'No Claude tab is open in this window';
+            } catch {
+              btn.disabled = false;
+            }
+          };
+          picks.append(btn);
+          continue;
+        }
         if (btn.dataset.cmd === '__stop_others') {
           btn.onclick = async () => {
             btn.disabled = true;

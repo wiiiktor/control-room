@@ -523,6 +523,41 @@ function claudeTabOpen() {
   return false;
 }
 
+/** Close the Claude tabs in this window, and say which.
+ *
+ * ⭐ ASKED FOR: "leave it running and fix the tab instead". The tab titled after a session is an
+ * EDITOR TAB, and VS Code restores it on every start, whereupon the Claude extension re-registers the
+ * session it holds -- so clearing that registration is a race the tab always wins, and reinstalling
+ * the extension does not touch it. Closing the tab is the fix, and `tabGroups.close` can do it, so
+ * the reader does not have to hunt for the right tab among twenty.
+ *
+ * ⛔ It never closes THIS panel. Our own webview is `mainThreadWebview-controlRoom`; a Claude tab is
+ * `mainThreadWebview-claudeVSCodePanel`. Matching "claude" alone would shut the room as well.
+ */
+async function closeClaudeTabs() {
+  const found = [];
+  try {
+    for (const group of vscode.window.tabGroups.all) {
+      for (const tab of group.tabs) {
+        const view = String((tab.input && tab.input.viewType) || '');
+        if (!/claude/i.test(view)) continue;
+        if (/controlroom/i.test(view)) continue;       // the room itself
+        found.push(tab);
+      }
+    }
+  } catch {
+    return { ok: false, why: 'this VS Code has no tab API' };
+  }
+  if (!found.length) return { ok: true, closed: 0, titles: [] };
+  const titles = found.map(t => String(t.label || '').slice(0, 60));
+  try {
+    await vscode.window.tabGroups.close(found, false);
+  } catch (err) {
+    return { ok: false, why: (err && err.message) || String(err), titles };
+  }
+  return { ok: true, closed: found.length, titles };
+}
+
 async function openClaudeTab(dir) {
   // ⛔ ORDER MATTERS, AND IT WAS BACKWARDS. `claude-vscode.editor.open` is called "Open in
   // New Tab" and does exactly that -- so pressing the button with a Claude tab already
@@ -781,6 +816,10 @@ function activate(context) {
           });
         }
         // Kill a session that is live and therefore unreachable from here. `claude stop <id>`.
+        if (route === '/api/close_claude_tab') {
+          const r = await closeClaudeTabs();
+          return reply(r);
+        }
         if (route === '/api/stop_session') {
           const sid = (JSON.parse(req.body || '{}').session || '').trim();
           if (!/^[0-9a-f-]{8,36}$/.test(sid)) return reply({ error: 'not a session id' });
@@ -832,6 +871,7 @@ function activate(context) {
                   + 'and is now answering in this room instead.',
                 '::note To keep a tab conversation AND talk here, start a separate session from the '
                   + 'list instead of waking that one.',
+                '::pick Close that Claude tab for me => __close_claude_tab',
               ].join('\n'));
             }
             // it has to be GONE before the resume, or the resume makes the copy anyway
@@ -1149,6 +1189,15 @@ function activate(context) {
   }));
 
   // every instance at once, for the two-session case this was built for
+  context.subscriptions.push(vscode.commands.registerCommand('controlRoom.closeClaudeTab', async () => {
+    const r = await closeClaudeTabs();
+    if (!r.ok) return vscode.window.showWarningMessage('Control Room: could not close it — ' + r.why);
+    vscode.window.showInformationMessage(r.closed
+      ? 'Control Room: closed ' + r.closed + ' Claude tab' + (r.closed > 1 ? 's' : '')
+        + ' (' + r.titles.join(', ') + '). Its stale session reference goes with it.'
+      : 'Control Room: no Claude tab is open in this window.');
+  }));
+
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.openAll', () => {
     for (const inst of instances()) open(inst);
   }));
