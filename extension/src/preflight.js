@@ -18,6 +18,7 @@
  * This is deliberately a read-only check. It never writes to ~/.claude.json, never accepts a
  * trust dialog on the reader's behalf, and never touches credentials -- it only reports.
  */
+const cp = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -41,6 +42,22 @@ function findClaude() {
 /** Credentials present and not expired. The file is chmod 600 and may be unreadable to us even
  *  when it is perfectly good, so "cannot read" is NOT reported as "not logged in". */
 function credentials() {
+  // ⛔ ON macOS THERE IS NO FILE. Claude Code keeps the login in the Keychain, under the
+  // generic-password service "Claude Code-credentials", and ~/.claude/.credentials.json never
+  // exists -- so the Linux check reported every Mac as "never logged in" and refused to hide
+  // a terminal that would have started fine. `security find-generic-password` without -w only
+  // asks whether the item EXISTS; it does not read the secret and does not prompt.
+  if (process.platform === 'darwin') {
+    try {
+      cp.execFileSync('security', ['find-generic-password', '-s', 'Claude Code-credentials'],
+        { stdio: 'ignore', timeout: 5000 });
+      return { ok: true, unverified: 'login is in the macOS Keychain; its expiry is not checked' };
+    } catch (err) {
+      // exit 44 is "item not found"; anything else is a Keychain we could not ask
+      if (err && err.status === 44) return { ok: false, why: 'no Claude Code login in the macOS Keychain — a hidden session would stop at /login' };
+      return { ok: true, unverified: 'could not query the macOS Keychain, so the login is unverified' };
+    }
+  }
   const f = path.join(os.homedir(), '.claude', '.credentials.json');
   let raw;
   try {
@@ -75,10 +92,16 @@ function trusted(cwd) {
     return { ok: true, unverified: 'could not read ~/.claude.json, so trust is unknown' };
   }
   const projects = d.projects || {};
-  const entry = projects[cwd];
-  if (!entry) return { ok: false, why: 'Claude Code has never run in ' + cwd + ' — it will ask whether you trust this folder' };
-  if (entry.hasTrustDialogAccepted !== true) {
-    return { ok: false, why: 'the trust question for ' + cwd + ' has not been answered yes' };
+  // Trust granted to a parent folder covers everything under it, so walk up to the root.
+  let accepted = false;
+  for (let dir = cwd; ; dir = path.dirname(dir)) {
+    if (projects[dir] && projects[dir].hasTrustDialogAccepted === true) { accepted = true; break; }
+    if (path.dirname(dir) === dir) break;
+  }
+  if (!accepted) {
+    return { ok: false, why: projects[cwd]
+      ? 'the trust question for ' + cwd + ' has not been answered yes'
+      : 'Claude Code has never run in ' + cwd + ' — it will ask whether you trust this folder' };
   }
   if (d.hasCompletedOnboarding !== true) {
     return { ok: false, why: 'Claude Code onboarding is unfinished — it will ask about the theme first' };
