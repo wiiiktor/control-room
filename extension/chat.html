@@ -1141,7 +1141,10 @@
         const tile = el('button');
         tile.type = 'button';
         tile.append(rich('b', '', b.body), el('span', 'more', 'open ▸'));
-        tile.onclick = () => openSheet(b.body, inner, tile);
+        // ⭐ A PRESSED TILE UNPRESSES. The tile looks pressed while its card is open, and a
+        // control that looks pressed has to be releasable by pressing it again -- reaching
+        // for an ✕ in the other pane to undo a click over here is a detour nobody wants.
+        tile.onclick = () => (tile.classList.contains('on') ? closeSheet() : openSheet(b.body, inner, tile));
         cards.append(tile);
         continue;
       }
@@ -1298,7 +1301,11 @@
     screenEl.querySelectorAll('.cards button.on').forEach(b => b.classList.remove('on'));
     if (tile) tile.classList.add('on');
     sheet = detail;
-    if (clearBtn) clearBtn.hidden = false;
+    // ⛔ THE ✕ IS THE FALLBACK, NOT THE WAY OUT. What opened this pane is a tile that is now
+    // pressed, and pressing it again closes it -- so the button offering to do the same thing
+    // from the far side is clutter, and it hides. It stays for the one case with no tile to
+    // unpress: a card this page opened by itself, like "Nobody is watching".
+    if (clearBtn) clearBtn.hidden = !!tile;
   }
 
   /** The "to:" list is the sessions with a LIVE watch. One watcher is the normal case and
