@@ -1546,11 +1546,11 @@
       : alive ? id8 + ' · ' + name.slice(0, 36)
       : isWaking ? id8 + ' · waking… ' + wakingNow[target] + 's'
       : away  ? id8 + ' · listening in ' + String(away).slice(0, 26) + ' — not here'
-      : busyElsewhere ? id8 + ' · LIVE elsewhere — cannot be woken'
+      : busyElsewhere ? id8 + ' · live elsewhere — Enter stops it and wakes it here'
               : id8 + ' · asleep — write and it wakes';
     toHint.classList.toggle('on', !!target);
-    toHint.classList.toggle('dead', !!target && !alive && !isWaking && (!!away || !!busyElsewhere));
-    toHint.classList.toggle('sleeping', !!target && !alive && (isWaking || (!away && !busyElsewhere)));
+    toHint.classList.toggle('dead', !!target && !alive && !isWaking && !!away);
+    toHint.classList.toggle('sleeping', !!target && !alive && (isWaking || !away));
   }
 
   // The VS Code extension asks WHICH SESSION in the command palette, before this page
@@ -1713,25 +1713,27 @@
     // starts a COPY under a new id, so asking repeatedly builds a crowd of Claudes on one room. The
     // extension refuses this too -- it is the authority -- but not asking is cheaper and lets the
     // room say the useful thing instead.
-    if (!liveNow[target]) {
-      try {
-        const r = await (await fetch('/api/resume', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session: target }),
-        })).json();
-        if (r && r.error === 'already running') {
-          show(build([
-            '::warn ' + name.slice(0, 40) + ' is already running, so nothing was woken',
-            '::say Your message is written down. That session is live but is not reading this room '
-              + 'yet — it will pick the message up on its next turn.',
-            '::note Resuming it would have started a copy under a new id, and a second Claude on this '
-              + 'room answers everything twice. Nothing was started.',
-          ].join('\n')), false);
-          return true;
-        }
-      } catch { /* the message is on record either way; the session can be woken by hand */ }
-    }
+    try {
+      // The endpoint stops a live session first and then resumes it -- one call, and only now that
+      // a message is on record for it to answer.
+      const r = await (await fetch('/api/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: target }),
+      })).json();
+      if (r && r.error) {
+        show(build([
+          '::warn ' + name.slice(0, 40) + ' could not be woken',
+          '::say Your message is written down and nothing is lost — it will be picked up whenever '
+            + 'that session next runs.',
+          '::note ' + String(r.why || r.error).slice(0, 200),
+        ].join('\n')), false);
+        return true;
+      }
+      if (r && r.stopped) waiting(['it was running, so I stopped it',
+                                   'waking ' + name.slice(0, 32) + ' with your message',
+                                   'it answers on its first turn']);
+    } catch { /* the message is on record either way; the session can be woken by hand */ }
     poll();
     // ⛔ A HIDDEN TERMINAL FAILS SILENTLY, and a woken session that never answers is the most
     // confusing thing this panel can do: the message is written, nothing is on screen, and
@@ -1767,6 +1769,7 @@
       // starts, so a message written BEFORE the resume is answered as soon as it comes back.
       // Order matters -- the message goes in first, so a failed resume still leaves it on
       // record rather than losing it to a dialog nobody answered.
+      // live-but-reading-nothing-here goes down the same road: the endpoint stops it, then wakes it
       if (tlNames[target] && !elsewhereIn[target]) return sendAndWake(text, name);
       pendingText = text;
       show(build([
@@ -2392,26 +2395,11 @@
       const who = full.length > 44 ? full.slice(0, 44) + '…' : full;
       // Running, just not here. Resuming it would start a second copy and a fresh tab is
       // beside the point: the move that works is opening the room it is reading.
-      // A live session that is not reading this room cannot be woken and cannot be reached. The
-      // one move that helps is stopping it -- then it is an ordinary sleeping session and a write
-      // wakes it with its whole history intact.
-      if (liveNow[id] && !elsewhereIn[id] && wakingNow[id] === undefined) {
-        resumeTarget = id;
-        dismissSplash();
-        show(build([
-          '::err ' + id.slice(0, 8) + ' is running right now, and reading nothing here',
-          '::say Nothing can reach into a live session. Writing to it from here would start a COPY '
-            + 'under a new id — the copy answers, the original carries on.',
-          '::note ' + who + (liveNow[id].status ? ' · ' + liveNow[id].status : '')
-            + (liveNow[id].kind ? ' · ' + liveNow[id].kind : ''),
-          '::say Stop it and it becomes an ordinary sleeping session: its whole history is kept, and '
-            + 'the next thing you write wakes it here.',
-          '::pick Stop it, then talk to it here => __stop_session',
-          '::note If this is the Claude session in your editor, stopping it closes that conversation. '
-            + 'A fresh background session is the alternative: it owns this room from the start.',
-        ].join('\n')), false);
-        return;
-      }
+      // ⭐ A LIVE SESSION IS NOT A DEAD END ANY MORE, AND NOT A DECISION EITHER. It used to stop the
+      // reader with a screen and a button: "stop it, then talk to it here". Asked to drop that --
+      // "any live session should be killed only AFTER the user clicks SEND, no need to do it any
+      // earlier" -- and that is right. Choosing it shows its last screen like any other session; the
+      // stop is the first half of waking, and waking happens when there is something to answer.
       if (elsewhereIn[id]) {
         lastCommand = '';
         // ⛔ AND THE SPLASH HAS TO GO. It asks "is anybody reading this room", which is

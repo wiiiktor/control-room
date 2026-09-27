@@ -747,19 +747,32 @@ function activate(context) {
           const sid = (body.session || '').trim();
           if (!/^[0-9a-f-]{36}$/.test(sid)) return reply({ error: 'not a session id' });
           // ⛔⛔ NEVER RESUME A SESSION THAT IS ALREADY RUNNING. `claude --resume` on a live session
-          // does not join it -- it starts a COPY under a NEW id. So every press of a button that
-          // called this endpoint spawned another Claude on the same room: two became three became
-          // four, each one answering everything, and the reader was left pressing "stop the other"
-          // against a queue that refilled itself. Observed live: e95b918a, then 843769ac.
-          // The check belongs HERE and not only in the page, because the page's view of liveness is
-          // a second old and this is the call that costs a process.
+          // does not join it -- it starts a COPY under a NEW id, and that is what filled this room
+          // with Claudes: two became three became four, each answering everything, while the reader
+          // pressed "stop the other" against a queue that refilled itself.
+          //
+          // ⭐ SO IT IS STOPPED FIRST, AND ONLY HERE. This endpoint is reached from one place: the
+          // reader pressing Send. "Any live session should be killed only AFTER the user clicks SEND"
+          // -- so stopping is no longer a button to press in advance, it is the first half of waking,
+          // and it happens once, with a message already on record to answer.
           const live = await new Promise(res => liveSessions(res));
+          let stopped = false;
           if (live.some(r => r.sessionId === sid)) {
-            return reply({ error: 'already running', session: sid, why:
-              'that session is live; resuming it would start a copy, so nothing was started' });
+            const r = await new Promise(res => stopSession(sid, res));
+            if (!r.ok) {
+              return reply({ error: 'could not stop it', session: sid, why: r.why });
+            }
+            stopped = true;
+            // it has to be GONE before the resume, or the resume makes the copy anyway
+            for (let i = 0; i < 20; i++) {
+              const now = await new Promise(res => liveSessions(res));
+              if (!now.some(r2 => r2.sessionId === sid)) break;
+              liveCache = { at: 0, rows: [] };
+              await new Promise(res => setTimeout(res, 500));
+            }
           }
           resumeIn(dir, sid);
-          return reply({ ok: true });
+          return reply({ ok: true, stopped });
         }
         // Hide one reply from the timeline strip.
         //
