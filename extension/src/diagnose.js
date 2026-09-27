@@ -77,6 +77,17 @@ function report({ version, root, rooms, runtimeFiles, hookInstalled, hookPath })
     }
     L.push('');
   }
+  // \u26d4 THE CHECKS THAT DECIDE WHETHER A TERMINAL CAN BE HIDDEN. When one of these fails, a
+  // session started out of sight sits on a question nobody can see -- which reads, from the panel,
+  // exactly like a session thinking. Naming them here makes that a diagnosis instead of a mystery.
+  if (info.preflight) {
+    L.push('Can a session be started unattended here?');
+    L.push('  ' + (info.preflight.ok ? 'YES — nothing should stop to ask a question'
+                                     : 'NO — a hidden terminal would wait on a prompt'));
+    for (const p of info.preflight.problems) L.push('  BLOCKED   ' + p);
+    for (const n of info.preflight.notes) L.push('  ok        ' + n);
+    L.push('');
+  }
   L.push('What each failure looks like:');
   L.push('  reply.py MISSING      the panel works, nothing can answer in it');
   L.push('  hook NOT INSTALLED    a session will not arm the watch by itself');
@@ -84,6 +95,8 @@ function report({ version, root, rooms, runtimeFiles, hookInstalled, hookPath })
   L.push('  messages in the wrong room   the panel is writing somewhere else; reopen the panel');
   L.push('  MIRROR HOOK FAILED    almost always an out-of-date chatlog.py in that room;');
   L.push('                        reopening the panel refreshes it');
+  L.push('  BLOCKED above         the terminal opens as a TAB instead of hidden, on purpose:');
+  L.push('                        answer the question in it and the bridge comes up');
   return L.join('\n');
 }
 

@@ -19,6 +19,7 @@ const { labels } = require('./sessions');
 const hook = require('./hook');
 const runtime = require('./runtime');
 const diagnose = require('./diagnose');
+const preflight = require('./preflight');
 
 /** "control-room-medicover" -> "Control Room · medicover"; the plain one keeps its name. */
 function instanceName(folder) {
@@ -127,6 +128,8 @@ function pageHtml(extensionPath, dir, session, build) {
 }
 
 let lastTerm = null;                     // a hidden terminal is still produced on demand
+// which room each terminal we made belongs to, so a terminal that DIES can say where to report it
+const ourTerms = new Map();
 
 /** Where a terminal this extension opens should go.
  *
@@ -146,13 +149,58 @@ let lastTerm = null;                     // a hidden terminal is still produced 
 function termOpts(name, cwd, interactive) {
   const mode = vscode.workspace.getConfiguration('controlRoom').get('startTerminal') || 'hidden';
   const o = { name, cwd };
-  if (mode === 'panel') return { opts: o, reveal: true };
+  if (mode === 'panel') return { opts: o, reveal: true, pre: null };
   if (interactive || mode === 'tab') {
     o.location = vscode.TerminalLocation.Editor;
-    return { opts: o, reveal: true };
+    return { opts: o, reveal: true, pre: null };
+  }
+  // \u26d4 A TERMINAL MAY ONLY BE HIDDEN WHEN NOTHING IS GOING TO ASK IT A QUESTION.
+  // `claude` stops and waits for an answer on a folder it has not been trusted in, on an expired
+  // login, and on an unfinished onboarding -- and hidden, that wait is indistinguishable from a
+  // session thinking. Every one of those is knowable from files before the terminal exists, so
+  // the check runs first and a failed check opens the terminal where it can be answered.
+  const pre = preflight.check(cwd);
+  if (!pre.ok) {
+    o.location = vscode.TerminalLocation.Editor;
+    return { opts: o, reveal: true, pre };
   }
   o.hideFromUser = true;
-  return { opts: o, reveal: false };
+  return { opts: o, reveal: false, pre };
+}
+
+/** Say something in the room itself. Not a reply and not a message to the session: a line from
+ *  the extension, which is the only voice that can report a terminal nobody can see. */
+function announce(dir, markup) {
+  try { new Log(dir).append('assistant', markup); } catch { /* read-only room */ }
+}
+
+/** A started session must PROVE it started.
+ *
+ *  \u26d4 The old net was a 25-second timer in the page that then offered a button to press. That
+ *  is still a silence the reader has to notice and act on, and it only existed on one of the two
+ *  start paths. This watches for the thing that actually proves life -- a watcher heartbeat in
+ *  the room -- and when it does not appear, it surfaces the terminal ITSELF and says why in the
+ *  log. No button, no guessing, and the same net on every path that starts a session. */
+function proveItStarted(dir, term, what) {
+  const log = new Log(dir);
+  const before = new Set(log.watchers({}).map(w => w.session));
+  const t0 = Date.now();
+  const tick = setInterval(() => {
+    let live = [];
+    try { live = log.watchers({}); } catch { /* room went away */ }
+    if (live.some(w => !before.has(w.session))) { clearInterval(tick); return; }
+    if (Date.now() - t0 < 60000) return;
+    clearInterval(tick);
+    try { term.show(false); } catch { /* terminal already gone */ }
+    announce(dir, [
+      '::err The session I started has not answered in 60 seconds',
+      '::say I opened the terminal so you can see what it is doing. ' + what,
+      '::note A hidden terminal cannot ask you anything. If it is sitting on a question — trusting '
+        + 'this folder, logging in, choosing a theme — answer it there and the bridge comes up.',
+    ].join('\n'));
+  }, 3000);
+  // never leave a timer running for a room nobody is looking at
+  setTimeout(() => clearInterval(tick), 120000);
 }
 
 /** The first prompt every session this extension starts is handed. It has to be a turn, not a
@@ -172,9 +220,10 @@ function resumeIn(dir, sid) {
   // at it. Fire-and-forget, hidden under the default setting, and kept in lastTerm so the
   // room can produce it when the session fails to answer.
   try { fs.writeFileSync(path.join(dir, '.expect'), ''); } catch { /* read-only room */ }
-  const { opts, reveal } = termOpts('claude · ' + sid.slice(0, 8), workspaceRoot(dir), false);
+  const { opts, reveal, pre } = termOpts('claude · ' + sid.slice(0, 8), workspaceRoot(dir), false);
   const term = vscode.window.createTerminal(opts);
   if (reveal) term.show(true);
+  if (pre && !pre.ok) announce(dir, preflightSays(pre, 'waking that session'));
   // ⛔ AND IT MUST BE GIVEN SOMETHING TO DO. `claude --resume <id>` with no prompt starts an
   // INTERACTIVE session and then sits at its input waiting for a human. The SessionStart hook
   // fires, but a hook only injects context -- nothing makes Claude take a turn, so the watch is
@@ -183,6 +232,8 @@ function resumeIn(dir, sid) {
   // on the command line: that is the turn, and the turn is what arms the watch.
   term.sendText('claude --resume ' + sid + ' ' + JSON.stringify(WAKE));
   lastTerm = term;
+  ourTerms.set(term, dir);
+  proveItStarted(dir, term, 'It was asked to resume session ' + sid.slice(0, 8) + '.');
 }
 
 /** Open the Claude Code extension in an editor tab.
@@ -252,12 +303,23 @@ function startSessionInTerminal(dir, first) {
   // started in, and the hooks live in the workspace's .claude/. The room is found by the
   // .expect marker instead -- the same mechanism the "open a tab" button uses.
   try { fs.writeFileSync(path.join(dir, '.expect'), ''); } catch { /* read-only room */ }
-  const { opts, reveal } = termOpts('claude · ' + path.basename(dir), workspaceRoot(dir), false);
+  const { opts, reveal, pre } = termOpts('claude · ' + path.basename(dir), workspaceRoot(dir), false);
   const term = vscode.window.createTerminal(opts);
   if (reveal) term.show(true);
+  if (pre && !pre.ok) announce(dir, preflightSays(pre, 'starting a session'));
   term.sendText('claude ' + JSON.stringify(first));
   lastTerm = term;
+  ourTerms.set(term, dir);
+  proveItStarted(dir, term, 'It was asked to start a new session here.');
   return term;
+}
+
+/** The check, in the reader's words. Named problems beat a spinner. */
+function preflightSays(pre, doing) {
+  const out = ['::warn I did not hide the terminal for ' + doing];
+  out.push('::say Something in it is going to ask a question, so it opened as a tab where you can answer.');
+  for (const p of pre.problems) out.push('::note ' + p);
+  return out.join('\n');
 }
 
 /** Said whenever a panel is opened with nothing reading it: the one step people miss. */
@@ -549,6 +611,26 @@ function activate(context) {
     }
   }));
 
+  // \u26d4 A HIDDEN TERMINAL THAT DIES IS THE QUIETEST FAILURE OF ALL. There is no window to
+  // close, no error, nothing in the terminal list -- the room simply never gets an answer. VS Code
+  // does tell us, with the exit code, so the room can say it out loud.
+  if (vscode.window.onDidCloseTerminal) {
+    context.subscriptions.push(vscode.window.onDidCloseTerminal((term) => {
+      const room = ourTerms.get(term);
+      if (!room) return;
+      ourTerms.delete(term);
+      const code = term.exitStatus ? term.exitStatus.code : undefined;
+      if (code === 0 || code === undefined) return;      // a clean end is not news
+      announce(room, [
+        '::err The terminal I started for this room has exited (code ' + code + ')',
+        '::say Nothing is reading the room from it now. The usual causes are `claude` not being on '
+          + 'the PATH the terminal got, a login that has expired, or the folder never having been '
+          + 'trusted.',
+        '::note Control Room: Diagnose the bridge names which one.',
+      ].join('\n'));
+    }));
+  }
+
   // Opening the workspace is enough: the panel is the point of installing this, and a
   // panel nobody opened helps nobody. Off with one setting for people who want it quiet.
   if (vscode.workspace.getConfiguration('controlRoom').get('openOnStartup') !== false) {
@@ -600,6 +682,7 @@ function activate(context) {
       runtimeFiles: runtime.FILES,
       hookInstalled: hook.installed(root),
       hookPath: path.join(root, '.claude', 'settings.json'),
+      preflight: preflight.check(root),
     });
     const doc = await vscode.workspace.openTextDocument({ content: text, language: 'plaintext' });
     await vscode.window.showTextDocument(doc, { preview: false });
