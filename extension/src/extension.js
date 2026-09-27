@@ -548,14 +548,26 @@ async function closeClaudeTabs() {
   } catch {
     return { ok: false, why: 'this VS Code has no tab API' };
   }
-  if (!found.length) return { ok: true, closed: 0, titles: [] };
   const titles = found.map(t => String(t.label || '').slice(0, 60));
-  try {
-    await vscode.window.tabGroups.close(found, false);
-  } catch (err) {
-    return { ok: false, why: (err && err.message) || String(err), titles };
+  if (found.length) {
+    try {
+      await vscode.window.tabGroups.close(found, false);
+    } catch (err) {
+      return { ok: false, why: (err && err.message) || String(err), titles };
+    }
   }
-  return { ok: true, closed: found.length, titles };
+  // \u26d4 NOT EVERY CLAUDE IS A TAB. With claudeCode.preferredLocation set to "panel" or
+  // "sidebar", Claude lives in a VIEW, which no tab API can see or close -- and that view goes on
+  // resuming the room's background session and exiting 1, which is what happened on the Mac
+  // after "closing the tab" reported success. A view is reset by giving it a new conversation:
+  // it then remembers that one instead of the session the room holds.
+  let reset = false;
+  const where = vscode.workspace.getConfiguration('claudeCode').get('preferredLocation');
+  if (where && where !== 'editor' && where !== 'tab') {
+    try { await vscode.commands.executeCommand('claude-vscode.newConversation'); reset = true; }
+    catch { /* no Claude extension, or a version without the command */ }
+  }
+  return { ok: true, closed: found.length, titles, reset, where: where || '' };
 }
 
 async function openClaudeTab(dir) {
@@ -1153,6 +1165,8 @@ function activate(context) {
         if (uri.path === '/reload') return vscode.commands.executeCommand('workbench.action.reloadWindow');
         if (uri.path === '/open') return vscode.commands.executeCommand('controlRoom.open');
         if (uri.path === '/diagnose') return vscode.commands.executeCommand('controlRoom.diagnose');
+        // so a session can clear the Claude tab/view that keeps failing to resume it, from outside
+        if (uri.path === '/close-claude-tab') return vscode.commands.executeCommand('controlRoom.closeClaudeTab');
       },
     }));
   }
@@ -1192,10 +1206,14 @@ function activate(context) {
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.closeClaudeTab', async () => {
     const r = await closeClaudeTabs();
     if (!r.ok) return vscode.window.showWarningMessage('Control Room: could not close it — ' + r.why);
-    vscode.window.showInformationMessage(r.closed
-      ? 'Control Room: closed ' + r.closed + ' Claude tab' + (r.closed > 1 ? 's' : '')
-        + ' (' + r.titles.join(', ') + '). Its stale session reference goes with it.'
-      : 'Control Room: no Claude tab is open in this window.');
+    const said = [];
+    if (r.closed) said.push('closed ' + r.closed + ' Claude tab' + (r.closed > 1 ? 's' : '')
+      + ' (' + r.titles.join(', ') + ')');
+    if (r.reset) said.push('started a new conversation in the Claude ' + r.where
+      + ', so it no longer resumes the room\'s session');
+    vscode.window.showInformationMessage(said.length
+      ? 'Control Room: ' + said.join(' and ') + '.'
+      : 'Control Room: no Claude tab or view to clear in this window.');
   }));
 
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.openAll', () => {

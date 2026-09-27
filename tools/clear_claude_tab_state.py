@@ -22,18 +22,26 @@ KEYS = {
 }
 
 def vscode_running():
+    # ⛔ macOS pgrep has no -a, so the Linux check below found nothing on a Mac and reported VS
+    # Code as closed while it was open -- the one condition this script must never get wrong.
+    if sys.platform == "darwin":
+        r = subprocess.run(["pgrep", "-f", "Visual Studio Code.app/Contents/MacOS/"],
+                           capture_output=True, text=True)
+        return r.returncode == 0
     try:
         out = subprocess.run(["pgrep", "-af", "code"], capture_output=True, text=True).stdout
     except Exception:
         return False
     for line in out.splitlines():
-        if "/usr/share/code/code" in line or line.endswith("/code") or " --type=renderer" in line:
+        if ("/usr/share/code/code" in line or line.endswith("/code") or " --type=renderer" in line
+                or "Visual Studio Code.app/Contents/MacOS/" in line):
             return True
     return False
 
 def main():
-    dbs = sorted(glob.glob(os.path.expanduser(
-        "~/.config/Code/User/workspaceStorage/*/state.vscdb")))
+    # macOS keeps VS Code's state under Application Support; Linux under ~/.config
+    base = ("~/Library/Application Support/Code" if sys.platform == "darwin" else "~/.config/Code")
+    dbs = sorted(glob.glob(os.path.expanduser(base + "/User/workspaceStorage/*/state.vscdb")))
     if not dbs:
         print("no workspaceStorage databases found"); return 1
     if vscode_running() and "--force" not in sys.argv:
