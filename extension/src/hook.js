@@ -136,6 +136,11 @@ MACHINE = (
     "[SYSTEM NOTIFICATION",
     "[Artifact comment sent to Claude]",
     "Caveat: The messages below were generated",
+    # \u26d4 AND THE PROMPT THIS EXTENSION TYPES ITSELF. Starting or waking a session hands
+    # claude a first prompt on the command line -- that turn is what arms the watch -- and the
+    # mirror then wrote it into the log as something the reader said. It appeared in the panel as
+    # their own message, and as the "you said" breadcrumb above the answer. It is machinery.
+    "Watch this control room and answer me in the panel.",
 )
 
 
