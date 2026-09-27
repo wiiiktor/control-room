@@ -1471,6 +1471,7 @@
   // because a resume of a live session becomes a copy. `claude agents --json` answers the second
   // question directly, so it is no longer inferred.
   let liveNow = {};
+  let wakingNow = {};    // session id -> seconds since the extension asked it to wake
 
   function drawTarget() {
     try { target ? localStorage.setItem('ctrl-to', target) : localStorage.removeItem('ctrl-to'); } catch {}
@@ -1498,15 +1499,17 @@
     // instruction that applies. Red is kept for a session that is running somewhere this room
     // cannot reach, which IS a thing you have to act on.
     const id8 = target ? target.slice(0, 8) : '';
-    const busyElsewhere = !alive && !away && liveNow[target];
+    const isWaking = !alive && wakingNow[target] !== undefined;
+    const busyElsewhere = !alive && !away && !isWaking && liveNow[target];
     toHint.textContent = !target ? ''
       : alive ? id8 + ' · ' + name.slice(0, 36)
+      : isWaking ? id8 + ' · waking… ' + wakingNow[target] + 's'
       : away  ? id8 + ' · listening in ' + String(away).slice(0, 26) + ' — not here'
       : busyElsewhere ? id8 + ' · LIVE elsewhere — cannot be woken'
               : id8 + ' · asleep — write and it wakes';
     toHint.classList.toggle('on', !!target);
-    toHint.classList.toggle('dead', !!target && !alive && (!!away || !!busyElsewhere));
-    toHint.classList.toggle('sleeping', !!target && !alive && !away && !busyElsewhere);
+    toHint.classList.toggle('dead', !!target && !alive && !isWaking && (!!away || !!busyElsewhere));
+    toHint.classList.toggle('sleeping', !!target && !alive && (isWaking || (!away && !busyElsewhere)));
   }
 
   // The VS Code extension asks WHICH SESSION in the command palette, before this page
@@ -1730,10 +1733,16 @@
       lastWatchAge = data.watch;
       if (data.hidden) tlHidden = new Set(data.hidden);
       if (data.live) liveNow = data.live;
+      if (data.waking) wakingNow = data.waking;
       drawWatchers(data.watchers || [], data.elsewhere);
       const dead = lastWatchAge === null || lastWatchAge === undefined || lastWatchAge > 90;
-      deaf.classList.toggle('on', dead);
-      lamp.classList.toggle('hidden', dead);    // one light, one answer
+      // \u26d4 NOT WHILE A WAKE IS IN FLIGHT. Red "not watching" is true in the seconds after a
+      // session is asked to wake, and useless: the reader has just done the one thing that fixes
+      // it and is being told it is broken. The alarm waits until the ask has had its chance.
+      const waking = Object.keys(wakingNow).length > 0;
+      deaf.classList.toggle('on', dead && !waking);
+      deaf.textContent = waking ? 'waking…' : 'not watching';
+      lamp.classList.toggle('hidden', dead && !waking);
       if (offline) { offline = false; since = 0; return; }  // redraw from history next tick
       // progress lines move while NO new message arrives, so they are their own redraw
       if (!data.messages.length) {
@@ -2050,6 +2059,7 @@
       const l = (d.live || {})[id];
       const where = live.has(id) ? 'reading this room'
         : away[id] ? 'in ' + away[id] + ' — opens that room'
+        : (d.waking || {})[id] !== undefined ? 'waking…'
         : l ? 'LIVE ' + (l.status || l.kind || '') + ' — reading nothing here'
         : 'asleep — write and it wakes';
       b.classList.toggle('live', live.has(id));
@@ -2293,7 +2303,7 @@
       // A live session that is not reading this room cannot be woken and cannot be reached. The
       // one move that helps is stopping it -- then it is an ordinary sleeping session and a write
       // wakes it with its whole history intact.
-      if (liveNow[id] && !elsewhereIn[id]) {
+      if (liveNow[id] && !elsewhereIn[id] && wakingNow[id] === undefined) {
         resumeTarget = id;
         dismissSplash();
         show(build([

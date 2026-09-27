@@ -130,6 +130,40 @@ function pageHtml(extensionPath, dir, session, build) {
 const trustSaid = new Set();   // rooms already told to trust their folder
 let lastTerm = null;                     // a hidden terminal is still produced on demand
 let lastBg = null;                       // the short id of the last background session we started
+// \u26d4 THE THIRD SECOND OF A WAKE LOOKS LIKE THE WORST FAILURE THERE IS. `claude agents` lists a
+// session we have just resumed as LIVE immediately, but its watch heartbeat takes about ten seconds
+// to land -- so for that gap the panel had every fact right and drew the wrong conclusion:
+// "LIVE elsewhere -- cannot be woken", about the session it had itself just woken on request.
+// A wake we asked for is remembered here, and for 90 seconds the room says so.
+const waking = new Map();                // session id -> when we asked it to wake
+function noteWaking(sid) { if (sid) waking.set(sid, Date.now()); }
+function wakingNow(log, names) {
+  const out = {};
+  const live = new Set((log ? log.watchers(names || {}) : []).map(w => w.session));
+  for (const [sid, at] of waking) {
+    const age = Math.round((Date.now() - at) / 1000);
+    if (age > 90 || live.has(sid)) { waking.delete(sid); continue; }   // answered, or gave up
+    out[sid] = age;
+  }
+  return out;
+}
+// \u26d4 WAKING IS A STATE, AND THE PANEL DID NOT HAVE IT. A session takes a few seconds between
+// being asked to wake and its first heartbeat -- and in that gap it is live (claude agents lists it)
+// while reading nothing, which is exactly the shape of the ONE case that cannot be woken. So the
+// panel showed the scariest thing on the screen at the precise moment everything was working:
+// "not watching" in red, then "LIVE elsewhere -- cannot be woken". The extension knows which
+// sessions it just asked, so it says so, and the alarms hold off until the ask has had its chance.
+const woke = new Map();                  // session id -> when we asked it to wake
+function noteWoke(sid) { if (sid) woke.set(sid, Date.now()); }
+function wakingIds() {
+  const out = {};
+  for (const [sid, at] of woke) {
+    const age = Math.round((Date.now() - at) / 1000);
+    if (age > 120) { woke.delete(sid); continue; }
+    out[sid] = age;
+  }
+  return out;
+}
 // which room each terminal we made belongs to, so a terminal that DIES can say where to report it
 const ourTerms = new Map();
 
@@ -391,6 +425,7 @@ function resumeIn(dir, sid) {
   // appearing anywhere. Falls back to the terminal only if the process refuses to start.
   if (headlessWanted()) {
     carryTrust(workspaceRoot(dir));
+    noteWoke(sid);
     startHeadless(dir, ['--resume', sid, WAKE], 'Waking session ' + sid.slice(0, 8) + '.', (r) => {
       if (r.ok) {
         lastBg = r.id;
@@ -678,6 +713,7 @@ function activate(context) {
             elsewhere: elsewhere(names, watchers),
             live: Object.fromEntries((await new Promise(res => liveSessions(res)))
               .map(r => [r.sessionId, { status: r.status || '', kind: r.kind || '' }])),
+            waking: wakingIds(),
           });
         }
         if (route === '/api/sessions') {
@@ -688,6 +724,7 @@ function activate(context) {
             sessions: names, watchers: here, elsewhere: elsewhere(names, here),
             live: Object.fromEntries(live.map(r => [r.sessionId,
               { status: r.status || '', kind: r.kind || '', name: r.name || '' }])),
+            waking: wakingIds(),
           });
         }
         // Kill a session that is live and therefore unreachable from here. `claude stop <id>`.
