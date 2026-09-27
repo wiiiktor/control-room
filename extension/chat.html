@@ -1698,8 +1698,16 @@
       lastStatusSig = (data.status || []).join('\u0001');
       since = data.last;
 
+      // \u26d4 ONE SESSION'S CONVERSATION, BOTH HALVES. Replies were already filtered to the chosen
+      // session (below), but every user line still changed "you said" and started the wait --
+      // so a message typed to another session (the Claude tab, mirrored in) put its question on
+      // this screen and left it waiting for an answer that was never going to be shown here.
+      const belongs = (m) => !tlChosen
+        || (m.role === 'user' ? (m.to || '') === tlFilter : (m.session || '') === tlFilter);
+      const ours = data.messages.filter(belongs);
+
       // Walk the batch in order: questions pile up until a reply answers them all.
-      for (const m of data.messages) {
+      for (const m of ours) {
         if (m.role === 'user') pendingAsk.push(m.text);
         else {
           if (pendingAsk.length) lastCommand = pendingAsk.join(JOIN);
@@ -1713,7 +1721,8 @@
 
       // A command with no answer yet must keep showing "working" — never fall
       // back to the previous card, which reads as "nothing happened".
-      const newest = data.messages[data.messages.length - 1];
+      if (!ours.length) { if (tlOpen) refreshTimeline(true); return; }   // another session's traffic
+      const newest = ours[ours.length - 1];
       if (newest.role === 'user') {
         lastCommand = pendingAsk.join(JOIN);
         waiting(data.status);
@@ -1724,9 +1733,7 @@
       stopWords();
       // ⛔ only if it belongs to the session being read. Otherwise choosing a session was
       // undone by the next reply from any other one, seconds later, for no visible reason.
-      if (!tlChosen || (newest.session || '') === tlFilter) {
-        show(render(newest), true, newest.ts);
-      }
+      show(render(newest), true, newest.ts);     // `ours` already holds only the chosen session
       if (tlOpen) refreshTimeline(true);   // the strip follows the log, not the opening
     } catch {
       lamp.classList.add('off');
