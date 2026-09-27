@@ -2,7 +2,7 @@
   "name": "control-room",
   "displayName": "Control Room",
   "description": "A big-button control panel for driving Claude Code from inside the editor.",
-  "version": "0.13.8",
+  "version": "0.13.9",
   "publisher": "wiiiktor",
   "license": "MIT",
   "icon": "icon.png",
@@ -54,7 +54,7 @@
         "controlRoom.openOnStartup": {
           "type": "boolean",
           "default": true,
-          "description": "Open the Control Room panel when the workspace opens. Only when the workspace holds exactly one control room; otherwise use the palette so nothing is guessed."
+          "description": "Open the Control Room panel when the workspace opens, so no palette step is needed. With several control rooms in the workspace the primary one opens; switching happens inside the panel."
         },
         "controlRoom.mirrorEditorChat": {
           "type": "boolean",

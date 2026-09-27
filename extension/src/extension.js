@@ -155,6 +155,10 @@ function termOpts(name, cwd, interactive) {
   return { opts: o, reveal: false };
 }
 
+/** The first prompt every session this extension starts is handed. It has to be a turn, not a
+ *  greeting: taking a turn is what runs the SessionStart instructions and arms the watch. */
+const WAKE = 'Watch this control room and answer me in the panel.';
+
 /** Resume a session in a terminal rooted at the instance it answers for. */
 function resumeIn(dir, sid) {
   // ⛔ NOT the room folder. Claude Code files a session under the directory it was
@@ -167,10 +171,17 @@ function resumeIn(dir, sid) {
   // happens in the room -- so there is nothing to type in the terminal and no reason to look
   // at it. Fire-and-forget, hidden under the default setting, and kept in lastTerm so the
   // room can produce it when the session fails to answer.
+  try { fs.writeFileSync(path.join(dir, '.expect'), ''); } catch { /* read-only room */ }
   const { opts, reveal } = termOpts('claude · ' + sid.slice(0, 8), workspaceRoot(dir), false);
   const term = vscode.window.createTerminal(opts);
   if (reveal) term.show(true);
-  term.sendText('claude --resume ' + sid);
+  // ⛔ AND IT MUST BE GIVEN SOMETHING TO DO. `claude --resume <id>` with no prompt starts an
+  // INTERACTIVE session and then sits at its input waiting for a human. The SessionStart hook
+  // fires, but a hook only injects context -- nothing makes Claude take a turn, so the watch is
+  // never armed, the message sitting in the log is never read, and from the panel this looks
+  // exactly like "the terminal never opened". `claude [options] [prompt]` takes a first prompt
+  // on the command line: that is the turn, and the turn is what arms the watch.
+  term.sendText('claude --resume ' + sid + ' ' + JSON.stringify(WAKE));
   lastTerm = term;
 }
 
@@ -395,7 +406,7 @@ function activate(context) {
         // Start a session on the reader's behalf, in the background. See
         // startSessionInTerminal for why it is a terminal and not the tab.
         if (route === '/api/autostart') {
-          const first = 'Watch this control room and answer me in the panel.';
+          const first = WAKE;
           startSessionInTerminal(dir, first);
           panel.reveal(panel.viewColumn, false);   // and put the room back in front
           const mode = vscode.workspace.getConfiguration('controlRoom').get('startTerminal') || 'hidden';
@@ -539,8 +550,13 @@ function activate(context) {
   // Opening the workspace is enough: the panel is the point of installing this, and a
   // panel nobody opened helps nobody. Off with one setting for people who want it quiet.
   if (vscode.workspace.getConfiguration('controlRoom').get('openOnStartup') !== false) {
-    const found = instances();
-    if (found.length === 1) open(found[0], '');
+    // ⛔ NOT "only when there is exactly one room". That guard was the whole reason the panel
+    // had to be summoned from the palette at all: this workspace holds two rooms, so nothing
+    // opened by itself and every visit began with Ctrl+Shift+P -- a choice made before
+    // anything was on screen, on top of the choice made inside the room. `instances()` sorts
+    // the plain room first, so opening it is right nearly always, and the room itself is
+    // where switching belongs. "Open every control room" is still there for the rest.
+    open(instances()[0], '');
   }
 
   // ⛔ Installing ANY extension restarts VS Code's extension host, and a webview whose
