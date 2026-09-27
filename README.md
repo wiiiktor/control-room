@@ -218,6 +218,64 @@ four possible faults it is: no room, no Python, no hook, or no session. It also 
 last few messages in the room, which is how you tell whether the panel is writing where the
 watch is reading.
 
+It does not cover the one fault that shows up in the *other* extension rather than here — a Claude
+tab that exits 1 on open. That is the next section.
+
+## The Claude tab says "exited with code 1"
+
+⛔ **The text you can see is not the error.** The tab shows the *tail* of a page of debug
+output, so the line that ends up on screen is whatever came last — usually
+`[skills] skipping reserved dir name 'synced' … 'synced' is the sync-owned root`, which is
+harmless and appears in the launches that **succeed** too. The cause has scrolled off the top:
+
+```
+Error: Session <uuid> is running as a background session (<short>).
+Run `claude attach <short>` to open it, or `claude stop <short>` first.
+```
+
+Waking a session from this room resumes it with `--bg`, so that id now belongs to a
+**background** session. A Claude tab cannot resume one, so its process exits 1 — every time the
+tab is opened or restored, for as long as the room's session is running.
+
+**Two fixes, both one line:**
+
+```bash
+claude attach 38224dad   # open that conversation in a terminal, room keeps it running
+claude stop 38224dad     # free the id, and the tab's own resume then works
+```
+
+⛔ **What does not fix it:** reinstalling the Claude Code extension (the conflict is over
+ownership of a session id, not the extension), and clearing `panelTabSessions` while VS Code is
+running — it is rewritten from the live window on exit. See
+[`tools/clear_claude_tab_state.py`](tools/clear_claude_tab_state.py), which refuses to run with
+VS Code open for exactly that reason.
+
+⭐ **Where the truth is, when the tab will not show it.** The extension host logs every launch
+and every failure:
+
+```bash
+f=$(ls -t ~/.config/Code/logs/*/window*/exthost/Anthropic.claude-code/"Claude VSCode.log" | head -1)
+grep -n "Error spawning Claude" "$f"          # the failures, with their channel ids
+grep -n "launch_claude" "$f"                  # each channel's "resume":"<uuid>" — the id it wanted
+```
+
+Pairing the two is what makes the diagnosis certain rather than plausible. Measured 2026-09-28:
+six failures, every one of them a resume of the same background id; five launches that resumed a
+different id or started fresh all worked. That correlation is the proof — a single failing launch
+looks like a broken extension.
+
+⚠️ **The other half of the same mechanism.** A tab pinned to a session that is *not* background
+resumes it **successfully** — and takes it over. If that session was the one watching this room,
+its watch dies with the takeover, the panel goes NOT WATCHING, and messages sit unread until the
+`SessionStart` hook arms a watch in whatever session comes back. A panel that goes quiet right
+after a window reload is usually this, not a broken bridge.
+
+⚠️ **Two watchers, two voices.** Nothing stops two sessions watching one `chat.jsonl`; both
+answer, with different context, and the room reads as if it is arguing with itself. `ls
+<room>/.watch.*` is the check — one file per watching session — and `claude stop <short>` on the
+duplicate is the cure. The heartbeat file of a stopped session is stale, not live; deleting it
+stops the panel offering a dead session as a target.
+
 ## Keeping the panel alive
 
 What reads the log is a watch running **inside** a Claude Code session, so it dies with
