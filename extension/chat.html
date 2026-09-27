@@ -469,13 +469,18 @@
   }
   /* ⚠️ the strip scrolls (overflow-x: auto), which CLIPS anything positioned inside it.
      The list is fixed and lives on <body>, so it floats over the whole page. */
+  /* Hung from the same corner as the S lamp, by the same kind of rule: the lamp is at
+     top 148px / right 18px and is never in the wrong place at any font size, so the list below it
+     is placed the same way -- 148 + its 20px height + an 8px gap = 176. Height and width are
+     PERCENTAGES of the viewport, never vh/vw: a percentage resolves against the same containing
+     block the element is laid out in, so it follows the zoom instead of fighting it. 176 + 26 of
+     bottom margin is the 202 taken off the height. */
   .tl-list {
-    display: none; position: fixed; z-index: 60;
+    display: none; position: fixed; top: 176px; right: 18px; left: auto; z-index: 60;
     flex-direction: column; gap: 6px; padding: 10px; overflow-y: auto; overscroll-behavior: contain;
     background: var(--panel); border: 3px solid var(--ink); box-shadow: var(--pop-sm);
-    width: 520px;
-    /* max-height and max-width are set when it opens, from the room actually left under the lamp:
-       a fixed 320px hung near the top of a short panel put its scrollbar past the bottom edge. */
+    width: 520px; max-width: calc(100% - 36px);
+    height: max-content; max-height: calc(100% - 202px);
   }
   .tl-list.open { display: flex; }
   .tl-list button {
@@ -2632,30 +2637,14 @@
       };
       list.append(b);
     });
+    // \u26d4 NO MEASUREMENT AT ALL. Three attempts placed this list by reading the lamp's rect and
+    // dividing by the zoom, and all three put it off the screen: `body { zoom }` and
+    // getBoundingClientRect() do not agree about which coordinate space they are in, and I cannot
+    // settle that from outside the webview. The lamp itself never moves wrongly -- it is placed by
+    // plain CSS, `top: 148px; right: 18px`, which the browser resolves in the SAME space the element
+    // lives in, whatever the zoom is. So the list is placed the same way, in the stylesheet, and the
+    // arithmetic that kept getting this wrong is gone: opening it only adds a class.
     const openAt = () => {
-      const r = btn.getBoundingClientRect();
-      // ⛔ THE FONT BUTTONS SET `body { zoom }`, AND THAT BREAKS FIXED COORDINATES. A fixed element
-      // inside a zoomed body has its top/right multiplied by the zoom, while
-      // getBoundingClientRect() reports real viewport pixels -- so after one press of + the list was
-      // placed at 1.1x its intended offset and walked off the screen. It read as "the menu stopped
-      // showing up", which is what it was told to do. Divide the measurements back into the zoomed
-      // space and the two agree again at any size.
-      const z = zoom || 1;
-      // it hangs from the lamp's RIGHT edge: the button sits 18px from the window's right, so a
-      // left-anchored list would run off the screen the moment a session has a long opening line
-      list.style.right = Math.round((window.innerWidth - r.right) / z) + 'px';
-      list.style.left = 'auto';
-      list.style.top = Math.round((r.bottom + 8) / z) + 'px';
-      // ⛔ AND IT MUST FIT UNDER THE LAMP. A fixed 320px box hung from the top of the window put its
-      // own scrollbar below the bottom edge on a short panel: the rows were there and unreachable.
-      // The room for it is whatever is left between the lamp and the bottom, measured now.
-      // ⛔ AND THE FLOOR MUST NOT EXCEED THE ROOM. A 150px minimum looks harmless and is the same bug
-      // again: at 1.8x zoom on a short panel it renders as 270px and puts the bottom of the list —
-      // scrollbar and all — below the window edge. Whatever room there is, is the limit; 60px is the
-      // point below which a list is not worth drawing at all.
-      const room = (window.innerHeight - r.bottom - 26) / z;
-      list.style.maxHeight = Math.max(60, Math.round(room)) + 'px';
-      list.style.maxWidth = Math.max(240, Math.round((window.innerWidth - 36) / z)) + 'px';
       list.classList.add('open');
       sessBtn.classList.add('on');
     };
