@@ -168,6 +168,26 @@ function termOpts(name, cwd, interactive) {
   return { opts: o, reveal: false, pre };
 }
 
+/** A terminal whose PROCESS is `claude`, not a shell that is typed into afterwards.
+ *
+ * \u26d4 TYPING INTO A FRESH SHELL IS A RACE, AND ON A MAC IT LOST. The text reaches the pty
+ * before zsh has finished its rc files, and the Python extension types its own
+ * `source .venv/bin/activate` into every new terminal in a folder with a venv. The two
+ * interleaved: the command was cut at its opening quote, the activation ran instead, and
+ * `claude` never started -- a terminal showing a prompt and a room that never answered.
+ * Launching the binary directly leaves no shell to race and nothing to type into before it;
+ * when claude exits the terminal closes and onDidCloseTerminal reports the code. Only when
+ * the binary cannot be found does it fall back to typing into a shell. */
+function claudeTerminal(opts, args) {
+  const bin = preflight.findClaude();
+  if (bin) {
+    return vscode.window.createTerminal(Object.assign({}, opts, { shellPath: bin, shellArgs: args }));
+  }
+  const term = vscode.window.createTerminal(opts);
+  term.sendText(['claude'].concat(args.map(a => /^[\w.\/-]+$/.test(a) ? a : JSON.stringify(a))).join(' '));
+  return term;
+}
+
 /** Say something in the room itself. Not a reply and not a message to the session: a line from
  *  the extension, which is the only voice that can report a terminal nobody can see. */
 function announce(dir, markup) {
@@ -221,7 +241,7 @@ function resumeIn(dir, sid) {
   // room can produce it when the session fails to answer.
   try { fs.writeFileSync(path.join(dir, '.expect'), ''); } catch { /* read-only room */ }
   const { opts, reveal, pre } = termOpts('claude · ' + sid.slice(0, 8), workspaceRoot(dir), false);
-  const term = vscode.window.createTerminal(opts);
+  const term = claudeTerminal(opts, ['--resume', sid, WAKE]);
   if (reveal) term.show(true);
   if (pre && !pre.ok) announce(dir, preflightSays(pre, 'waking that session'));
   // ⛔ AND IT MUST BE GIVEN SOMETHING TO DO. `claude --resume <id>` with no prompt starts an
@@ -230,7 +250,6 @@ function resumeIn(dir, sid) {
   // never armed, the message sitting in the log is never read, and from the panel this looks
   // exactly like "the terminal never opened". `claude [options] [prompt]` takes a first prompt
   // on the command line: that is the turn, and the turn is what arms the watch.
-  term.sendText('claude --resume ' + sid + ' ' + JSON.stringify(WAKE));
   lastTerm = term;
   ourTerms.set(term, dir);
   proveItStarted(dir, term, 'It was asked to resume session ' + sid.slice(0, 8) + '.');
@@ -280,9 +299,8 @@ async function openClaudeTab(dir) {
   }
   // no extension to talk to -- a terminal session at least reads the same log
   const { opts, reveal } = termOpts('claude · control room', dir, true);
-  const term = vscode.window.createTerminal(opts);
+  const term = claudeTerminal(opts, ['watch this control room and answer me in the panel']);
   if (reveal) term.show(true);
-  term.sendText("claude 'watch this control room and answer me in the panel'");
   return 'terminal';
 }
 
@@ -304,10 +322,9 @@ function startSessionInTerminal(dir, first) {
   // .expect marker instead -- the same mechanism the "open a tab" button uses.
   try { fs.writeFileSync(path.join(dir, '.expect'), ''); } catch { /* read-only room */ }
   const { opts, reveal, pre } = termOpts('claude · ' + path.basename(dir), workspaceRoot(dir), false);
-  const term = vscode.window.createTerminal(opts);
+  const term = claudeTerminal(opts, [first]);
   if (reveal) term.show(true);
   if (pre && !pre.ok) announce(dir, preflightSays(pre, 'starting a session'));
-  term.sendText('claude ' + JSON.stringify(first));
   lastTerm = term;
   ourTerms.set(term, dir);
   proveItStarted(dir, term, 'It was asked to start a new session here.');
