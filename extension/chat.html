@@ -1284,6 +1284,21 @@
           picks.append(btn);
           continue;
         }
+        // The trust screen's own button: start a session, which -- with the folder untrusted --
+        // opens as a visible tab showing the trust question, ready to answer.
+        if (btn.dataset.cmd === '__trust_terminal') {
+          btn.onclick = async () => {
+            btn.disabled = true;
+            btn.querySelector('span').textContent = 'opening it…';
+            try {
+              const r = await (await fetch('/api/autostart', { method: 'POST', body: '{}' })).json();
+              btn.querySelector('span').textContent = r && r.ok
+                ? 'open — answer Yes in the terminal tab' : 'could not open it';
+            } catch { btn.querySelector('span').textContent = 'could not open it'; }
+          };
+          picks.append(btn);
+          continue;
+        }
         if (btn.dataset.cmd === '__resume') {
           btn.onclick = async () => {
             if (!resumeTarget) return;

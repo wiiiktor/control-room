@@ -127,6 +127,7 @@ function pageHtml(extensionPath, dir, session, build) {
   return html.replace('<script>', shim + '\n<script>', 1);
 }
 
+const trustSaid = new Set();   // rooms already told to trust their folder
 let lastTerm = null;                     // a hidden terminal is still produced on demand
 // which room each terminal we made belongs to, so a terminal that DIES can say where to report it
 const ourTerms = new Map();
@@ -343,13 +344,17 @@ function preflightSays(pre, doing) {
       '::say Claude Code has never been allowed to work in ' + (pre.cwd || 'this folder')
         + '. Before it runs here it asks "Do you trust the files in this folder?" -- and a hidden'
         + ' terminal cannot show you that question, so the session would wait forever.',
-      '::li I opened the terminal as a tab instead. Answer Yes there, now.',
+      doing === 'this room'
+        ? '::li Press the button below: a terminal tab opens with that question. Answer Yes there.'
+        : '::li I opened the terminal as a tab instead. Answer Yes there, now.',
       '::li You only do this once. Trust belongs to the folder, not to a session: afterwards every'
         + ' session here starts hidden, new ones and resumed old ones alike.',
-      '::li If the tab is not in front, press the button below.',
     ];
+    if (doing !== 'this room') out.push('::li If the tab is not in front, press the button below.');
     for (const p of pre.problems) if (!/trust/i.test(p)) out.push('::li ! ' + p);
-    out.push('::pick Show me the terminal => __reveal_terminal');
+    out.push(doing === 'this room'
+      ? '::pick Open the terminal and answer it => __trust_terminal'
+      : '::pick Show me the terminal => __reveal_terminal');
     return out.join('\n');
   }
   const out = ['::warn I did not hide the terminal for ' + doing];
@@ -388,6 +393,18 @@ function activate(context) {
     const log = new Log(dir);
     panels.set(dir, panel);
     panel.onDidDispose(() => { panels.delete(dir); }, null, context.subscriptions);
+
+    // \u26d4 SAY IT WHEN THE ROOM OPENS, NOT ONLY WHEN A START FAILS. The trust screen used to be
+    // written only by a terminal start, so a reader who opened the room and wrote to a session
+    // that was merely restarting never saw it -- and every later hidden start would still have
+    // hung. Once per room per extension host: a reload says it again, a re-reveal does not.
+    if (!trustSaid.has(dir)) {
+      trustSaid.add(dir);
+      try {
+        const pre = preflight.check(workspaceRoot(dir));
+        if (pre.untrusted) announce(dir, preflightSays(pre, 'this room'));
+      } catch { /* a check that cannot run is not a reason to break the panel */ }
+    }
 
     // a panel nobody is watching looks identical to a working one until a message is
     // ignored, so the tab itself says so
