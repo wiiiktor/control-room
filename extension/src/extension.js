@@ -129,6 +129,7 @@ function pageHtml(extensionPath, dir, session, build) {
 
 const trustSaid = new Set();   // rooms already told to trust their folder
 let lastTerm = null;                     // a hidden terminal is still produced on demand
+let lastBg = null;                       // the short id of the last background session we started
 // which room each terminal we made belongs to, so a terminal that DIES can say where to report it
 const ourTerms = new Map();
 
@@ -195,6 +196,57 @@ function termOpts(name, cwd, interactive) {
  * Launching the binary directly leaves no shell to race and nothing to type into before it;
  * when claude exits the terminal closes and onDidCloseTerminal reports the code. Only when
  * the binary cannot be found does it fall back to typing into a shell. */
+/** Start a session with NO TERMINAL AT ALL.
+ *
+ * ⭐ MEASURED, 2026-09-27, before this was written: from the workspace root,
+ * `claude --bg "Watch this control room..."` started a session in 1 s, the SessionStart hook bound
+ * it to the room holding `.expect`, the watch heartbeat appeared within 10 s, and a message written
+ * into that room was answered in 20 s. No pty, no shell, no window.
+ *
+ * ⛔ WHY THIS REPLACES THE HIDDEN TERMINAL. `hideFromUser` hides the failure with the success: a
+ * terminal sitting on a question, a `claude` that is not on the PATH, a crash on the first line --
+ * all of them look identical from the panel, which is patient nothing. There is nothing to hide
+ * here: the process either prints `backgrounded · <id>` or it exits with a code and a message on
+ * stderr, and both go straight into the room. `claude attach <id>` is the way in if one is wanted.
+ *
+ * The visible modes (`startTerminal: tab | panel`) still get a real terminal -- someone who asked
+ * to watch it should see it.
+ */
+function startHeadless(dir, args, what, done) {
+  const bin = preflight.findClaude();
+  if (!bin) { done({ ok: false, why: 'the `claude` command is not on the PATH this extension can see' }); return; }
+  const cp = require('child_process');
+  let out = '', err = '';
+  let p;
+  try {
+    p = cp.spawn(bin, ['--bg'].concat(args), { cwd: workspaceRoot(dir), env: process.env });
+  } catch (e) {
+    done({ ok: false, why: 'could not run claude — ' + (e && e.message || e) });
+    return;
+  }
+  p.stdout.on('data', d => { out += String(d); });
+  p.stderr.on('data', d => { err += String(d); });
+  p.on('error', e => done({ ok: false, why: 'could not run claude — ' + (e && e.message || e) }));
+  p.on('close', (code) => {
+    // `backgrounded · 16b59ea7` -- the short id `claude attach|logs|stop` take
+    const m = /backgrounded\s*\W*\s*([0-9a-f]{6,})/i.exec(out);
+    if (code === 0 && m) { done({ ok: true, id: m[1], out }); return; }
+    done({ ok: false, code, out, err,
+           why: 'claude exited ' + code + (err.trim() ? ' — ' + err.trim().split('\n')[0] : '') });
+  });
+}
+
+/** The room says what happened, with the process's own words. No guessing, no spinner. */
+function headlessFailed(dir, r, what) {
+  announce(dir, [
+    '::err Could not start a session in the background',
+    '::say ' + what,
+    '::note ' + (r.why || 'no reason reported'),
+    r.err && r.err.trim() ? '::note ' + r.err.trim().split('\n').slice(0, 2).join(' ').slice(0, 300) : '',
+    '::note Control Room: Diagnose the bridge lists what a hidden start needs.',
+  ].filter(Boolean).join('\n'));
+}
+
 function claudeTerminal(opts, args) {
   const bin = preflight.findClaude();
   if (bin) {
@@ -228,6 +280,20 @@ function proveItStarted(dir, term, what) {
     if (live.some(w => !before.has(w.session))) { clearInterval(tick); return; }
     if (Date.now() - t0 < 60000) return;
     clearInterval(tick);
+    // \u26d4 A BACKGROUND SESSION HAS NO TERMINAL TO SHOW, and pretending otherwise was the point
+    // of this whole exercise. It has something better: an id, and a command that prints what it
+    // actually did. Say the id.
+    if (!term) {
+      announce(dir, [
+        '::err The session I started has not answered in 60 seconds',
+        '::say ' + what + (lastBg ? ' It is running in the background as ' + lastBg + '.' : ''),
+        lastBg ? '::note See what it is doing: `claude logs ' + lastBg + '` — or take it over with '
+          + '`claude attach ' + lastBg + '`. Nothing you wrote is lost; it is on record in this room.'
+          : '::note Nothing you wrote is lost; it is on record in this room.',
+        '::pick Open it in a terminal => __reveal_terminal',
+      ].join('\n'));
+      return;
+    }
     try { term.show(false); } catch { /* terminal already gone */ }
     announce(dir, [
       '::err The session I started has not answered in 60 seconds',
@@ -257,6 +323,33 @@ function resumeIn(dir, sid) {
   // at it. Fire-and-forget, hidden under the default setting, and kept in lastTerm so the
   // room can produce it when the session fails to answer.
   try { fs.writeFileSync(path.join(dir, '.expect'), ''); } catch { /* read-only room */ }
+  // \u2b50 NO TERMINAL WHEN NONE IS WANTED. `--bg --resume <id>` continues that session in the
+  // background under the same id, which is exactly "wake the session I just wrote to" with nothing
+  // appearing anywhere. Falls back to the terminal only if the process refuses to start.
+  if (headlessWanted()) {
+    carryTrust(workspaceRoot(dir));
+    startHeadless(dir, ['--resume', sid, WAKE], 'Waking session ' + sid.slice(0, 8) + '.', (r) => {
+      if (r.ok) {
+        lastBg = r.id;
+        proveItStarted(dir, null, 'Session ' + sid.slice(0, 8) + ' was asked to wake up.');
+        return;
+      }
+      headlessFailed(dir, r, 'Waking session ' + sid.slice(0, 8) + '.');
+      resumeInTerminal(dir, sid);
+    });
+    return;
+  }
+  resumeInTerminal(dir, sid);
+}
+
+/** True when the reader has not asked to watch a terminal. */
+function headlessWanted() {
+  const mode = vscode.workspace.getConfiguration('controlRoom').get('startTerminal') || 'hidden';
+  return mode === 'hidden';
+}
+
+/** The old path, kept for `tab`/`panel` and as the fallback when the background start fails. */
+function resumeInTerminal(dir, sid) {
   const { opts, reveal, pre } = termOpts('claude · ' + sid.slice(0, 8), workspaceRoot(dir), false);
   const term = claudeTerminal(opts, ['--resume', sid, WAKE]);
   if (reveal) term.show(true);
@@ -338,6 +431,24 @@ function startSessionInTerminal(dir, first) {
   // started in, and the hooks live in the workspace's .claude/. The room is found by the
   // .expect marker instead -- the same mechanism the "open a tab" button uses.
   try { fs.writeFileSync(path.join(dir, '.expect'), ''); } catch { /* read-only room */ }
+  if (headlessWanted()) {
+    carryTrust(workspaceRoot(dir));
+    startHeadless(dir, [first], 'Starting a session for this room.', (r) => {
+      if (r.ok) {
+        lastBg = r.id;
+        proveItStarted(dir, null, 'A new session was started for this room.');
+        return;
+      }
+      headlessFailed(dir, r, 'Starting a session for this room.');
+      startInTerminal(dir, first);
+    });
+    return null;
+  }
+  return startInTerminal(dir, first);
+}
+
+/** The terminal path, for `tab`/`panel` and as the fallback. */
+function startInTerminal(dir, first) {
   const { opts, reveal, pre } = termOpts('claude · ' + path.basename(dir), workspaceRoot(dir), false);
   const term = claudeTerminal(opts, [first]);
   if (reveal) term.show(true);
@@ -552,9 +663,24 @@ function activate(context) {
         // `hideFromUser` hides the failure as well as the success, so the terminal is kept and
         // this produces it -- offered by the panel when a started session never appears.
         if (route === '/api/reveal_terminal') {
-          if (!lastTerm) return reply({ error: 'no terminal was started from here' });
+          // \u2b50 A background session becomes visible by being ATTACHED, not by un-hiding a
+          // terminal it never had. This is the one place a terminal is wanted on purpose, so it
+          // gets an editor tab you can type in.
+          if (!lastTerm && lastBg) {
+            const bin = preflight.findClaude() || 'claude';
+            const term = vscode.window.createTerminal({
+              name: 'claude · ' + lastBg, cwd: workspaceRoot(dir),
+              location: vscode.TerminalLocation.Editor,
+              shellPath: bin, shellArgs: ['attach', lastBg],
+            });
+            term.show(true);
+            lastTerm = term;
+            ourTerms.set(term, dir);
+            return reply({ ok: true, how: 'attached', id: lastBg });
+          }
+          if (!lastTerm) return reply({ error: 'no session was started from here' });
           lastTerm.show(false);
-          return reply({ ok: true });
+          return reply({ ok: true, how: 'terminal' });
         }
         if (route === '/api/start') {
           // ⛔ ASK FIRST. The button opened a tab whatever the state was -- including when
