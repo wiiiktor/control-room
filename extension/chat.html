@@ -25,7 +25,8 @@
     ::endcard                   closes the most recent ::card
 
   The yellow C picks the palette: "peas with corn" (default), light, dark, and five more.
-  Press 1-9 to choose while the composer is empty. The yellow L picks the language of the
+  Press 1-9 to choose while the composer is empty. The yellow F picks the friend over YOU SAID
+  (Einstein, Android, no one). The yellow L picks the language of the
   words beside the three dots while an answer is on its way. The yellow T opens the timeline:
   every past reply, re-rendered small; hover one to read it full size on the left.
 -->
@@ -237,6 +238,19 @@
   #lang-btn:hover, #lang-btn.on { opacity: 1; }
   #lang-btn.on { box-shadow: 0 0 0 4px var(--ring-ink); }
 
+  /* F, under L: the friend over YOU SAID */
+  #friend-btn {
+    position: fixed; top: 214px; right: 18px; z-index: 6;
+    display: grid; place-items: center; padding: 0;
+    width: 20px; height: 20px; border-radius: 50%;
+    font: 900 11px/1 inherit; color: var(--on-yellow);
+    background: var(--yellow); border: 3px solid var(--ink);
+    box-shadow: 0 0 0 4px var(--ring-yellow);
+    cursor: pointer; opacity: .75; transition: opacity .12s;
+  }
+  #friend-btn:hover, #friend-btn.on { opacity: 1; }
+  #friend-btn.on { box-shadow: 0 0 0 4px var(--ring-ink); }
+
   /* fifth lamp: the session picker, moved out of the timeline strip.
      ⛔ IT DOES NOT BELONG UNDER T. Choosing which Claude answers is not a way of looking at old
      replies, and burying it in the timeline meant opening one thing to do another. It is an action,
@@ -418,21 +432,26 @@
     background: var(--yellow-soft); border: 2px solid var(--hair);
   }
 
-  #palette, #langs {
+  #palette, #langs, #friends {
     display: none; position: fixed; top: 115px; right: 50px; z-index: 7;
     flex-direction: column; gap: 6px; padding: 10px;
     background: var(--panel); border: 3px solid var(--ink); box-shadow: var(--pop-sm);
   }
-  #palette.open, #langs.open { display: flex; }
-  #palette button, #langs button {
+  #palette.open, #langs.open, #friends.open { display: flex; }
+  #palette button, #langs button, #friends button {
     font: inherit; font-size: 15px; font-weight: 800; color: var(--ink); cursor: pointer;
     background: var(--paper); border: 3px solid var(--ink); border-radius: 10px;
     padding: 7px 14px; text-align: left; white-space: nowrap;
     display: flex; align-items: center; gap: 9px;
   }
-  #palette button:hover, #langs button:hover { background: var(--yellow-soft); }
-  #palette button[aria-checked="true"], #langs button[aria-checked="true"] { background: var(--green-soft); }
+  #palette button:hover, #langs button:hover, #friends button:hover { background: var(--yellow-soft); }
+  #palette button[aria-checked="true"], #langs button[aria-checked="true"], #friends button[aria-checked="true"] { background: var(--green-soft); }
   #langs { top: 181px; max-width: 300px; }
+  #friends { top: 214px; max-width: 300px; }
+  #friends .friend-pic { width: 40px; height: 35px; flex: none; }
+  #friends .langs-head { display: flex; flex-direction: column; gap: 4px; padding: 2px 4px 6px; }
+  #friends .langs-head b { font-size: 15px; font-weight: 900; }
+  #friends .langs-head span { font-size: 13px; font-weight: 600; line-height: 1.35; opacity: var(--dim-1); }
   #langs .langs-head { display: flex; flex-direction: column; gap: 4px; padding: 2px 4px 6px; }
   #langs .langs-head b { font-size: 15px; font-weight: 900; }
   #langs .langs-head span { font-size: 13px; font-weight: 600; line-height: 1.35; opacity: var(--dim-1); }
@@ -653,12 +672,27 @@
      DOWNWARD over the reply instead of pushing everything below it further down. */
   .head .slot { position: relative; flex: 1 1 auto; min-width: 0; height: 38px; }
   .head .crumb { position: absolute; top: 0; left: 0; max-width: 100%; z-index: 20; }
-  /* Einstein peeks over the YOU SAID box: he sits in the row's own height, so nothing moves, and
-     the box is never narrower than he is. */
-  .head .slot.with-einstein { height: 88px; }
-  .head .slot.with-einstein .crumb { top: 50px; min-width: 150px; }
-  .head .slot.with-einstein ~ .stamp-slot { margin-top: 50px; }
-  .einstein { position: absolute; top: 0; left: 16px; width: 64px; height: 56px; z-index: 21; pointer-events: none; }
+  /* The friend (F) peeks over the YOU SAID box: it sits in the row's own height, so nothing moves,
+     and the box is never narrower than it is. */
+  .head .slot.with-friend { height: 104px; }
+  .head .slot.with-friend .crumb { top: 66px; min-width: 170px; }
+  .head .slot.with-friend ~ .stamp-slot { margin-top: 66px; }
+  .friend {
+    position: absolute; top: 0; left: 18px; width: 84px; height: 74px; z-index: 21; pointer-events: none;
+    transform-origin: 50% 85%; transition: transform .28s ease; overflow: visible;
+  }
+  .friend .eyes, .friend .brows { transform-box: fill-box; transform-origin: center; transition: transform .12s ease; }
+  .friend .m-grin, .friend .m-o, .friend .tongue { display: none; }
+  .friend.grin .m-smile, .friend.o .m-smile { display: none; }
+  .friend.grin .m-grin, .friend.o .m-o, .friend.tongue .tongue { display: inline; }
+  .friend.blink .eyes { transform: scaleY(.1); }
+  .friend.look-l .eyes { transform: translateX(-1.8px); }
+  .friend.look-r .eyes { transform: translateX(1.8px); }
+  .friend.brows .brows { transform: translateY(-2.5px); }
+  .friend.tilt-l { transform: rotate(-8deg); }
+  .friend.tilt-r { transform: rotate(8deg); }
+  .friend .antenna { transition: fill .15s; }
+  .friend.antenna .antenna { fill: #ffe45c; }
   /* the stamp holds its own slot too, so showing the date grows DOWNWARD over the
      reply and nothing below it moves. No rim: it is a label, not a control. */
   .head .stamp-slot { position: relative; flex: none; height: 38px; width: 84px; }
@@ -960,6 +994,8 @@
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
   <button id="lang-btn" type="button" title="Waiting words — the language of the playful words beside the three dots (only those)">L</button>
   <div id="langs" role="radiogroup" aria-label="Waiting words: language"></div>
+  <button id="friend-btn" type="button" title="Friend — who keeps you company over YOU SAID">F</button>
+  <div id="friends" role="radiogroup" aria-label="Friend"></div>
   <div id="lamp" title="Connected"></div>
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
   <div id="splash" role="dialog" aria-label="Start a working session">
@@ -1099,17 +1135,82 @@
     return slot;
   }
 
-  // a cartoon, in the panel's own ink: wild white hair, moustache, and the tongue
-  const EINSTEIN = '<svg class="einstein" viewBox="0 0 64 56" aria-hidden="true">'
-    + '<g stroke="var(--ink)" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round">'
-    + '<path d="M13 36L3 33L9 28L1 20L10 19L6 10L15 13L16 3L23 9L29 1L33 8L40 1L43 9L51 4L50 13L59 11L55 19L63 22L56 27L62 33L51 36Z" fill="#f4f3ee"/>'
-    + '<ellipse cx="17.5" cy="31" rx="3.5" ry="5" fill="#f2c9a0"/><ellipse cx="46.5" cy="31" rx="3.5" ry="5" fill="#f2c9a0"/>'
-    + '<ellipse cx="32" cy="31" rx="14" ry="16" fill="#f2c9a0"/>'
-    + '<path d="M20 23q5-5 10-1M34 22q5-4 10 1" fill="none" stroke-width="3"/>'
-    + '<path d="M32 28q-3 6 0 7" fill="none" stroke-width="2"/>'
-    + '<path d="M28.5 41q3.5 12 7 0Z" fill="#e8707a" stroke-width="1.8"/>'
-    + '<path d="M22 40q4-6 10-3q6-3 10 3q-5 3-10 1q-5 2-10-1Z" fill="#f4f3ee" stroke-width="2"/>'
-    + '</g><circle cx="26" cy="27.5" r="1.9" fill="var(--ink)"/><circle cx="38" cy="27.5" r="1.9" fill="var(--ink)"/></svg>';
+  /* ⭐ THE FRIEND (F): a face over the YOU SAID box, in the panel's own ink. Still and smiling on an
+     answer; while the three dots move it comes alive -- blinks, grins, looks about, tilts -- one move
+     at a time, at random (see friendTick). Parts carry classes so a move is a class on the <svg>. */
+  const FRIENDS = {
+    einstein: {
+      name: 'Einstein',
+      moves: ['blink', 'blink', 'look-l', 'look-r', 'grin', 'o', 'brows', 'tongue', 'tilt-l', 'tilt-r'],
+      svg: '<g stroke="var(--ink)" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round">'
+        + '<path d="M13 36L3 33L9 28L1 20L10 19L6 10L15 13L16 3L23 9L29 1L33 8L40 1L43 9L51 4L50 13L59 11L55 19L63 22L56 27L62 33L51 36Z" fill="#f4f3ee"/>'
+        + '<ellipse cx="17.5" cy="31" rx="3.5" ry="5" fill="#f2c9a0"/><ellipse cx="46.5" cy="31" rx="3.5" ry="5" fill="#f2c9a0"/>'
+        + '<ellipse cx="32" cy="31" rx="14" ry="16" fill="#f2c9a0"/>'
+        + '<path class="brows" d="M20 22.5q5-4.5 10-0.5M34 22q5-4.5 10 0.5" fill="none" stroke-width="3"/>'
+        + '<path d="M32 27q-3 6 0 7" fill="none" stroke-width="2"/>'
+        + '<path class="m-smile" d="M26 41q6 5.5 12 0" fill="none" stroke-width="2.2"/>'
+        + '<path class="m-grin" d="M25.5 40.5q6.5 8.5 13 0Z" fill="#fff" stroke-width="2"/>'
+        + '<ellipse class="m-o" cx="32" cy="42.5" rx="2.4" ry="2.9" fill="#6b2a2a" stroke-width="1.8"/>'
+        + '<path class="tongue" d="M29.5 42q2.5 8 5 0Z" fill="#e8707a" stroke-width="1.6"/>'
+        + '<path d="M22 37q4-6 10-3q6-3 10 3q-5 3-10 1q-5 2-10-1Z" fill="#f4f3ee" stroke-width="2"/>'
+        + '</g><circle cx="21.5" cy="36" r="2.4" fill="#f08c8c" opacity=".45"/><circle cx="42.5" cy="36" r="2.4" fill="#f08c8c" opacity=".45"/>'
+        + '<g class="eyes" fill="var(--ink)"><circle cx="26" cy="27.5" r="1.9"/><circle cx="38" cy="27.5" r="1.9"/></g>',
+    },
+    android: {
+      name: 'Android',
+      moves: ['blink', 'blink', 'look-l', 'look-r', 'grin', 'o', 'antenna', 'antenna', 'tilt-l', 'tilt-r'],
+      svg: '<g stroke="var(--ink)" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round">'
+        + '<path d="M32 12V5" fill="none"/><circle class="antenna" cx="32" cy="4" r="2.8" fill="#ff7aa2"/>'
+        + '<path d="M12 44C9 22 17 10 32 10C47 10 55 22 52 44L45 44L45 26L19 26L19 44Z" fill="#7c6cf0"/>'
+        + '<circle cx="15" cy="31" r="4" fill="#9fb2c8"/><circle cx="49" cy="31" r="4" fill="#9fb2c8"/>'
+        + '<rect x="28" y="45" width="8" height="8" rx="2" fill="#9fb2c8"/>'
+        + '<rect x="17.5" y="14" width="29" height="33" rx="12" fill="#e3eaf2"/>'
+        + '<path d="M17.5 27C18 17 25 12.5 32.5 12.5C41 12.5 46.5 18 46.5 25C40 23.5 35 20 32 16.5C29 21.5 24 25 17.5 27Z" fill="#7c6cf0"/>'
+        + '<path class="m-smile" d="M27.5 39q4.5 4 9 0" fill="none" stroke-width="2.2"/>'
+        + '<path class="m-grin" d="M27 38.5q5 6.5 10 0Z" fill="#fff" stroke-width="2"/>'
+        + '<ellipse class="m-o" cx="32" cy="40.5" rx="2" ry="2.5" fill="#444" stroke-width="1.6"/>'
+        + '<g class="eyes"><ellipse cx="26" cy="31" rx="3" ry="3.6" fill="#1fb5a8" stroke-width="1.8"/>'
+        + '<ellipse cx="38" cy="31" rx="3" ry="3.6" fill="#1fb5a8" stroke-width="1.8"/>'
+        + '<path d="M23 28.3l-2.2-1.6M41 28.3l2.2-1.6" fill="none" stroke-width="1.6"/></g>'
+        + '</g><circle cx="22.5" cy="36.5" r="2.1" fill="#ff9bb5" opacity=".7"/><circle cx="41.5" cy="36.5" r="2.1" fill="#ff9bb5" opacity=".7"/>'
+        + '<circle cx="27" cy="30" r=".9" fill="#fff"/><circle cx="39" cy="30" r=".9" fill="#fff"/>',
+    },
+  };
+  let friendId = (() => { try { return localStorage.getItem('ctrl-friend') || 'einstein'; } catch { return 'einstein'; } })();
+  if (friendId !== 'none' && !FRIENDS[friendId]) friendId = 'einstein';
+  const friendSvg = (id, cls = 'friend') => FRIENDS[id]
+    ? '<svg class="' + cls + '" viewBox="0 0 64 56" aria-hidden="true">' + FRIENDS[id].svg + '</svg>' : '';
+  /** The YOU SAID row: the friend sits on top of the box, in the row's own height. */
+  function crumbSlot(crumb) {
+    const slot = el('div', friendId === 'none' ? 'slot' : 'slot with-friend');
+    if (friendId !== 'none') slot.innerHTML = friendSvg(friendId);
+    slot.append(crumb);
+    return slot;
+  }
+  // One move at a time, at random, and only while the dots move: an answer is read, not watched.
+  const STILL = ['blink', 'look-l', 'look-r', 'grin', 'o', 'brows', 'tongue', 'tilt-l', 'tilt-r', 'antenna'];
+  let reducedMotion = false;
+  try { reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* old engine */ }
+  function friendTick() {
+    let f = null;
+    try { f = screenEl.querySelector('.friend'); } catch { /* no screen yet */ }
+    let wait = 700 + Math.random() * 1600;
+    if (f) {
+      f.classList.remove(...STILL);
+      if (waitingNow && !reducedMotion) {
+        const moves = (FRIENDS[friendId] || {}).moves || [];
+        const move = moves[Math.floor(Math.random() * moves.length)];
+        if (move) {
+          f.classList.add(move);
+          const hold = move === 'blink' ? 150 : 500 + Math.random() * 900;
+          setTimeout(() => f.classList.remove(move), hold);
+          wait = hold + 300 + Math.random() * 1400;
+        }
+      }
+    }
+    setTimeout(friendTick, wait);
+  }
+  setTimeout(friendTick, 800);
 
   function show(nodes, crumb = true, ts = null) {
     stopWords();          // whatever replaces the screen ends the wait
@@ -1123,10 +1224,7 @@
       if (crumb && lastCommand) {
         const c = el('div', 'crumb', lastCommand);
         c.onclick = () => c.classList.toggle('open');   // no fit(): the row keeps its height
-        const slot = el('div', 'slot with-einstein');
-        slot.innerHTML = EINSTEIN;
-        slot.append(c);
-        head.append(slot);
+        head.append(crumbSlot(c));
       }
       if (stamp) head.append(stamp);
       kids.push(head);
@@ -2629,6 +2727,8 @@
   palBtn.onclick = () => {
     const langs = document.getElementById('langs');
     if (langs) { langs.classList.remove('open'); document.getElementById('lang-btn').classList.remove('on'); }
+    const fr = document.getElementById('friends');
+    if (fr) { fr.classList.remove('open'); document.getElementById('friend-btn').classList.remove('on'); }
     const open = palEl.classList.toggle('open');
     palBtn.classList.toggle('on', open);
     if (!open) endPreview();                 // closing it abandons whatever was on screen
@@ -2673,6 +2773,48 @@
     if (!langsEl.classList.contains('open')) drawLangs();
     const open = langsEl.classList.toggle('open');
     langBtn.classList.toggle('on', open);
+    palEl.classList.remove('open'); palBtn.classList.remove('on');
+    const fr = document.getElementById('friends');
+    if (fr) { fr.classList.remove('open'); document.getElementById('friend-btn').classList.remove('on'); }
+  };
+
+  const friendBtn = document.getElementById('friend-btn');
+  const friendsEl = document.getElementById('friends');
+  function redrawFriend() {
+    // the screen on show keeps its crumb; only the face in front of it changes
+    const slot = screenEl.querySelector('.head .slot');
+    if (!slot) return;
+    const crumb = slot.querySelector('.crumb');
+    if (crumb) slot.replaceWith(crumbSlot(crumb));
+  }
+  function drawFriends() {
+    friendsEl.replaceChildren();
+    const head = el('div', 'langs-head');
+    head.append(el('b', '', 'Friend'),
+                el('span', '', 'Who keeps you company over YOU SAID. Still on an answer; it comes alive only while the three dots move.'));
+    friendsEl.append(head);
+    ['einstein', 'android', 'none'].forEach((id) => {
+      const b = el('button');
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(id === friendId));
+      const pic = el('span', 'friend-pic');
+      pic.innerHTML = friendSvg(id, 'friend-pic');
+      b.append(pic, el('span', '', id === 'none' ? 'No one' : FRIENDS[id].name));
+      b.onclick = () => {
+        friendId = id;
+        try { localStorage.setItem('ctrl-friend', id); } catch {}
+        friendsEl.classList.remove('open'); friendBtn.classList.remove('on');
+        redrawFriend();
+      };
+      friendsEl.append(b);
+    });
+  }
+  friendBtn.onclick = () => {
+    if (!friendsEl.classList.contains('open')) drawFriends();
+    const open = friendsEl.classList.toggle('open');
+    friendBtn.classList.toggle('on', open);
+    langsEl.classList.remove('open'); langBtn.classList.remove('on');
     palEl.classList.remove('open'); palBtn.classList.remove('on');
   };
 
@@ -3032,10 +3174,7 @@
     if (msg.asked) {
       const c = el('div', 'crumb', msg.asked);
       c.onclick = () => c.classList.toggle('open');
-      const slot = el('div', 'slot with-einstein');   // the same row as a live reply's
-      slot.innerHTML = EINSTEIN;
-      slot.append(c);
-      head.append(slot);
+      head.append(crumbSlot(c));                       // the same row as a live reply's
     }
     const st = stampOf(msg.ts);
     if (st) head.append(st);
