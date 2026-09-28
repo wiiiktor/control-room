@@ -981,6 +981,15 @@
     border-radius: 18px; padding: 16px 18px 40px; min-height: 104px; max-height: 220px;
     box-shadow: var(--pop-sm);
   }
+  /* \u26d4 THE SCROLL BAR STAYS INSIDE THE ROUNDING. The default bar ran the full height at the very
+     edge, so its ends stuck out past the 18px corners. Kept off both ends and off the rim. (No
+     scrollbar-width here: in Chromium it switches these ::-webkit rules off.) */
+  textarea::-webkit-scrollbar { width: 18px; }
+  textarea::-webkit-scrollbar-track { background: transparent; margin: 18px 0; }
+  textarea::-webkit-scrollbar-thumb {
+    background: var(--ink); background-clip: padding-box; border-radius: 999px;
+    border: 5px solid transparent; border-right-width: 8px; opacity: .6;
+  }
   textarea::placeholder { color: var(--ink); opacity: .4; }
   textarea:focus { outline: none; background: var(--yellow-soft); }
   #compose { flex: 1; position: relative; display: flex; flex-direction: column; min-width: 0; }
