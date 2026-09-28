@@ -797,18 +797,24 @@
     text-transform: uppercase; opacity: .6;
   }
   /* progress notes under "Working on it…" — scaffolding, so it stays quiet */
-  /* Every step stays, newest at the bottom. Not a box: no border, no fill -- five rows tall at most,
-     and only past five does a scroll bar appear, the list itself following the newest step. */
+  /* Every step stays, newest at the bottom. Not a box: no border, no fill, no bullets -- five rows at
+     most, whole rows only (the scroll snaps to them), and a scroll bar, on the LEFT, only past five.
+     \u26d4 HUNG BELOW THE DOTS, OUT OF THE FLOW: the dots are the middle of the screen, and a growing
+     list under them pushed them up. fit() measures the screen without it. */
+  .waitbox { position: relative; }
   .progress {
-    display: flex; flex-direction: column; gap: 6px; margin-top: 4px;
-    max-height: calc(5 * 22px + 4 * 6px); overflow-y: auto; scrollbar-width: thin;
+    position: absolute; left: 0; right: 0; top: calc(100% + 14px);
+    display: flex; flex-direction: column;
+    max-height: calc(5 * 24px); overflow-y: auto; scrollbar-width: thin;
+    scroll-snap-type: y mandatory;
+    direction: rtl;                               /* puts the scroll bar on the left */
   }
   .progress .step {
-    display: flex; gap: 10px; align-items: baseline; flex: none;
-    font-size: 16px; line-height: 22px; font-weight: 650; opacity: .55;
+    direction: ltr; flex: none; height: 24px; line-height: 24px; scroll-snap-align: end;
+    padding-left: 14px;
+    font-size: 16px; font-weight: 650; opacity: .55;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .progress .step span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .progress .step b { font-size: 13px; opacity: .8; }
   .progress .step.now { opacity: 1; font-weight: 800; }
 
   .picks {
@@ -1022,6 +1028,12 @@
     fitBox.style.height = 'auto';
     if (!screenEl.children.length) return;
 
+    // the steps under the dots hang out of the flow (see .progress): measured without them
+    const hung = screenEl.querySelector ? screenEl.querySelector('.progress') : null;
+    if (hung) hung.style.display = 'none';
+    try { fitMeasure(); } finally { if (hung) hung.style.display = ''; }
+  }
+  function fitMeasure() {
     const avail = document.getElementById('left').clientHeight - 12;
     let k = Math.min(1, avail / screenEl.scrollHeight);
     if (k < 1) {
@@ -1746,19 +1758,16 @@
     const box = el('div', 'thinking');
     const word = el('span', '', aWord());
     box.append(el('i'), el('i'), el('i'), word);
-    const kids = [box];
+    const wrap = el('div', 'waitbox');
+    wrap.append(box);
+    let list = null;
     if (status && status.length) {
       // newest last, the way a log reads; the last line is the one happening now
-      const log = el('div', 'progress');
-      status.forEach((line, i) => {
-        const row = el('div', 'step' + (i === status.length - 1 ? ' now' : ''));
-        row.append(el('b', '', i === status.length - 1 ? '▸' : '·'), el('span', '', line));
-        log.append(row);
-      });
-      kids.push(log);
+      list = el('div', 'progress');
+      status.forEach((line, i) => list.append(el('div', 'step' + (i === status.length - 1 ? ' now' : ''), line)));
+      wrap.append(list);
     }
-    show(kids);
-    const list = kids[1];
+    show([wrap]);
     if (list) try { list.scrollTop = followed ? list.scrollHeight : wasAt; } catch { /* no layout */ }
     // ⛔ AFTER show(), not before: show() stops the timer, because anything replacing the
     // screen ends the wait -- and waiting() goes through show() itself, so a timer armed
