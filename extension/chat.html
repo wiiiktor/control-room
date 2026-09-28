@@ -448,7 +448,7 @@
   #palette button[aria-checked="true"], #langs button[aria-checked="true"], #friends button[aria-checked="true"] { background: var(--green-soft); }
   #langs { top: 181px; max-width: 300px; }
   #friends { top: 214px; max-width: 300px; }
-  #friends .friend-pic { width: 40px; height: 35px; flex: none; }
+  #friends .friend-pic { width: 52px; height: 47px; flex: none; }
   #friends .langs-head { display: flex; flex-direction: column; gap: 4px; padding: 2px 4px 6px; }
   #friends .langs-head b { font-size: 15px; font-weight: 900; }
   #friends .langs-head span { font-size: 13px; font-weight: 600; line-height: 1.35; opacity: var(--dim-1); }
@@ -674,25 +674,33 @@
   .head .crumb { position: absolute; top: 0; left: 0; max-width: 100%; z-index: 20; }
   /* The friend (F) peeks over the YOU SAID box: it sits in the row's own height, so nothing moves,
      and the box is never narrower than it is. */
-  .head .slot.with-friend { height: 104px; }
-  .head .slot.with-friend .crumb { top: 66px; min-width: 170px; }
-  .head .slot.with-friend ~ .stamp-slot { margin-top: 66px; }
+  .head .slot.with-friend { height: 128px; }
+  .head .slot.with-friend .crumb { top: 90px; min-width: 190px; }
+  .head .slot.with-friend ~ .stamp-slot { margin-top: 90px; }
   .friend {
-    position: absolute; top: 0; left: 18px; width: 84px; height: 74px; z-index: 21; pointer-events: none;
-    transform-origin: 50% 85%; transition: transform .28s ease; overflow: visible;
+    position: absolute; top: 0; left: 10px; width: 104px; height: 94px; z-index: 21; pointer-events: none;
+    transform-origin: 50% 95%; transition: transform .28s ease; overflow: visible;
   }
-  .friend .eyes, .friend .brows { transform-box: fill-box; transform-origin: center; transition: transform .12s ease; }
+  .friend .eyes, .friend .eye-l, .friend .eye-r, .friend .brows, .friend .cup {
+    transform-box: fill-box; transform-origin: center; transition: transform .14s ease;
+  }
+  .friend .cup { transition: transform .35s ease; }
   .friend .m-grin, .friend .m-o, .friend .tongue { display: none; }
   .friend.grin .m-smile, .friend.o .m-smile { display: none; }
   .friend.grin .m-grin, .friend.o .m-o, .friend.tongue .tongue { display: inline; }
   .friend.blink .eyes { transform: scaleY(.1); }
+  .friend.wink .eye-l { transform: scaleY(.1); }
   .friend.look-l .eyes { transform: translateX(-1.8px); }
   .friend.look-r .eyes { transform: translateX(1.8px); }
   .friend.brows .brows { transform: translateY(-2.5px); }
-  .friend.tilt-l { transform: rotate(-8deg); }
-  .friend.tilt-r { transform: rotate(8deg); }
+  .friend.sip .cup { transform: translate(-2px, -4px) rotate(-12deg); }
+  .friend.tilt-l { transform: rotate(-6deg); }
+  .friend.tilt-r { transform: rotate(6deg); }
   .friend .antenna { transition: fill .15s; }
   .friend.antenna .antenna { fill: #ffe45c; }
+  .friend .steam { opacity: 0; }
+  .friend.alive .steam { animation: steam 1.6s ease-in-out infinite; }
+  @keyframes steam { 0% { opacity: 0; transform: translateY(2px); } 40% { opacity: .6; } 100% { opacity: 0; transform: translateY(-3px); } }
   /* the stamp holds its own slot too, so showing the date grows DOWNWARD over the
      reply and nothing below it moves. No rim: it is a label, not a control. */
   .head .stamp-slot { position: relative; flex: none; height: 38px; width: 84px; }
@@ -1141,45 +1149,56 @@
   const FRIENDS = {
     einstein: {
       name: 'Einstein',
-      moves: ['blink', 'blink', 'look-l', 'look-r', 'grin', 'o', 'brows', 'tongue', 'tilt-l', 'tilt-r'],
-      svg: '<g stroke="var(--ink)" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round">'
-        + '<path d="M13 36L3 33L9 28L1 20L10 19L6 10L15 13L16 3L23 9L29 1L33 8L40 1L43 9L51 4L50 13L59 11L55 19L63 22L56 27L62 33L51 36Z" fill="#f4f3ee"/>'
-        + '<ellipse cx="17.5" cy="31" rx="3.5" ry="5" fill="#f2c9a0"/><ellipse cx="46.5" cy="31" rx="3.5" ry="5" fill="#f2c9a0"/>'
-        + '<ellipse cx="32" cy="31" rx="14" ry="16" fill="#f2c9a0"/>'
-        + '<path class="brows" d="M20 22.5q5-4.5 10-0.5M34 22q5-4.5 10 0.5" fill="none" stroke-width="3"/>'
-        + '<path d="M32 27q-3 6 0 7" fill="none" stroke-width="2"/>'
-        + '<path class="m-smile" d="M26 41q6 5.5 12 0" fill="none" stroke-width="2.2"/>'
-        + '<path class="m-grin" d="M25.5 40.5q6.5 8.5 13 0Z" fill="#fff" stroke-width="2"/>'
-        + '<ellipse class="m-o" cx="32" cy="42.5" rx="2.4" ry="2.9" fill="#6b2a2a" stroke-width="1.8"/>'
-        + '<path class="tongue" d="M29.5 42q2.5 8 5 0Z" fill="#e8707a" stroke-width="1.6"/>'
-        + '<path d="M22 37q4-6 10-3q6-3 10 3q-5 3-10 1q-5 2-10-1Z" fill="#f4f3ee" stroke-width="2"/>'
-        + '</g><circle cx="21.5" cy="36" r="2.4" fill="#f08c8c" opacity=".45"/><circle cx="42.5" cy="36" r="2.4" fill="#f08c8c" opacity=".45"/>'
-        + '<g class="eyes" fill="var(--ink)"><circle cx="26" cy="27.5" r="1.9"/><circle cx="38" cy="27.5" r="1.9"/></g>',
+      moves: ['blink', 'blink', 'look-l', 'look-r', 'grin', 'o', 'brows', 'tongue', 'sip', 'sip', 'tilt-l', 'tilt-r'],
+      svg: '<g stroke=\'var(--ink)\' stroke-width=\'2.2\' stroke-linejoin=\'round\' stroke-linecap=\'round\'><path d=\'M6 72C6 58 1'
+        + '7 51 31 51C45 51 54 58 56 72Z\' fill=\'#7d8597\'/><path d=\'M25 51.5L31 60L37 51.5Z\' fill=\'#f4f3ee\'/><rect x=\'27\' '
+        + 'y=\'43\' width=\'9\' height=\'10\' fill=\'#f2c9a0\'/><path d=\'M20 38L9 35L15 30L6 23L16 21L11 12L21 14L22 4L29 10L35 1'
+        + 'L40 8L47 2L48 11L56 9L52 18L59 21L51 25L49 36Z\' fill=\'#f4f3ee\'/><ellipse cx=\'20.8\' cy=\'31.5\' rx=\'4.3\' ry=\'5.6\''
+        + ' fill=\'#f2c9a0\'/><ellipse cx=\'34\' cy=\'31\' rx=\'13.5\' ry=\'15.5\' fill=\'#f2c9a0\'/><path class=\'brows\' d=\'M27.5 22.'
+        + '5q4-4 8.5-.5M38.5 22q3.5-3.5 7.5.5\' fill=\'none\' stroke-width=\'2.8\'/><path d=\'M42 26q5.5 6 4.5 8.5q-2.5 1.2-5 0'
+        + '\' fill=\'#f2c9a0\' stroke-width=\'2\'/><path class=\'m-smile\' d=\'M34 41.5q5 4.5 10 0\' fill=\'none\' stroke-width=\'2.1'
+        + '\'/><path class=\'m-grin\' d=\'M33.5 41q5.5 7.5 11 0Z\' fill=\'#fff\' stroke-width=\'1.9\'/><ellipse class=\'m-o\' cx=\'39'
+        + '\' cy=\'43\' rx=\'2.2\' ry=\'2.7\' fill=\'#6b2a2a\' stroke-width=\'1.7\'/><path class=\'tongue\' d=\'M36.8 42.2q2.2 7 4.4 0Z'
+        + '\' fill=\'#e8707a\' stroke-width=\'1.5\'/><path d=\'M30.5 37.5q4-5 9-2q4.5-2.5 8.5 2q-4 3-8.5 1q-5 2-9-1Z\' fill=\'#f4'
+        + 'f3ee\' stroke-width=\'1.9\'/><path d=\'M42 66Q46 57 52 51\' fill=\'none\' stroke-width=\'9\'/><path d=\'M42 66Q46 57 52 '
+        + '51\' fill=\'none\' stroke=\'#7d8597\' stroke-width=\'5\'/><g class=\'cup\'><path class=\'steam\' d=\'M57.5 36q-2-3 0-6t0-6'
+        + 'M62.5 36q-2-3 0-6t0-6\' fill=\'none\' stroke-width=\'1.5\' opacity=\'.55\'/><path d=\'M65 43q5.5 0 5.5 4.5t-5.5 4.5\' f'
+        + 'ill=\'none\' stroke-width=\'2.4\'/><rect x=\'54\' y=\'39\' width=\'11.5\' height=\'14\' rx=\'2.2\' fill=\'#c96a3e\'/><ellipse '
+        + 'cx=\'53.5\' cy=\'48.5\' rx=\'3.4\' ry=\'3.8\' fill=\'#f2c9a0\'/></g></g><circle cx=\'28.5\' cy=\'36\' r=\'2.3\' fill=\'#f08c8c\''
+        + ' opacity=\'.45\'/><g class=\'eyes\' fill=\'var(--ink)\'><circle class=\'eye-l\' cx=\'32\' cy=\'27.5\' r=\'1.9\'/><circle cla'
+        + 'ss=\'eye-r\' cx=\'41\' cy=\'27.5\' r=\'1.7\'/></g>',
     },
     android: {
       name: 'Android',
-      moves: ['blink', 'blink', 'look-l', 'look-r', 'grin', 'o', 'antenna', 'antenna', 'tilt-l', 'tilt-r'],
-      svg: '<g stroke="var(--ink)" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round">'
-        + '<path d="M32 12V5" fill="none"/><circle class="antenna" cx="32" cy="4" r="2.8" fill="#ff7aa2"/>'
-        + '<path d="M12 44C9 22 17 10 32 10C47 10 55 22 52 44L45 44L45 26L19 26L19 44Z" fill="#7c6cf0"/>'
-        + '<circle cx="15" cy="31" r="4" fill="#9fb2c8"/><circle cx="49" cy="31" r="4" fill="#9fb2c8"/>'
-        + '<rect x="28" y="45" width="8" height="8" rx="2" fill="#9fb2c8"/>'
-        + '<rect x="17.5" y="14" width="29" height="33" rx="12" fill="#e3eaf2"/>'
-        + '<path d="M17.5 27C18 17 25 12.5 32.5 12.5C41 12.5 46.5 18 46.5 25C40 23.5 35 20 32 16.5C29 21.5 24 25 17.5 27Z" fill="#7c6cf0"/>'
-        + '<path class="m-smile" d="M27.5 39q4.5 4 9 0" fill="none" stroke-width="2.2"/>'
-        + '<path class="m-grin" d="M27 38.5q5 6.5 10 0Z" fill="#fff" stroke-width="2"/>'
-        + '<ellipse class="m-o" cx="32" cy="40.5" rx="2" ry="2.5" fill="#444" stroke-width="1.6"/>'
-        + '<g class="eyes"><ellipse cx="26" cy="31" rx="3" ry="3.6" fill="#1fb5a8" stroke-width="1.8"/>'
-        + '<ellipse cx="38" cy="31" rx="3" ry="3.6" fill="#1fb5a8" stroke-width="1.8"/>'
-        + '<path d="M23 28.3l-2.2-1.6M41 28.3l2.2-1.6" fill="none" stroke-width="1.6"/></g>'
-        + '</g><circle cx="22.5" cy="36.5" r="2.1" fill="#ff9bb5" opacity=".7"/><circle cx="41.5" cy="36.5" r="2.1" fill="#ff9bb5" opacity=".7"/>'
-        + '<circle cx="27" cy="30" r=".9" fill="#fff"/><circle cx="39" cy="30" r=".9" fill="#fff"/>',
+      moves: ['blink', 'blink', 'wink', 'wink', 'look-l', 'look-r', 'grin', 'o', 'antenna', 'sip', 'tilt-l', 'tilt-r'],
+      svg: '<g stroke=\'var(--ink)\' stroke-width=\'2.2\' stroke-linejoin=\'round\' stroke-linecap=\'round\'><path d=\'M20 72C20 58'
+        + ' 30 51 44 51C58 51 66 58 66 72Z\' fill=\'#e84a5f\'/><path d=\'M37 51.5L44 58.5L51 51.5Z\' fill=\'#fff\'/><rect x=\'40\''
+        + ' y=\'43\' width=\'8\' height=\'9\' fill=\'#9fb2c8\'/><path d=\'M48 13L51 5.5\' fill=\'none\'/><circle class=\'antenna\' cx=\''
+        + '51.5\' cy=\'4.5\' r=\'2.6\' fill=\'#ff7aa2\'/><path d=\'M27 41C22 21 31 10 44 10C57 10 64 21 60 41C63 43 61 47 56 45L5'
+        + '6 30L31 30L31 45C26 47 24 43 27 41Z\' fill=\'#7c6cf0\'/><circle cx=\'57\' cy=\'31\' r=\'4\' fill=\'#9fb2c8\'/><rect x=\'29'
+        + '.5\' y=\'14\' width=\'26\' height=\'31\' rx=\'11.5\' fill=\'#e3eaf2\'/><path d=\'M29.5 27C29.5 16.5 36 12.5 44 12.5C52 12.'
+        + '5 56 17.5 55.5 24C48.5 23 42.5 19.5 39.5 15.5C37.5 21 33.5 25 29.5 27Z\' fill=\'#7c6cf0\'/><path d=\'M39 33.5l-1.8'
+        + ' 2.3l2.2.5\' fill=\'none\' stroke-width=\'1.5\'/><path class=\'m-smile\' d=\'M35 39.2q4.5-1.6 9 0q-4.5 4.6-9 0Z\' fill='
+        + '\'#d9364b\' stroke-width=\'1.7\'/><path class=\'m-grin\' d=\'M34.5 38.5q5 -1 10 0q-5 7-10 0Z\' fill=\'#fff\' stroke=\'#d9'
+        + '364b\' stroke-width=\'2\'/><ellipse class=\'m-o\' cx=\'39.5\' cy=\'40.5\' rx=\'2\' ry=\'2.5\' fill=\'#d9364b\' stroke-width=\''
+        + '1.5\'/><g class=\'eyes\'><g class=\'eye-l\'><ellipse cx=\'35\' cy=\'30\' rx=\'2.7\' ry=\'3.3\' fill=\'#1fb5a8\' stroke-width='
+        + '\'1.7\'/><path d=\'M32.5 27.5l-2-1.4\' fill=\'none\' stroke-width=\'1.5\'/></g><g class=\'eye-r\'><ellipse cx=\'45\' cy=\'3'
+        + '0\' rx=\'2.5\' ry=\'3.1\' fill=\'#1fb5a8\' stroke-width=\'1.7\'/><path d=\'M47.4 27.4l1.9-1.5\' fill=\'none\' stroke-width='
+        + '\'1.5\'/></g></g><path d=\'M31 64Q23 62 20 55\' fill=\'none\' stroke-width=\'8\'/><path d=\'M31 64Q23 62 20 55\' fill=\'n'
+        + 'one\' stroke=\'#9fb2c8\' stroke-width=\'4\'/><g class=\'cup\'><path d=\'M16 44L21 34\' fill=\'none\' stroke=\'#d9364b\' str'
+        + 'oke-width=\'1.8\'/><path d=\'M8 43L19 43L17.5 60L9.5 60Z\' fill=\'#dff4ff\' stroke-width=\'1.9\'/><path d=\'M9 47.5L18 '
+        + '47.5L16.8 58.6L10.2 58.6Z\' fill=\'#ff9ec0\' stroke=\'none\'/><path d=\'M12 41.5q1-3 3-4\' fill=\'none\' stroke-width=\''
+        + '1.3\'/><circle cx=\'11.5\' cy=\'42\' r=\'2.3\' fill=\'#d9364b\' stroke-width=\'1.5\'/><circle cx=\'19.5\' cy=\'54\' r=\'3.2\' f'
+        + 'ill=\'#9fb2c8\'/></g></g><circle cx=\'33\' cy=\'36\' r=\'2\' fill=\'#ff9bb5\' opacity=\'.7\'/><circle cx=\'48.5\' cy=\'36\' r='
+        + '\'1.8\' fill=\'#ff9bb5\' opacity=\'.7\'/><circle cx=\'36\' cy=\'29\' r=\'.8\' fill=\'#fff\'/><circle cx=\'45.8\' cy=\'29\' r=\'.7'
+        + '5\' fill=\'#fff\'/><g fill=\'#fff\'><circle cx=\'30\' cy=\'63\' r=\'1.3\'/><circle cx=\'38\' cy=\'67\' r=\'1.3\'/><circle cx=\'5'
+        + '5\' cy=\'61\' r=\'1.3\'/><circle cx=\'60\' cy=\'68\' r=\'1.3\'/><circle cx=\'47\' cy=\'66\' r=\'1.3\'/></g>',
     },
   };
   let friendId = (() => { try { return localStorage.getItem('ctrl-friend') || 'einstein'; } catch { return 'einstein'; } })();
   if (friendId !== 'none' && !FRIENDS[friendId]) friendId = 'einstein';
   const friendSvg = (id, cls = 'friend') => FRIENDS[id]
-    ? '<svg class="' + cls + '" viewBox="0 0 64 56" aria-hidden="true">' + FRIENDS[id].svg + '</svg>' : '';
+    ? '<svg class="' + cls + '" viewBox="0 0 80 72" aria-hidden="true">' + FRIENDS[id].svg + '</svg>' : '';
   /** The YOU SAID row: the friend sits on top of the box, in the row's own height. */
   function crumbSlot(crumb) {
     const slot = el('div', friendId === 'none' ? 'slot' : 'slot with-friend');
@@ -1188,7 +1207,7 @@
     return slot;
   }
   // One move at a time, at random, and only while the dots move: an answer is read, not watched.
-  const STILL = ['blink', 'look-l', 'look-r', 'grin', 'o', 'brows', 'tongue', 'tilt-l', 'tilt-r', 'antenna'];
+  const STILL = ['blink', 'wink', 'look-l', 'look-r', 'grin', 'o', 'brows', 'tongue', 'sip', 'tilt-l', 'tilt-r', 'antenna'];
   let reducedMotion = false;
   try { reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* old engine */ }
   function friendTick() {
@@ -1197,6 +1216,7 @@
     let wait = 700 + Math.random() * 1600;
     if (f) {
       f.classList.remove(...STILL);
+      f.classList.toggle('alive', waitingNow && !reducedMotion);   // the coffee steams while it works
       if (waitingNow && !reducedMotion) {
         const moves = (FRIENDS[friendId] || {}).moves || [];
         const move = moves[Math.floor(Math.random() * moves.length)];
@@ -2791,7 +2811,7 @@
     friendsEl.replaceChildren();
     const head = el('div', 'langs-head');
     head.append(el('b', '', 'Friend'),
-                el('span', '', 'Who keeps you company over YOU SAID. Still on an answer; it comes alive only while the three dots move.'));
+                el('span', '', 'Who keeps you company over YOU SAID, with a coffee or a soda. Still on an answer; it comes alive only while the three dots move.'));
     friendsEl.append(head);
     ['einstein', 'android', 'none'].forEach((id) => {
       const b = el('button');
