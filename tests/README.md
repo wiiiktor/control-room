@@ -28,7 +28,7 @@ the way the extension trusts one. It never touches your rooms or conversations.
 | Script | Checks |
 |---|---|
 | `handoff.sh` | S1: resuming a room-held conversation exits 1, "running as a background session" — the Claude window's error, reproduced. S2: through the wrapper the same launch exits 0, the conversation answers, the room is told |
-| `room-roundtrip.sh` | a session started the way the panel starts one is told by the real hooks to watch, arms the watch, and answers a message in the room as itself |
+| `room-roundtrip.sh` | a session started the way the panel starts one is told by the real hooks to watch, arms the watch, and answers a message in the room as itself. `PERMS=default` runs it without bypass permissions: the room's allow rules must be enough |
 | `e2e-claude-window.sh` | the **real Claude extension** in an isolated VS Code opens a conversation the room holds. `HANDOFF=off`: fails exactly as reported. `HANDOFF=on`: no error, the conversation runs in the window, the room is told |
 | `e2e-takeover.sh` | a conversation idle in a Claude tab is written to from the room: its tab closes, it runs in the room under the same id and listens, the previous room session is let go, no copy, no error |
 

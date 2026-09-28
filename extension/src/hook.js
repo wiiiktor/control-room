@@ -538,7 +538,7 @@ function installed(root) {
  *
  * `room` is only needed for the mirror, which has to know which log to copy into; pass
  * null to install the watch hook alone. */
-function install(root, room) {
+function install(root, room, rulesRoom = room) {
   const claude = path.join(root, '.claude');
   const hooks = path.join(claude, 'hooks');
   fs.mkdirSync(hooks, { recursive: true });
@@ -570,10 +570,36 @@ function install(root, room) {
     }
   }
 
+  if (rulesRoom) allowInto(settings, bridgeRules(rulesRoom));   // a WOKEN session runs from the workspace
   fs.writeFileSync(file, JSON.stringify(settings, null, 2) + '\n');
   return { script, settings: file, already };
 }
 
+
+/** The commands the bridge itself runs, allowed by name -- so it works without bypass permissions.
+ *
+ * \u26d4 A BACKGROUND SESSION CANNOT BE ASKED. With the default permission mode, a room session stops
+ * at its first "may I run this?" -- starting the watch -- and in the background nobody can click Allow:
+ * measured, status `waiting`, no heartbeat, the room silent. Monitor goes through the same shell check as
+ * Bash, so these Bash rules cover the watch too. Only the bridge's own scripts, in the forms sessions
+ * actually type (relative and absolute, with and without -u); anything else a session does in the room
+ * still follows the reader's own permission settings. */
+function bridgeRules(room) {
+  const rules = ['Bash(tail -n0 -F chat.jsonl)', 'Bash(python3 -u watch.py)', 'Bash(python3 watch.py)'];
+  for (const f of ['reply.py', 'status.py', 'request.py']) {
+    for (const u of ['', '-u ']) {
+      rules.push(`Bash(python3 ${u}${f}:*)`, `Bash(python3 ${u}${path.join(room, f)}:*)`);
+    }
+  }
+  return rules;
+}
+
+/** Merge allow rules into a settings object, keeping the reader's own. */
+function allowInto(settings, rules) {
+  settings.permissions = settings.permissions || {};
+  const have = settings.permissions.allow = settings.permissions.allow || [];
+  for (const r of rules) if (!have.includes(r)) have.push(r);
+}
 
 /** Give a ROOM folder the same hooks as the workspace.
  *
@@ -596,8 +622,9 @@ function linkRoom(room, root, mirror) {
       list.push({ hooks: [{ type: 'command', command: `python3 ${script}`, timeout: 10 }] });
     }
   }
+  allowInto(settings, bridgeRules(room));
   fs.writeFileSync(file, JSON.stringify(settings, null, 2) + '\n');
   return file;
 }
 
-module.exports = { install, installed, current, hookSource, mirrorSource, linkRoom, SCRIPT, MIRROR };
+module.exports = { install, installed, current, hookSource, mirrorSource, linkRoom, bridgeRules, SCRIPT, MIRROR };

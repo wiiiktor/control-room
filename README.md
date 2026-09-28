@@ -266,6 +266,14 @@ settings are preserved and installing twice is a no-op.
 
 ## Permissions: letting Claude work without a prompt per action
 
+**The room itself does not need bypass.** A background session cannot be asked anything — with the
+default mode it would stop at its first "may I run this?" and the room would go quiet — so Control
+Room allows exactly the commands the bridge runs (the watch, `reply.py`, `status.py`, `request.py`)
+in the room's and the workspace's `.claude/settings.json`. Tested with bypass off: the session arms its
+watch and answers. What a room session does *beyond* the bridge — editing files, running tests —
+follows your own permission settings, and in the background a question blocks it the same way; that is
+what bypass, or your own allow rules, are for. The rest of this section is about the Claude window.
+
 The VS Code extension does **not** read `permissions.defaultMode` from
 `~/.claude/settings.json`. It reads two of its own VS Code settings, and falls back to
 prompting — silently — if only one of them is set:

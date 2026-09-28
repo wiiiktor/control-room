@@ -85,6 +85,13 @@ the files say: the wrapper marks it with its own process id (`CONTROL_ROOM_HOST_
 honours the mark only from its parent — because a background session inherits the environment of the
 long-lived daemon, not of whoever launched it, a bare marker could otherwise end up on room sessions.
 
+**Permissions.** A background session cannot answer a permission question: with the default mode it
+stops at the first one (measured: status `waiting`, no heartbeat). So the room's and the workspace's
+`.claude/settings.json` allow exactly the bridge's own commands — `tail -n0 -F chat.jsonl`, `python3 [-u]
+watch.py`, and `python3 [-u] reply.py|status.py|request.py`, relative and absolute (Monitor is checked like
+Bash). The bridge then works with or without bypass permissions; anything else a session does follows the
+reader's settings.
+
 ## Names
 
 Sessions are named the way the Claude window names them: the transcript's latest `aiTitle` (read from

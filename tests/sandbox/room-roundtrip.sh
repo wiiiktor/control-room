@@ -3,16 +3,19 @@
 # first prompt the panel gives it -- is told by the SessionStart hook to watch, arms the watch
 # (heartbeat), and answers a message written into the room, in the room.
 . "$(dirname "$0")/lib.sh"
-echo "room round trip (sandbox $WS)"
+# PERMS=default runs the session WITHOUT bypass permissions: the bridge must work on its own rules
+PERMS=${PERMS:-}
+echo "room round trip (sandbox $WS)${PERMS:+, permission mode $PERMS}"
 setup_ws
 node -e "
 const h=require('$REPO/extension/src/hook.js');
-h.install('$WS', '$ROOM'); h.linkRoom('$ROOM', '$WS', true);"
+h.install('$WS', '$ROOM', '$ROOM'); h.linkRoom('$ROOM', '$WS', true);"
 check "hooks installed for the workspace and the room" '[ -f "$WS/.claude/settings.json" ] && [ -f "$ROOM/.claude/settings.json" ]'
+check "the bridge commands are allowed in the room" 'grep -q "python3 -u reply.py" "$ROOM/.claude/settings.json"'
 
 WAKE='Watch this control room and answer me in the panel.'
 : > "$ROOM/.expect"
-out=$(cd "$ROOM" && clean "$CLAUDE" --bg --model "$MODEL" "$WAKE" 2>&1)
+out=$(cd "$ROOM" && clean "$CLAUDE" --bg ${PERMS:+--permission-mode "$PERMS"} --model "$MODEL" "$WAKE" 2>&1)
 short=$(printf '%s' "$out" | grep -oE 'backgrounded[^0-9a-f]*[0-9a-f]{6,}' | grep -oE '[0-9a-f]{6,}$')
 check "started in the background" '[ -n "$short" ]'
 sid=""; for _ in $(seq 1 15); do sid=$(agent_field "$short" sessionId); [ -n "$sid" ] && break; sleep 1; done

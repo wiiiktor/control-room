@@ -1173,7 +1173,7 @@ function activate(context) {
       // whole exchange rather than half of it; one setting turns it off
       const mirror = vscode.workspace.getConfiguration('controlRoom').get('mirrorEditorChat') !== false;
       if (!hook.installed(hookRoot) || !hook.current(hookRoot) || mirror) {
-        const out = hook.install(hookRoot, mirror ? dir : null);
+        const out = hook.install(hookRoot, mirror ? dir : null, dir);
         try { hook.linkRoom(dir, hookRoot, !!mirror); } catch { /* read-only room */ }
         hooked = !out.already;                // a refreshed script is not news
       }

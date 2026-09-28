@@ -18,6 +18,7 @@ total=0
 T=$REPO/tests/sandbox
 sh "$T/handoff.sh"; total=$((total + $?))
 sh "$T/room-roundtrip.sh"; total=$((total + $?))
+env PERMS=default sh "$T/room-roundtrip.sh"; total=$((total + $?))
 if [ "${1:-}" != --no-e2e ]; then
   env HANDOFF=off sh "$T/e2e-claude-window.sh"; total=$((total + $?))
   env HANDOFF=on sh "$T/e2e-claude-window.sh"; total=$((total + $?))
