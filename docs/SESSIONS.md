@@ -92,6 +92,12 @@ watch.py`, and `python3 [-u] reply.py|status.py|request.py`, relative and absolu
 Bash). The bridge then works with or without bypass permissions; anything else a session does follows the
 reader's settings.
 
+**Blocked sessions.** Every 20 s the extension asks `claude agents` about the sessions listening in its
+rooms. One whose status has been `waiting` — stopped at a permission question nobody in the background
+can see — for over 20 s is named in the room, once, with two buttons: *Answer it in a terminal*
+(`claude attach <id>`, which shows the question; the step continues when you answer) and *Move it to the
+Claude window* (the step ends; the conversation continues there).
+
 ## Names
 
 Sessions are named the way the Claude window names them: the transcript's latest `aiTitle` (read from

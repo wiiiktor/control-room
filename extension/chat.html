@@ -1326,6 +1326,22 @@
         }
         // The trust screen's own button: start a session, which -- with the folder untrusted --
         // opens as a visible tab showing the trust question, ready to answer.
+        // a blocked session: answer its question in a terminal, or move it to the Claude window
+        const hand = /^__(attach|open_in_claude):([0-9a-f-]{36})$/.exec(btn.dataset.cmd || '');
+        if (hand) {
+          btn.onclick = async () => {
+            btn.disabled = true;
+            const span = btn.querySelector('span');
+            try {
+              const r = await (await fetch('/api/' + hand[1], { method: 'POST',
+                body: JSON.stringify({ session: hand[2] }) })).json();
+              span.textContent = r && r.ok ? (hand[1] === 'attach' ? 'opened — answer it there' : 'moved to the Claude window')
+                                           : 'could not: ' + String((r && (r.why || r.error)) || '').slice(0, 60);
+            } catch { span.textContent = 'could not reach the editor'; }
+          };
+          picks.append(btn);
+          continue;
+        }
         if (btn.dataset.cmd === '__trust_terminal') {
           btn.onclick = async () => {
             btn.disabled = true;

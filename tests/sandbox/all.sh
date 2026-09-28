@@ -23,5 +23,6 @@ if [ "${1:-}" != --no-e2e ]; then
   env HANDOFF=off sh "$T/e2e-claude-window.sh"; total=$((total + $?))
   env HANDOFF=on sh "$T/e2e-claude-window.sh"; total=$((total + $?))
   sh "$T/e2e-takeover.sh"; total=$((total + $?))
+  sh "$T/e2e-blocked.sh"; total=$((total + $?))
 fi
 echo; echo "sandbox: $total failure(s)"; exit $total

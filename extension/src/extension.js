@@ -825,6 +825,54 @@ function releaseOthers(dir, keep) {
   });
 }
 
+/** Show a background session in a terminal tab, where anything it is asking can be answered. */
+function attachInTerminal(dir, sid) {
+  const bin = preflight.findClaude();
+  if (!bin) return { ok: false, why: 'claude is not on the PATH' };
+  const term = vscode.window.createTerminal({
+    name: 'claude · ' + sid.slice(0, 8), cwd: workspaceRoot(dir),
+    location: vscode.TerminalLocation.Editor, shellPath: bin, shellArgs: ['attach', shortId(sid)],
+  });
+  term.show(false);
+  return { ok: true };
+}
+
+/** \u26d4 A SESSION BLOCKED ON A QUESTION LOOKS LIKE ONE THAT IS THINKING. In the background nobody sees
+ *  "may I run this?", and the panel just waited. `claude agents` says `waiting` for exactly that, so
+ *  every 20 s the room's listening sessions are checked, and one waiting for over 20 s is named in the
+ *  room with the two ways to answer it. Said once per wait. */
+const waitingSince = new Map();          // session -> when it was first seen waiting
+function checkBlocked() {
+  const rooms = instances().map(inst => ({ dir: inst.dir, listening: new Log(inst.dir).watchers({}).map(w => w.session) }))
+    .filter(r => r.listening.length);
+  if (!rooms.length) return;
+  liveCache = { at: 0, rows: [] };
+  liveSessions((rows) => {
+    const now = Date.now();
+    for (const { dir, listening } of rooms) {
+      for (const sid of listening) {
+        const row = rows.find(r => r.sessionId === sid);
+        if (!row || row.status !== 'waiting') { waitingSince.delete(sid); continue; }
+        const w = waitingSince.get(sid) || { at: now, said: false };
+        waitingSince.set(sid, w);
+        if (w.said || now - w.at < 20000) continue;
+        w.said = true;
+        const name = titleOf(sid, workspaceRoot(dir), dir) || sid.slice(0, 8);
+        announce(dir, [
+          '::warn ' + name + ' is waiting for your permission',
+          '::say It stopped to ask before running something, and in the background nobody can see the '
+            + 'question — so it will wait for good. Answer it where it can be seen:',
+          '::pick Answer it in a terminal => __attach:' + sid,
+          '::pick Move it to the Claude window => __open_in_claude:' + sid,
+          '::note The terminal keeps it where it is and continues the step once you answer. Moving it '
+            + 'ends the step; the conversation continues in the window. To stop being asked, allow the '
+            + 'command in .claude/settings.json or use bypass permissions.',
+        ].join('\n'), sid);
+      }
+    }
+  });
+}
+
 /** One request from a room (see request.py). Returns what happened, for the asker. */
 async function handleRequest(dir, req) {
   const sid = String(req.session || '');
@@ -887,6 +935,8 @@ function activate(context) {
     }
   }, 1000);
   context.subscriptions.push({ dispose: () => clearInterval(inbox) });
+  const blocked = setInterval(checkBlocked, 20000);
+  context.subscriptions.push({ dispose: () => clearInterval(blocked) });
   // \u26d4 AND SWEEP THE DEAD HEARTBEAT FILES. Every session that ever watched a room leaves its
   // `.watch.<id>` behind for good: eight of them had piled up here for six sessions that no longer
   // exist. The age filter means they cannot fake a watcher, but they are the room's own record of
@@ -1038,6 +1088,16 @@ function activate(context) {
         if (route === '/api/close_claude_tab') {
           const r = await closeClaudeTabs();
           return reply(r);
+        }
+        if (route === '/api/attach') {
+          const sid = (JSON.parse(req.body || '{}').session || '').trim();
+          if (!/^[0-9a-f-]{36}$/.test(sid)) return reply({ error: 'not a session id' });
+          return reply(attachInTerminal(dir, sid));
+        }
+        if (route === '/api/open_in_claude') {
+          const sid = (JSON.parse(req.body || '{}').session || '').trim();
+          if (!/^[0-9a-f-]{36}$/.test(sid)) return reply({ error: 'not a session id' });
+          return reply({ ok: await openInClaude(sid) });
         }
         if (route === '/api/stop_session') {
           const sid = (JSON.parse(req.body || '{}').session || '').trim();

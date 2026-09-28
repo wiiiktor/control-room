@@ -272,7 +272,9 @@ Room allows exactly the commands the bridge runs (the watch, `reply.py`, `status
 in the room's and the workspace's `.claude/settings.json`. Tested with bypass off: the session arms its
 watch and answers. What a room session does *beyond* the bridge — editing files, running tests —
 follows your own permission settings, and in the background a question blocks it the same way; that is
-what bypass, or your own allow rules, are for. The rest of this section is about the Claude window.
+what bypass, or your own allow rules, are for. When one does block, the room says so within a minute
+and offers to show the question in a terminal (`claude attach`) or move the session to the Claude
+window. The rest of this section is about the Claude window.
 
 The VS Code extension does **not** read `permissions.defaultMode` from
 `~/.claude/settings.json`. It reads two of its own VS Code settings, and falls back to
