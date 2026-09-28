@@ -3032,7 +3032,8 @@
     if (msg.asked) {
       const c = el('div', 'crumb', msg.asked);
       c.onclick = () => c.classList.toggle('open');
-      const slot = el('div', 'slot');
+      const slot = el('div', 'slot with-einstein');   // the same row as a live reply's
+      slot.innerHTML = EINSTEIN;
       slot.append(c);
       head.append(slot);
     }
