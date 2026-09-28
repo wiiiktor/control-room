@@ -1628,12 +1628,12 @@
     const isWaking = !alive && !isWorking && wakingNow[target] !== undefined;
     const busyElsewhere = !alive && !away && !isWaking && !isWorking && liveNow[target];
     toHint.textContent = !target ? ''
-      : alive ? id8 + ' · ' + name.slice(0, 36)
-      : isWorking ? id8 + ' · awake — reading your message'
-      : isWaking ? id8 + ' · starting… ' + wakingNow[target] + 's'
-      : away  ? id8 + ' · listening in ' + String(away).slice(0, 26) + ' — not here'
-      : busyElsewhere ? id8 + ' · live elsewhere — Enter stops it and wakes it here'
-              : id8 + ' · asleep — write and it wakes';
+      : alive ? name.slice(0, 36) + ' · ' + id8
+      : isWorking ? 'awake — reading your message · ' + id8
+      : isWaking ? 'starting… ' + wakingNow[target] + 's · ' + id8
+      : away  ? 'listening in ' + String(away).slice(0, 26) + ' — not here · ' + id8
+      : busyElsewhere ? 'live elsewhere — Enter stops it and wakes it here · ' + id8
+              : 'asleep — write and it wakes · ' + id8;
     toHint.classList.toggle('on', !!target);
     toHint.classList.toggle('dead', !!target && !alive && !isWaking && !isWorking && !!away);
     toHint.classList.toggle('sleeping', !!target && !alive && (isWaking || isWorking || !away));
