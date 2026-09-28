@@ -25,7 +25,8 @@
     ::endcard                   closes the most recent ::card
 
   The yellow C picks the palette: "peas with corn" (default), light, dark, and five more.
-  Press 1-9 to choose while the composer is empty. The yellow T opens the timeline:
+  Press 1-9 to choose while the composer is empty. The yellow L picks the language of the
+  words beside the three dots while an answer is on its way. The yellow T opens the timeline:
   every past reply, re-rendered small; hover one to read it full size on the left.
 -->
 <script>
@@ -223,6 +224,19 @@
   #pal-btn:hover, #pal-btn.on { opacity: 1; }
   #pal-btn.on { box-shadow: 0 0 0 4px var(--ring-ink); }
 
+  /* the language of the waiting words, under S: the same lamp as T and C */
+  #lang-btn {
+    position: fixed; top: 181px; right: 18px; z-index: 6;
+    display: grid; place-items: center; padding: 0;
+    width: 20px; height: 20px; border-radius: 50%;
+    font: 900 11px/1 inherit; color: var(--on-yellow);
+    background: var(--yellow); border: 3px solid var(--ink);
+    box-shadow: 0 0 0 4px var(--ring-yellow);
+    cursor: pointer; opacity: .75; transition: opacity .12s;
+  }
+  #lang-btn:hover, #lang-btn.on { opacity: 1; }
+  #lang-btn.on { box-shadow: 0 0 0 4px var(--ring-ink); }
+
   /* fifth lamp: the session picker, moved out of the timeline strip.
      ⛔ IT DOES NOT BELONG UNDER T. Choosing which Claude answers is not a way of looking at old
      replies, and burying it in the timeline meant opening one thing to do another. It is an action,
@@ -404,20 +418,22 @@
     background: var(--yellow-soft); border: 2px solid var(--hair);
   }
 
-  #palette {
+  #palette, #langs {
     display: none; position: fixed; top: 115px; right: 50px; z-index: 7;
     flex-direction: column; gap: 6px; padding: 10px;
     background: var(--panel); border: 3px solid var(--ink); box-shadow: var(--pop-sm);
   }
-  #palette.open { display: flex; }
-  #palette button {
+  #palette.open, #langs.open { display: flex; }
+  #palette button, #langs button {
     font: inherit; font-size: 15px; font-weight: 800; color: var(--ink); cursor: pointer;
     background: var(--paper); border: 3px solid var(--ink); border-radius: 10px;
     padding: 7px 14px; text-align: left; white-space: nowrap;
     display: flex; align-items: center; gap: 9px;
   }
-  #palette button:hover { background: var(--yellow-soft); }
-  #palette button[aria-checked="true"] { background: var(--green-soft); }
+  #palette button:hover, #langs button:hover { background: var(--yellow-soft); }
+  #palette button[aria-checked="true"], #langs button[aria-checked="true"] { background: var(--green-soft); }
+  #langs { top: 181px; }
+  #langs button em { font-style: normal; font-weight: 600; opacity: var(--dim-2); margin-left: auto; padding-left: 14px; }
   #palette .chip {
     flex: none; width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--ink);
   }
@@ -922,6 +938,8 @@
   <button id="pal-btn" type="button" title="Colour palette">C</button>
   <button id="sess-btn" type="button" title="Sessions — choose which Claude answers"><i>S</i><b>SESSIONS</b></button>
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
+  <button id="lang-btn" type="button" title="Language of the waiting words">L</button>
+  <div id="langs" role="radiogroup" aria-label="Language of the waiting words"></div>
   <div id="lamp" title="Connected"></div>
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
   <div id="splash" role="dialog" aria-label="Start a working session">
@@ -1711,39 +1729,448 @@
      written here: a workshop, a kitchen, weather, small animals going about their business, a
      library, a lab, the sky, a garden, the road, and a pile of nonsense. Checked against the
      extracted list: zero overlap, and no duplicates among themselves. */
-  const WAIT_WORDS = [
-    'Whittling', 'Sanding', 'Planing', 'Dovetailing', 'Riveting', 'Soldering', 'Smelting',
-    'Annealing', 'Quenching', 'Filing', 'Lathing', 'Chiselling', 'Burnishing', 'Lacquering',
-    'Distilling', 'Steeping', 'Reducing', 'Deglazing', 'Clarifying', 'Folding', 'Basting',
-    'Poaching', 'Curing', 'Pickling', 'Candying', 'Whipping', 'Sieving', 'Scalding',
-    'Squalling', 'Drifting', 'Thawing', 'Condensing', 'Trickling', 'Eddying', 'Cresting',
-    'Brimming', 'Sluicing', 'Seeping', 'Rimefrosting', 'Hailing', 'Dewing', 'Gathering',
-    'Snuffling', 'Rummaging', 'Foraging', 'Hoarding', 'Preening', 'Nuzzling', 'Scuttling',
-    'Hibernating', 'Molting', 'Fledging', 'Wallowing', 'Grazing', 'Perching', 'Denning',
-    'Ambling', 'Sauntering', 'Trundling', 'Pootling', 'Bimbling', 'Mooching', 'Traipsing',
-    'Gadding', 'Cavorting', 'Capering', 'Prancing', 'Sashaying', 'Tottering', 'Careening',
-    'Surmising', 'Inducting', 'Abducting', 'Weighing', 'Reckoning', 'Divining', 'Auguring',
-    'Construing', 'Adducing', 'Extrapolating', 'Interpolating', 'Triangulating',
-    'Disambiguating', 'Guesstimating', 'Annotating', 'Glossing', 'Collating', 'Indexing',
-    'Footnoting', 'Rubricating', 'Redrafting', 'Proofreading', 'Transcribing', 'Illuminating',
-    'Palimpsesting', 'Anthologizing', 'Abridging', 'Emending', 'Squizzling', 'Bumblefussing',
-    'Thinkerating', 'Wobbulating', 'Kerplunking', 'Flimflaming', 'Snorkelling', 'Widgeting',
-    'Sprocketing', 'Gubbinsing', 'Thingumbobbing', 'Doohickeying', 'Whatnotting', 'Oojahing',
-    'Bodging', 'Faffing', 'Footling', 'Dithering', 'Havering', 'Wittering', 'Blethering',
-    'Nattering', 'Yammering', 'Waffling', 'Burbling', 'Prattling', 'Gibbering', 'Jabbering',
-    'Titrating', 'Centrifuging', 'Pipetting', 'Culturing', 'Assaying', 'Calibrating',
-    'Sequencing', 'Staining', 'Refracting', 'Diffracting', 'Polarizing', 'Sintering',
-    'Electroplating', 'Vulcanizing', 'Stargazing', 'Constellating', 'Eclipsing', 'Transiting',
-    'Conjuncting', 'Zenithing', 'Accreting', 'Redshifting', 'Lensing', 'Spiralling',
-    'Culminating', 'Librating', 'Precessing', 'Mulching', 'Pruning', 'Grafting',
-    'Deadheading', 'Composting', 'Espaliering', 'Coppicing', 'Layering', 'Hardening', 'Potting',
-    'Dibbling', 'Earthing', 'Staking', 'Thinning', 'Wayfinding', 'Portaging', 'Fording',
-    'Switchbacking', 'Scrambling', 'Bushwhacking', 'Beachcombing', 'Mudlarking', 'Wildcamping',
-    'Hitching', 'Freewheeling', 'Coasting', 'Bivouacking', 'Yomping', 'Marvelling', 'Dawdling',
-    'Loafing', 'Idling', 'Pottering', 'Mooncalfing', 'Mithering', 'Rejigging',
-  ];
+  const WAIT_WORDS = {
+    en: [
+      "Whittling", "Sanding", "Planing", "Dovetailing", "Riveting", "Soldering", "Smelting",
+      "Annealing", "Quenching", "Filing", "Lathing", "Chiselling", "Burnishing", "Lacquering",
+      "Distilling", "Steeping", "Reducing", "Deglazing", "Clarifying", "Folding", "Basting",
+      "Poaching", "Curing", "Pickling", "Candying", "Whipping", "Sieving", "Scalding", "Squalling",
+      "Drifting", "Thawing", "Condensing", "Trickling", "Eddying", "Cresting", "Brimming",
+      "Sluicing", "Seeping", "Rimefrosting", "Hailing", "Dewing", "Gathering", "Snuffling",
+      "Rummaging", "Foraging", "Hoarding", "Preening", "Nuzzling", "Scuttling", "Hibernating",
+      "Molting", "Fledging", "Wallowing", "Grazing", "Perching", "Denning", "Ambling", "Sauntering",
+      "Trundling", "Pootling", "Bimbling", "Mooching", "Traipsing", "Gadding", "Cavorting",
+      "Capering", "Prancing", "Sashaying", "Tottering", "Careening", "Surmising", "Inducting",
+      "Weighing", "Reckoning", "Divining", "Auguring", "Construing", "Adducing", "Extrapolating",
+      "Interpolating", "Triangulating", "Disambiguating", "Guesstimating", "Annotating", "Glossing",
+      "Collating", "Indexing", "Footnoting", "Rubricating", "Redrafting", "Proofreading",
+      "Transcribing", "Illuminating", "Palimpsesting", "Anthologizing", "Abridging", "Emending",
+      "Squizzling", "Bumblefussing", "Thinkerating", "Wobbulating", "Kerplunking", "Snorkelling",
+      "Widgeting", "Sprocketing", "Gubbinsing", "Thingumbobbing", "Doohickeying", "Whatnotting",
+      "Oojahing", "Bodging", "Faffing", "Footling", "Dithering", "Havering", "Wittering",
+      "Blethering", "Nattering", "Yammering", "Waffling", "Burbling", "Prattling", "Titrating",
+      "Centrifuging", "Pipetting", "Culturing", "Assaying", "Calibrating", "Sequencing", "Staining",
+      "Refracting", "Diffracting", "Polarizing", "Sintering", "Electroplating", "Vulcanizing",
+      "Stargazing", "Constellating", "Eclipsing", "Transiting", "Conjuncting", "Zenithing",
+      "Accreting", "Redshifting", "Lensing", "Spiralling", "Culminating", "Librating", "Precessing",
+      "Mulching", "Pruning", "Grafting", "Deadheading", "Composting", "Espaliering", "Coppicing",
+      "Layering", "Hardening", "Potting", "Dibbling", "Earthing", "Staking", "Thinning",
+      "Wayfinding", "Portaging", "Fording", "Switchbacking", "Scrambling", "Beachcombing",
+      "Mudlarking", "Wildcamping", "Hitching", "Freewheeling", "Coasting", "Bivouacking", "Yomping",
+      "Marvelling", "Dawdling", "Loafing", "Idling", "Pottering", "Mithering", "Rejigging",
+    ],
+    pl: [
+      "Strugam patyczek", "Szlifuję papierem", "Hebluję", "Łączę na jaskółczy ogon", "Nituję",
+      "Lutuję", "Wytapiam rudę", "Wyżarzam", "Hartuję w wodzie", "Piłuję pilnikiem",
+      "Toczę na tokarce", "Dłutuję", "Poleruję na błysk", "Lakieruję", "Destyluję", "Zaparzam",
+      "Redukuję sos", "Zeskrobuję patelnię", "Klaruję masło", "Składam ciasto",
+      "Polewam pieczeń sosem", "Gotuję w koszulce", "Pekluję", "Kiszę ogórki", "Kandyzuję",
+      "Ubijam śmietanę", "Przesiewam mąkę", "Parzę mleko", "Nadciągam jak szkwał", "Dryfuję",
+      "Odmarzam", "Skraplam się", "Sączę się strużką", "Kręcę się w wirze",
+      "Wznoszę się na grzbiet fali", "Wzbieram", "Otwieram śluzy", "Przesiąkam",
+      "Pokrywam się szronem", "Sypię gradem", "Osiadam jak rosa", "Zbieram się jak chmury", "Węszę",
+      "Grzebię w szufladach", "Zbieram runo leśne", "Robię zapasy jak chomik", "Muskam piórka",
+      "Trącam noskiem", "Umykam bokiem jak krab", "Zapadam w sen zimowy", "Linieję", "Opierzam się",
+      "Tarzam się w błocie", "Skubię trawkę", "Przysiadam na gałęzi", "Moszczę norę",
+      "Idę niespiesznie", "Przechadzam się", "Toczę się powoli", "Pyrkam sobie",
+      "Snuję się bez celu", "Włóczę się", "Wlokę się", "Szwendam się", "Hasam", "Podskakuję",
+      "Pląsam", "Kroczę jak po wybiegu", "Chwieję się", "Pędzę na złamanie karku", "Domniemywam",
+      "Rozumuję indukcyjnie", "Ważę racje", "Rachuję", "Wróżę", "Czytam z lotu ptaków",
+      "Interpretuję", "Przytaczam dowody", "Ekstrapoluję", "Interpoluję", "Trianguluję",
+      "Rozstrzygam dwuznaczności", "Szacuję na oko", "Dopisuję uwagi na marginesie", "Piszę glosy",
+      "Zestawiam wersje", "Układam indeks", "Dodaję przypisy", "Maluję inicjały na czerwono",
+      "Piszę od nowa", "Robię korektę", "Przepisuję", "Iluminuję rękopis", "Piszę na palimpseście",
+      "Układam antologię", "Skracam", "Poprawiam tekst", "Kombinuję jak koń pod górę",
+      "Krzątam się bezładnie", "Myślkuję", "Chybotam się", "Robię plum", "Nurkuję z rurką",
+      "Dłubię przy ustrojstwie", "Kręcę zębatkami", "Przebieram w szpargałach",
+      "Majstruję przy wihajstrze", "Przykręcam dynksa", "Robię to i owo", "Szukam tego, no, tego",
+      "Łatam na szybko", "Guzdram się", "Marudzę", "Waham się", "Plotę trzy po trzy", "Paplam",
+      "Gawędzę", "Ucinam pogawędkę", "Trajkoczę", "Leję wodę", "Szemrzę", "Szczebioczę",
+      "Miareczkuję", "Wrzucam do wirówki", "Pipetuję", "Hoduję kultury", "Badam próbkę",
+      "Kalibruję", "Sekwencjonuję", "Barwię preparat", "Załamuję światło", "Uginam światło",
+      "Polaryzuję", "Spiekam", "Galwanizuję", "Wulkanizuję", "Patrzę w gwiazdy",
+      "Układam gwiazdozbiory", "Zaćmiewam", "Przechodzę przed tarczą", "Wchodzę w koniunkcję",
+      "Wspinam się do zenitu", "Zbieram materię", "Uciekam ku czerwieni", "Zakrzywiam światło",
+      "Kręcę spiralę", "Osiągam kulminację", "Kołyszę się jak Księżyc", "Precesuję", "Ściółkuję",
+      "Przycinam gałązki", "Szczepię", "Obrywam przekwitłe kwiaty", "Kompostuję",
+      "Prowadzę szpaler", "Odmładzam zagajnik", "Ukorzeniam odkłady", "Hartuję sadzonki",
+      "Przesadzam do doniczki", "Robię dołki na nasiona", "Obsypuję ziemniaki", "Palikuję pomidory",
+      "Przerywam marchewkę", "Szukam drogi", "Przenoszę kajak", "Przechodzę w bród", "Idę zakosami",
+      "Wspinam się na czworakach", "Przeczesuję plażę", "Grzebię w mule nad rzeką",
+      "Biwakuję na dziko", "Łapię stopa", "Jadę na luzie", "Toczę się siłą rozpędu",
+      "Rozbijam biwak", "Maszeruję z plecakiem", "Zachwycam się", "Marudzę po drodze", "Obijam się",
+      "Jadę na jałowym", "Dłubię w ogródku", "Zrzędzę", "Przestawiam wszystko",
+    ],
+    es: [
+      "Tallando un palito", "Lijando", "Cepillando madera", "Ensamblando a cola de milano",
+      "Remachando", "Soldando", "Fundiendo mineral", "Recociendo el metal", "Templando en agua",
+      "Limando", "Torneando", "Cincelando", "Bruñendo", "Laqueando", "Destilando", "Infusionando",
+      "Reduciendo la salsa", "Desglasando la sartén", "Clarificando mantequilla",
+      "Plegando la masa", "Regando el asado", "Escalfando huevos", "Curando jamón",
+      "Encurtiendo pepinillos", "Confitando", "Montando nata", "Tamizando harina",
+      "Escaldando la leche", "Soplando en ráfagas", "A la deriva", "Descongelándome",
+      "Condensándome", "Goteando", "Arremolinándome", "Coronando la ola", "Rebosando",
+      "Abriendo las compuertas", "Filtrándome", "Cubriéndome de escarcha", "Granizando",
+      "Posándome como rocío", "Nublándome", "Olfateando", "Hurgando en los cajones",
+      "Buscando setas", "Acaparando como una ardilla", "Acicalándome las plumas", "Hocicando",
+      "Correteando como un cangrejo", "Hibernando", "Mudando la piel", "Echando plumas",
+      "Revolcándome en el barro", "Pastando", "Posándome en una rama",
+      "Acondicionando la madriguera", "Paseando sin prisa", "Deambulando", "Rodando despacito",
+      "Tirando a mi aire", "Vagando sin rumbo", "Callejeando", "Arrastrando los pies",
+      "Zascandileando", "Retozando", "Brincando", "Haciendo cabriolas",
+      "Desfilando como en pasarela", "Tambaleándome", "Corriendo a toda mecha", "Conjeturando",
+      "Razonando por inducción", "Sopesando razones", "Echando cuentas", "Adivinando",
+      "Leyendo el vuelo de los pájaros", "Interpretando", "Aportando pruebas", "Extrapolando",
+      "Interpolando", "Triangulando", "Desambiguando", "Calculando a ojo", "Anotando al margen",
+      "Glosando", "Cotejando versiones", "Indexando", "Añadiendo notas al pie",
+      "Pintando capitulares en rojo", "Reescribiendo", "Corrigiendo pruebas", "Transcribiendo",
+      "Iluminando manuscritos", "Escribiendo en un palimpsesto", "Compilando una antología",
+      "Abreviando", "Enmendando el texto", "Ingeniándomelas", "Trajinando sin ton ni son",
+      "Pensamenteando", "Bamboleándome", "Haciendo plof", "Buceando con tubo",
+      "Toqueteando el cacharro", "Girando engranajes", "Revolviendo cachivaches",
+      "Ajustando el chisme", "Atornillando el cosito", "Haciendo esto y aquello",
+      "Buscando el coso ese", "Haciendo un apaño", "Remoloneando", "Tonteando", "Titubeando",
+      "Divagando", "Parloteando", "Charlando", "De cháchara", "Hablando por los codos",
+      "Enrollándome", "Murmurando como un arroyo", "Cotorreando", "Titulando", "Centrifugando",
+      "Pipeteando", "Cultivando cepas", "Ensayando una muestra", "Calibrando", "Secuenciando",
+      "Tiñendo la muestra", "Refractando la luz", "Difractando la luz", "Polarizando",
+      "Sinterizando", "Galvanizando", "Vulcanizando", "Mirando las estrellas",
+      "Trazando constelaciones", "Eclipsando", "Transitando ante el disco",
+      "Entrando en conjunción", "Subiendo al cenit", "Acumulando materia", "Desplazándome al rojo",
+      "Curvando la luz", "Girando en espiral", "Culminando", "Balanceándome como la Luna",
+      "Precesando", "Echando mantillo", "Podando", "Injertando", "Quitando flores marchitas",
+      "Compostando", "Guiando en espaldera", "Rejuveneciendo el soto", "Acodando",
+      "Aclimatando plantones", "Trasplantando a maceta", "Haciendo hoyitos para semillas",
+      "Aporcando patatas", "Entutorando tomates", "Aclarando zanahorias", "Buscando el camino",
+      "Porteando la canoa", "Vadeando el río", "Subiendo en zigzag", "Trepando a cuatro patas",
+      "Peinando la playa", "Rebuscando en el barro del río", "Acampando en plena naturaleza",
+      "Haciendo autostop", "Rodando a rueda libre", "Bajando por inercia", "Montando un vivac",
+      "Marchando con la mochila", "Maravillándome", "Entreteniéndome por el camino", "Haraganeando",
+      "Al ralentí", "Trasteando en el jardín", "Refunfuñando", "Reorganizándolo todo",
+    ],
+    fr: [
+      "Je taille un bâton", "Je ponce", "Je rabote", "J'assemble en queue d'aronde", "Je rivette",
+      "Je soude", "Je fonds le minerai", "Je recuis le métal", "Je trempe l'acier", "Je lime",
+      "Je tourne au tour", "Je cisèle", "Je polis jusqu'à briller", "Je laque", "Je distille",
+      "Je fais infuser", "Je réduis la sauce", "Je déglace la poêle", "Je clarifie le beurre",
+      "J'incorpore délicatement", "J'arrose le rôti", "Je poche les œufs", "Je sale le jambon",
+      "Je fais des cornichons", "Je confis des fruits", "Je fouette la crème",
+      "Je tamise la farine", "Je fais frémir le lait", "Je souffle en rafales", "Je dérive",
+      "Je dégèle", "Je me condense", "Je ruisselle", "Je tourbillonne", "Je monte sur la crête",
+      "Je déborde", "J'ouvre les vannes", "Je m'infiltre", "Je me couvre de givre", "Je grêle",
+      "Je perle en rosée", "Je m'amoncelle en nuages", "Je renifle", "Je fouille les tiroirs",
+      "Je cueille en forêt", "J'amasse comme un écureuil", "Je lisse mes plumes",
+      "Je frotte mon museau", "Je file en crabe", "J'hiberne", "Je mue", "Je prends mes plumes",
+      "Je me roule dans la boue", "Je broute", "Je me perche", "J'aménage mon terrier", "Je flâne",
+      "Je déambule", "Je roule tranquille", "Je bricole à mon rythme", "J'erre sans but",
+      "Je vadrouille", "Je traîne des pieds", "Je me balade", "Je batifole", "Je gambade",
+      "Je caracole", "Je défile comme un mannequin", "Je chancelle", "Je fonce à toute allure",
+      "Je conjecture", "Je raisonne par induction", "Je pèse le pour et le contre",
+      "Je fais mes comptes", "Je devine", "Je lis le vol des oiseaux", "J'interprète",
+      "J'apporte des preuves", "J'extrapole", "J'interpole", "Je triangule",
+      "Je lève les ambiguïtés", "J'estime à vue de nez", "J'annote les marges", "Je glose",
+      "Je collationne", "J'indexe", "J'ajoute des notes de bas de page",
+      "Je peins des lettrines rouges", "Je réécris", "Je relis les épreuves", "Je transcris",
+      "J'enlumine un manuscrit", "J'écris sur un palimpseste", "Je compose une anthologie",
+      "J'abrège", "Je corrige le texte", "Je bidouillifie", "Je m'affaire en tous sens",
+      "Je cogitationne", "Je brinquebale", "Je fais plouf", "Je nage avec un tuba",
+      "Je tripote le bidule", "Je fais tourner les engrenages", "Je fouille dans le fourbi",
+      "Je règle le machin", "Je visse le truc", "Je fais ceci et cela", "Je cherche le trucmuche",
+      "Je rafistole", "Je lambine", "Je musarde", "J'hésite", "Je divague", "Je papote",
+      "Je bavarde", "Je taille une bavette", "Je jacasse", "Je brode",
+      "Je gazouille comme un ruisseau", "Je babille", "Je titre la solution", "Je centrifuge",
+      "Je pipette", "Je cultive des souches", "J'analyse l'échantillon", "J'étalonne",
+      "Je séquence", "Je colore la lame", "Je réfracte la lumière", "Je diffracte la lumière",
+      "Je polarise", "Je fritte", "Je galvanise", "Je vulcanise", "J'observe les étoiles",
+      "Je dessine des constellations", "J'éclipse", "Je transite devant le disque",
+      "J'entre en conjonction", "Je monte au zénith", "J'amasse de la matière",
+      "Je me décale vers le rouge", "Je courbe la lumière", "Je tourne en spirale", "Je culmine",
+      "Je me balance comme la Lune", "Je fais ma précession", "Je paille le potager",
+      "Je taille les rameaux", "Je greffe", "J'ôte les fleurs fanées", "Je composte",
+      "Je palisse en espalier", "Je recèpe le taillis", "Je marcotte", "J'endurcis les semis",
+      "Je rempote", "Je sème au plantoir", "Je butte les pommes de terre", "Je tuteure les tomates",
+      "J'éclaircis les carottes", "Je cherche mon chemin", "Je porte le canoë", "Je passe à gué",
+      "Je monte en lacets", "Je grimpe à quatre pattes", "Je ratisse la plage",
+      "Je fouille la vase du fleuve", "Je campe en pleine nature", "Je fais du stop",
+      "Je roule en roue libre", "Je file sur mon élan", "Je monte le bivouac",
+      "Je crapahute sac au dos", "Je m'émerveille", "Je traînasse en route", "Je paresse",
+      "Je tourne au ralenti", "Je jardine tranquille", "Je ronchonne", "Je réarrange tout",
+    ],
+    de: [
+      "Schnitze ein Stöckchen", "Schleife", "Hoble", "Verbinde per Schwalbenschwanz", "Niete",
+      "Löte", "Schmelze Erz", "Glühe aus", "Schrecke im Wasser ab", "Feile", "Drechsle", "Meißle",
+      "Poliere auf Hochglanz", "Lackiere", "Destilliere", "Lasse ziehen", "Reduziere die Soße",
+      "Lösche den Bratensatz ab", "Kläre Butter", "Hebe Eischnee unter", "Begieße den Braten",
+      "Pochiere Eier", "Pökle", "Lege Gurken ein", "Kandiere", "Schlage Sahne", "Siebe Mehl",
+      "Brühe Milch auf", "Fege als Bö heran", "Treibe dahin", "Taue auf", "Kondensiere", "Tröpfle",
+      "Wirble", "Reite auf dem Wellenkamm", "Laufe über", "Öffne die Schleusen", "Sickere durch",
+      "Überziehe mich mit Raureif", "Hagle", "Perle als Tau", "Balle mich zu Wolken", "Schnüffle",
+      "Krame in Schubladen", "Sammle Pilze", "Hamstere", "Putze mein Gefieder",
+      "Stupse mit der Nase", "Krabble seitwärts", "Halte Winterschlaf", "Mausere mich",
+      "Werde flügge", "Suhle mich im Schlamm", "Grase", "Hocke auf dem Ast", "Polstere meinen Bau",
+      "Schlendere", "Flaniere", "Zockle gemütlich", "Tüftle vor mich hin", "Streune ziellos umher",
+      "Bummle", "Latsche", "Stromere herum", "Tolle herum", "Hüpfe", "Tänzle",
+      "Stolziere wie auf dem Laufsteg", "Wackle", "Rase Hals über Kopf", "Mutmaße",
+      "Schließe induktiv", "Wäge ab", "Rechne", "Weissage", "Lese im Vogelflug", "Deute",
+      "Führe Belege an", "Extrapoliere", "Interpoliere", "Trianguliere",
+      "Löse Mehrdeutigkeiten auf", "Schätze Pi mal Daumen", "Kritzle an den Rand", "Glossiere",
+      "Kollationiere", "Erstelle ein Register", "Setze Fußnoten", "Male rote Initialen",
+      "Schreibe neu", "Lese Korrektur", "Transkribiere", "Illuminiere Handschriften",
+      "Beschreibe ein Palimpsest", "Stelle eine Anthologie zusammen", "Kürze",
+      "Verbessere den Text", "Wurschtle mich durch", "Wusle kopflos herum", "Denkeliere", "Wabbele",
+      "Mache plumps", "Schnorchle", "Friemle am Dingsbums", "Drehe an Zahnrädern",
+      "Wühle im Krimskrams", "Bastle am Dingsda", "Schraube am Firlefanz", "Mache dies und das",
+      "Suche das Dings, na das", "Flicke provisorisch", "Trödle", "Tändle herum", "Zaudere",
+      "Schwadroniere", "Plappere", "Klöne", "Halte ein Schwätzchen", "Quassle", "Schwafle",
+      "Plätschere", "Schnattere", "Titriere", "Zentrifugiere", "Pipettiere", "Züchte Kulturen",
+      "Prüfe die Probe", "Kalibriere", "Sequenziere", "Färbe das Präparat", "Breche das Licht",
+      "Beuge das Licht", "Polarisiere", "Sintere", "Galvanisiere", "Vulkanisiere",
+      "Schaue in die Sterne", "Ordne Sternbilder", "Verfinstere",
+      "Ziehe vor der Sonnenscheibe vorbei", "Gehe in Konjunktion", "Steige zum Zenit",
+      "Sammle Materie an", "Verschiebe mich ins Rote", "Krümme das Licht", "Drehe Spiralen",
+      "Kulminiere", "Schaukle wie der Mond", "Präzediere", "Mulche", "Schneide Zweige zurück",
+      "Veredle", "Knipse Verblühtes ab", "Kompostiere", "Ziehe Spalierobst",
+      "Setze Hecken auf den Stock", "Bewurzle Absenker", "Härte Setzlinge ab", "Topfe um",
+      "Steche Saatlöcher", "Häufle Kartoffeln an", "Binde Tomaten an", "Vereinzle Möhren",
+      "Suche den Weg", "Trage das Kanu", "Durchwate die Furt", "Gehe Serpentinen",
+      "Kraxle auf allen vieren", "Durchkämme den Strand", "Stöbere im Flussschlamm", "Zelte wild",
+      "Trampe", "Rolle im Freilauf", "Lasse mich rollen", "Schlage ein Biwak auf",
+      "Marschiere mit Gepäck", "Staune", "Lasse mir Zeit", "Faulenze", "Laufe im Leerlauf",
+      "Werkle im Garten", "Nörgle", "Stelle alles um",
+    ],
+    pt: [
+      "Talhando um graveto", "Lixando", "Aplainando", "Encaixando rabo de andorinha", "Rebitando",
+      "Soldando", "Fundindo minério", "Recozendo o metal", "Temperando na água", "Limando",
+      "Torneando", "Cinzelando", "Brunindo até brilhar", "Envernizando", "Destilando",
+      "Deixando em infusão", "Reduzindo o molho", "Deglaceando a frigideira",
+      "Clarificando manteiga", "Dobrando a massa", "Regando o assado", "Pochando ovos",
+      "Curando presunto", "Fazendo picles", "Cristalizando frutas", "Batendo chantili",
+      "Peneirando farinha", "Escaldando o leite", "Soprando em rajadas", "À deriva",
+      "Descongelando", "Condensando", "Gotejando", "Rodopiando", "Subindo na crista da onda",
+      "Transbordando", "Abrindo as comportas", "Infiltrando", "Me cobrindo de geada",
+      "Chovendo granizo", "Pousando como orvalho", "Juntando nuvens", "Farejando",
+      "Remexendo gavetas", "Catando cogumelos", "Estocando feito esquilo", "Alisando as penas",
+      "Fuçando com o focinho", "Andando de lado feito caranguejo", "Hibernando", "Trocando de pele",
+      "Criando penas", "Rolando na lama", "Pastando", "Empoleirando", "Arrumando a toca",
+      "Andando sem pressa", "Passeando", "Rodando devagarinho", "Zanzando por aí",
+      "Vagando sem rumo", "Perambulando", "Arrastando os pés", "Batendo perna", "Pintando o sete",
+      "Saltitando", "Dando piruetas", "Desfilando na passarela", "Cambaleando", "Correndo a toda",
+      "Conjecturando", "Raciocinando por indução", "Pesando os prós e contras", "Fazendo as contas",
+      "Adivinhando", "Lendo o voo dos pássaros", "Interpretando", "Apresentando provas",
+      "Extrapolando", "Interpolando", "Triangulando", "Desfazendo ambiguidades",
+      "Calculando a olho", "Anotando nas margens", "Glosando", "Cotejando versões", "Indexando",
+      "Pondo notas de rodapé", "Pintando capitulares em vermelho", "Reescrevendo",
+      "Revisando provas", "Transcrevendo", "Iluminando manuscritos", "Escrevendo num palimpsesto",
+      "Montando uma antologia", "Resumindo", "Emendando o texto", "Dando um jeitinho",
+      "Correndo pra lá e pra cá", "Pensamentando", "Bambolejando", "Fazendo tchibum",
+      "Mergulhando de snorkel", "Mexendo na geringonça", "Girando engrenagens",
+      "Revirando as tralhas", "Ajustando o treco", "Parafusando o troço", "Fazendo isso e aquilo",
+      "Procurando aquele negócio", "Fazendo uma gambiarra", "Enrolando", "Fazendo hora",
+      "Hesitando", "Divagando", "Tagarelando", "Batendo papo", "Jogando conversa fora",
+      "Falando pelos cotovelos", "Enchendo linguiça", "Murmurando feito riacho", "Papagueando",
+      "Titulando", "Centrifugando", "Pipetando", "Cultivando cepas", "Analisando a amostra",
+      "Calibrando", "Sequenciando", "Corando a lâmina", "Refratando a luz", "Difratando a luz",
+      "Polarizando", "Sinterizando", "Galvanizando", "Vulcanizando", "Olhando as estrelas",
+      "Desenhando constelações", "Eclipsando", "Transitando diante do disco",
+      "Entrando em conjunção", "Subindo ao zênite", "Acumulando matéria",
+      "Desviando para o vermelho", "Curvando a luz", "Girando em espiral", "Culminando",
+      "Balançando feito a Lua", "Precessando", "Cobrindo com palha", "Podando", "Enxertando",
+      "Tirando flores murchas", "Compostando", "Conduzindo em espaldeira", "Renovando o arvoredo",
+      "Enraizando mergulhias", "Aclimatando mudas", "Passando para o vaso",
+      "Abrindo covinhas para sementes", "Amontoando terra nas batatas", "Tutorando tomates",
+      "Raleando cenouras", "Procurando o caminho", "Carregando a canoa", "Atravessando o vau",
+      "Subindo em zigue-zague", "Escalando de quatro", "Garimpando a praia",
+      "Catando coisas na lama do rio", "Acampando no mato", "Pedindo carona",
+      "Descendo na banguela", "Seguindo no embalo", "Montando bivaque", "Marchando de mochila",
+      "Me maravilhando", "Parando em cada esquina", "Na moleza", "Em marcha lenta",
+      "Mexendo no jardim", "Resmungando", "Rearrumando tudo",
+    ],
+    ru: [
+      "Строгаю палочку", "Шлифую наждачкой", "Орудую рубанком", "Вяжу ласточкин хвост",
+      "Клепаю заклёпки", "Паяю", "Выплавляю руду", "Отжигаю металл", "Закаляю в воде",
+      "Работаю напильником", "Точу на токарном станке", "Орудую стамеской", "Полирую до блеска",
+      "Покрываю лаком", "Перегоняю", "Завариваю", "Увариваю соус",
+      "Соскребаю пригарки со сковородки", "Осветляю масло", "Вмешиваю тесто",
+      "Поливаю жаркое соком", "Варю яйцо пашот", "Солю и вялю", "Солю огурцы", "Засахариваю",
+      "Взбиваю сливки", "Просеиваю муку", "Кипячу молоко", "Налетаю шквалом", "Дрейфую", "Оттаиваю",
+      "Конденсируюсь", "Сочусь струйкой", "Кружусь в водовороте", "Взлетаю на гребень волны",
+      "Наполняюсь до краёв", "Открываю шлюзы", "Просачиваюсь", "Покрываюсь инеем", "Сыплю градом",
+      "Выпадаю росой", "Собираюсь как тучи", "Принюхиваюсь", "Роюсь в ящиках",
+      "Собираю грибы и ягоды", "Запасаюсь как хомяк", "Чищу пёрышки", "Тыкаюсь носиком",
+      "Бегу бочком как краб", "Впадаю в спячку", "Линяю", "Оперяюсь", "Валяюсь в грязи",
+      "Щиплю травку", "Сижу на ветке", "Обустраиваю нору", "Иду не спеша", "Прогуливаюсь",
+      "Качусь потихоньку", "Тарахчу себе", "Брожу без цели", "Слоняюсь", "Плетусь",
+      "Шатаюсь по округе", "Резвлюсь", "Скачу вприпрыжку", "Гарцую", "Дефилирую как по подиуму",
+      "Пошатываюсь", "Несусь сломя голову", "Строю догадки", "Рассуждаю индуктивно",
+      "Взвешиваю доводы", "Прикидываю", "Гадаю", "Гадаю по полёту птиц", "Толкую", "Привожу доводы",
+      "Экстраполирую", "Интерполирую", "Провожу триангуляцию", "Устраняю двусмысленности",
+      "Прикидываю на глазок", "Пишу заметки на полях", "Составляю глоссы", "Сверяю версии",
+      "Составляю указатель", "Добавляю сноски", "Рисую красные буквицы", "Переписываю набело",
+      "Вычитываю корректуру", "Переписываю от руки", "Украшаю рукопись миниатюрами",
+      "Пишу на палимпсесте", "Составляю антологию", "Сокращаю", "Правлю текст", "Мудрю-хитрю",
+      "Суечусь-мельтешу", "Думкаю", "Шебуршусь", "Делаю бульк", "Плаваю с трубкой",
+      "Ковыряюсь в штуковине", "Кручу шестерёнки", "Перебираю всякую всячину",
+      "Колдую над штуковиной", "Прикручиваю загогулину", "Делаю то да сё", "Ищу эту, как её",
+      "Латаю на скорую руку", "Копаюсь", "Мешкаю", "Колеблюсь", "Несу околесицу", "Болтаю",
+      "Беседую", "Точу лясы", "Тараторю", "Лью воду", "Журчу", "Щебечу", "Титрую",
+      "Кручу в центрифуге", "Капаю пипеткой", "Выращиваю культуры", "Исследую пробу", "Калибрую",
+      "Секвенирую", "Окрашиваю препарат", "Преломляю свет", "Рассеиваю свет", "Поляризую", "Спекаю",
+      "Наношу гальванику", "Вулканизирую", "Смотрю на звёзды", "Складываю созвездия", "Затмеваю",
+      "Прохожу по диску", "Вступаю в соединение", "Поднимаюсь к зениту", "Собираю вещество",
+      "Краснею от смещения", "Искривляю свет", "Закручиваю спираль", "Достигаю кульминации",
+      "Покачиваюсь как Луна", "Прецессирую", "Мульчирую", "Подрезаю веточки", "Прививаю",
+      "Обрываю отцветшие бутоны", "Компостирую", "Веду шпалеру", "Омолаживаю рощицу",
+      "Укореняю отводки", "Закаляю рассаду", "Пересаживаю в горшок", "Делаю лунки для семян",
+      "Окучиваю картошку", "Подвязываю помидоры", "Прореживаю морковку", "Ищу дорогу",
+      "Несу байдарку по суше", "Иду вброд", "Иду серпантином", "Карабкаюсь на четвереньках",
+      "Прочёсываю пляж", "Копаюсь в речном иле", "Ночую в дикой природе", "Ловлю попутку",
+      "Качусь накатом", "Еду по инерции", "Разбиваю бивак", "Марширую с рюкзаком", "Восхищаюсь",
+      "Мешкаю по дороге", "Бездельничаю", "Работаю на холостом ходу", "Вожусь в огороде", "Ворчу",
+      "Всё переставляю",
+    ],
+    zh: [
+      "削木头中", "砂纸打磨中", "刨木板中", "榫卯拼接中", "铆钉敲打中", "焊锡中", "炼矿中", "退火中", "淬火中", "锉刀打磨中", "车床旋削中",
+      "凿木头中", "抛光擦亮中", "上漆中", "蒸馏中", "泡茶中", "收汁中", "刮锅底中", "澄清黄油中", "和面叠面中", "给烤肉刷油中", "水煮荷包蛋中",
+      "腌腊肉中", "腌黄瓜中", "熬糖渍果中", "打奶油中", "筛面粉中", "烫牛奶中", "刮起一阵风中", "随波漂流中", "慢慢解冻中", "凝结水珠中", "涓涓细流中",
+      "打着旋儿中", "掀起浪头中", "满得快溢出中", "开闸放水中", "一点点渗透中", "结霜中", "下冰雹中", "凝成露珠中", "云朵聚拢中", "嗅来嗅去中",
+      "翻箱倒柜中", "林中采蘑菇中", "像仓鼠一样囤粮中", "梳理羽毛中", "用鼻子蹭蹭中", "像螃蟹横着走中", "冬眠中", "换毛中", "学飞中", "泥里打滚中",
+      "啃嫩草中", "蹲在树枝上中", "筑窝中", "慢悠悠溜达中", "闲庭信步中", "晃晃悠悠中", "瞎转悠中", "四处闲逛中", "东游西荡中", "拖着步子走中",
+      "到处串门中", "欢蹦乱跳中", "蹦蹦跳跳中", "翩翩起舞中", "走猫步中", "摇摇晃晃中", "一路狂奔中", "揣摩中", "归纳推理中", "权衡利弊中",
+      "掐指一算中", "占卜中", "观鸟问卦中", "解读中", "摆事实讲道理中", "外推中", "内插中", "三角定位中", "消除歧义中", "大致估摸中", "页边批注中",
+      "加注释中", "比对版本中", "编索引中", "添加脚注中", "描红首字母中", "重新起草中", "校对中", "誊抄中", "绘制手抄本中", "刮纸重写中", "编选文集中",
+      "删繁就简中", "勘误中", "七拐八绕中", "瞎忙活中", "思考思考中", "晃来晃去中", "扑通一声中", "戴着呼吸管潜水中", "摆弄小零件中", "转动齿轮中",
+      "翻腾旧物中", "捣鼓那玩意儿中", "拧那个啥中", "忙这忙那中", "找那个那个中", "凑合修补中", "磨磨蹭蹭中", "瞎折腾中", "犹犹豫豫中", "东拉西扯中",
+      "叽叽喳喳中", "闲话家常中", "唠嗑中", "喋喋不休中", "绕弯子中", "咕嘟咕嘟中", "絮絮叨叨中", "滴定中", "离心中", "移液中", "培养菌种中",
+      "化验样品中", "校准中", "测序中", "染色中", "折射光线中", "衍射中", "偏振中", "烧结中", "电镀中", "硫化橡胶中", "仰望星空中", "连点成星座中",
+      "遮住光芒中", "凌日中", "星辰相合中", "升上天顶中", "吸积物质中", "红移中", "弯曲光线中", "螺旋盘绕中", "抵达顶点中", "像月亮一样摇摆中",
+      "岁差中", "铺覆盖物中", "修剪枝条中", "嫁接中", "摘掉残花中", "堆肥中", "搭花墙中", "砍伐更新中", "压条生根中", "炼苗中", "上盆中",
+      "挖小坑播种中", "给土豆培土中", "给番茄搭架中", "间苗中", "找路中", "扛着皮划艇中", "蹚水过河中", "走之字形山路中", "手脚并用攀爬中", "海边拾贝中",
+      "河滩淘宝中", "野外露营中", "搭顺风车中", "放坡滑行中", "顺势滑行中", "搭帐篷中", "背包行军中", "啧啧称奇中", "慢吞吞中", "偷懒中", "发呆中",
+      "园子里瞎鼓捣中", "嘟嘟囔囔中", "重新摆一遍中",
+    ],
+    ja: [
+      "木を削り中", "やすりがけ中", "かんながけ中", "あり継ぎ中", "リベット打ち中", "はんだ付け中", "鉱石を製錬中", "焼きなまし中", "焼き入れ中",
+      "やすりで研ぎ中", "旋盤で挽き中", "のみで彫り中", "ぴかぴか磨き中", "漆塗り中", "蒸留中", "お茶を蒸らし中", "ソースを煮詰め中", "鍋底をこそげ中",
+      "バターを澄まし中", "生地を折り込み中", "肉に汁をかけ中", "落とし卵作り中", "塩漬け中", "ぬか漬け中", "砂糖漬け中", "ホイップ中", "粉ふるい中",
+      "牛乳を温め中", "突風吹き荒れ中", "ぷかぷか漂い中", "じわじわ解凍中", "しずく結び中", "ちょろちょろ流れ中", "くるくる渦巻き中", "波に乗り中",
+      "なみなみ満ち中", "水門を開け中", "じんわり染み中", "霜が降り中", "あられ降らし中", "朝露になり中", "雲を集め中", "くんくん嗅ぎ中", "引き出しを物色中",
+      "木の実拾い中", "ほお袋に貯め中", "羽づくろい中", "鼻でつんつん中", "カニ歩き中", "冬眠中", "換毛中", "巣立ち準備中", "泥んこ遊び中",
+      "草をもぐもぐ中", "枝にとまり中", "巣穴づくり中", "のんびり歩き中", "ぶらぶら散策中", "ころころ転がり中", "のほほんと移動中", "うろうろ中",
+      "ふらふら徘徊中", "とぼとぼ歩き中", "あちこち寄り道中", "はしゃぎ中", "スキップ中", "軽やかに舞い中", "ランウェイ歩き中", "よちよち歩き中",
+      "猛ダッシュ中", "推し量り中", "帰納的に推論中", "損得を天秤中", "そろばん勘定中", "占い中", "鳥占い中", "読み解き中", "証拠を並べ中", "外挿中",
+      "内挿中", "三角測量中", "あいまいさ解消中", "ざっくり見積もり中", "余白に書き込み中", "注釈づけ中", "版を照合中", "索引づくり中", "脚注づけ中",
+      "朱で飾り文字中", "書き直し中", "校正中", "書き写し中", "写本を彩色中", "羊皮紙に上書き中", "名作選を編集中", "要約中", "本文を校訂中",
+      "うにゃうにゃ中", "わたわた中", "考え考え中", "ぐらんぐらん中", "ぽちゃんと着水中", "シュノーケリング中", "小道具いじり中", "歯車くるくる中",
+      "がらくた物色中", "あれこれいじり中", "なんとかを締め中", "あれやこれや中", "あれを探し中", "応急処置中", "もたもた中", "ぐずぐず中", "うじうじ迷い中",
+      "とりとめ話中", "ぺちゃくちゃ中", "よもやま話中", "世間話中", "べらべら中", "話を水増し中", "ぶくぶく中", "おしゃべり中", "滴定中", "遠心分離中",
+      "ピペット操作中", "培養中", "試料を分析中", "目盛り合わせ中", "配列解析中", "標本を染色中", "光を屈折中", "光を回折中", "偏光中", "焼結中",
+      "電気めっき中", "加硫中", "星を眺め中", "星座を結び中", "影を落とし中", "太陽面を通過中", "星と星が会合中", "天頂を目指し中", "物質を集め中",
+      "赤方偏移中", "光を曲げ中", "らせんを描き中", "最高点に到達中", "月のように揺れ中", "歳差運動中", "マルチング中", "枝を剪定中", "接ぎ木中",
+      "花がら摘み中", "堆肥づくり中", "垣根仕立て中", "雑木林を手入れ中", "取り木中", "苗を慣らし中", "鉢植え中", "種まき穴あけ中", "芋に土寄せ中",
+      "トマトに支柱中", "間引き中", "道を探し中", "カヌーを担ぎ中", "川を渡り中", "つづら折り登り中", "よじ登り中", "浜辺で宝探し中", "川辺で宝探し中",
+      "野宿中", "ヒッチハイク中", "すいすい下り中", "惰性で進み中", "ビバーク中", "重装備で行軍中", "うっとり感心中", "道草中", "ごろごろ中",
+      "アイドリング中", "庭いじり中", "ぶつぶつ中", "並べ替え中",
+    ],
+    hi: [
+      "लकड़ी छीलते हुए", "रेगमाल घिसते हुए", "रंदा चलाते हुए", "चूलें बिठाते हुए",
+      "कीलें ठोकते हुए", "टाँका लगाते हुए", "अयस्क पिघलाते हुए", "धातु तपाते हुए",
+      "लोहा बुझाते हुए", "रेती घिसते हुए", "खराद घुमाते हुए", "छेनी चलाते हुए", "चमकाते हुए",
+      "लाख चढ़ाते हुए", "अर्क खींचते हुए", "चाय पकाते हुए", "चटनी गाढ़ी करते हुए",
+      "कड़ाही खुरचते हुए", "घी बनाते हुए", "आटा मोड़ते हुए", "भुना माँस सींचते हुए",
+      "अंडा उबालते हुए", "नमक में सुखाते हुए", "अचार डालते हुए", "मुरब्बा बनाते हुए",
+      "मलाई फेंटते हुए", "आटा छानते हुए", "दूध उबालते हुए", "आँधी बनकर आते हुए",
+      "लहरों पर बहते हुए", "धीरे-धीरे पिघलते हुए", "बूँदें बनाते हुए", "टप-टप टपकते हुए",
+      "भँवर में घूमते हुए", "लहर पर चढ़ते हुए", "लबालब भरते हुए", "फाटक खोलते हुए",
+      "धीरे-धीरे रिसते हुए", "पाला जमाते हुए", "ओले बरसाते हुए", "ओस बनते हुए", "बादल जुटाते हुए",
+      "सूँघते-सूँघते", "दराज़ें टटोलते हुए", "जंगल में बीनते हुए", "गिलहरी-सा जमा करते हुए",
+      "पंख सँवारते हुए", "नाक से सहलाते हुए", "केकड़े-सा सरकते हुए", "शीत-निद्रा में सोते हुए",
+      "पंख झाड़ते हुए", "उड़ना सीखते हुए", "कीचड़ में लोटते हुए", "घास चरते हुए",
+      "डाल पर बैठते हुए", "माँद सजाते हुए", "टहलते हुए", "मटरगश्ती करते हुए", "लुढ़कते-लुढ़कते",
+      "मस्ती में चलते हुए", "बेमकसद घूमते हुए", "आवारागर्दी करते हुए", "घिसटते हुए",
+      "सैर-सपाटा करते हुए", "उछलते-कूदते", "फुदकते हुए", "ठुमकते हुए", "इठलाते हुए", "डगमगाते हुए",
+      "सरपट दौड़ते हुए", "अंदाज़ा लगाते हुए", "निष्कर्ष निकालते हुए", "तौलते हुए",
+      "हिसाब लगाते हुए", "भविष्य बाँचते हुए", "शगुन पढ़ते हुए", "अर्थ निकालते हुए",
+      "सबूत जुटाते हुए", "आगे आँकते हुए", "बीच भरते हुए", "त्रिकोण नापते हुए", "उलझन सुलझाते हुए",
+      "मोटा-मोटा आँकते हुए", "हाशिये पर लिखते हुए", "टीका लिखते हुए", "प्रतियाँ मिलाते हुए",
+      "अनुक्रमणिका बनाते हुए", "पाद-टिप्पणी जोड़ते हुए", "लाल अक्षर सजाते हुए", "दोबारा लिखते हुए",
+      "प्रूफ़ पढ़ते हुए", "नक़ल उतारते हुए", "पांडुलिपि सजाते हुए", "पुराने पन्ने रँगते हुए",
+      "संकलन बनाते हुए", "छोटा करते हुए", "पाठ सुधारते हुए", "जुगाड़ भिड़ाते हुए",
+      "इधर-उधर हड़बड़ाते हुए", "सोच-विचारियाते हुए", "डगमग-डगमगाते हुए", "छपाक करते हुए",
+      "स्नॉर्कलिंग करते हुए", "पुर्ज़े जोड़ते हुए", "गरारियाँ घुमाते हुए", "कबाड़ खंगालते हुए",
+      "चीज़-वीज़ ठीक करते हुए", "वो-वाला कसते हुए", "ये-वो करते हुए", "वो... वो ढूँढ़ते हुए",
+      "कामचलाऊ मरम्मत करते हुए", "टालमटोल करते हुए", "धीमे-धीमे करते हुए", "आगा-पीछा करते हुए",
+      "बेसिर-पैर बतियाते हुए", "बड़बड़ाते हुए", "गपियाते हुए", "गपशप करते हुए", "चटर-पटर करते हुए",
+      "बात खींचते हुए", "कल-कल करते हुए", "चहचहाते हुए", "अनुमापन करते हुए", "घुमाकर अलग करते हुए",
+      "पिपेट से नापते हुए", "कल्चर उगाते हुए", "नमूना जाँचते हुए", "माप मिलाते हुए",
+      "क्रम पढ़ते हुए", "नमूना रंगते हुए", "रोशनी मोड़ते हुए", "प्रकाश बिखेरते हुए",
+      "ध्रुवित करते हुए", "पाउडर तपाते हुए", "चाँदी चढ़ाते हुए", "रबर पकाते हुए",
+      "तारे निहारते हुए", "तारामंडल जोड़ते हुए", "ग्रहण लगाते हुए", "सूरज पार करते हुए",
+      "ग्रहों को मिलाते हुए", "शिखर चढ़ते हुए", "धूल समेटते हुए", "लाली में खिसकते हुए",
+      "रोशनी झुकाते हुए", "चक्कर खाते हुए", "चरम पर पहुँचते हुए", "चाँद-सा डोलते हुए",
+      "लट्टू-सा घूमते हुए", "पत्ते बिछाते हुए", "टहनियाँ छाँटते हुए", "कलम बाँधते हुए",
+      "मुरझाए फूल तोड़ते हुए", "खाद बनाते हुए", "बेल चढ़ाते हुए", "झाड़ियाँ काटते हुए",
+      "टहनी दबाते हुए", "पौध पक्की करते हुए", "गमले में लगाते हुए", "बीज-गड्ढे बनाते हुए",
+      "आलू ढकते हुए", "टमाटर बाँधते हुए", "पौध छाँटते हुए", "राह खोजते हुए", "नाव ढोते हुए",
+      "नदी पार करते हुए", "घुमावदार चढ़ाई चढ़ते हुए", "हाथ-पैर से चढ़ते हुए", "सीपियाँ बटोरते हुए",
+      "कीचड़ टटोलते हुए", "खुले में सोते हुए", "लिफ़्ट माँगते हुए", "बेफ़िक्र ढलान उतरते हुए",
+      "लुढ़कते-लुढ़कते बढ़ते हुए", "तंबू गाड़ते हुए", "पिट्ठू लादकर चलते हुए", "वाह-वाह करते हुए",
+      "रास्ते में रुकते-रुकते", "आराम फ़रमाते हुए", "सुस्ताते हुए", "बगिया सँवारते हुए",
+      "कुड़कुड़ाते हुए", "सब फिर सजाते हुए",
+    ],
+    ar: [
+      "أنحت عودًا صغيرًا", "أصقل بورق الصنفرة", "أسوّي الخشب بالفارة", "أعشّق الخشب كذيل اليمامة",
+      "أثبّت المسامير البرشام", "ألحم بالقصدير", "أصهر الخام", "ألدّن المعدن بالتسخين",
+      "أسقي الحديد بالماء", "أبرد بالمبرد", "أخرط على المخرطة", "أنقش بالإزميل", "ألمّع حتى يبرق",
+      "أطلي بالورنيش", "أقطّر ماء الورد", "أنقع الشاي", "أكثّف الصلصة", "أكشط قاع المقلاة",
+      "أصفّي السمن", "أقلّب العجين بلطف", "أسقي الشواء بمرقه", "أسلق البيض برفق",
+      "أملّح اللحم وأجففه", "أخلّل الخيار", "أغطّي بالسكر", "أخفق القشدة", "أنخل الدقيق",
+      "أسخّن الحليب", "أهبّ كعاصفة", "أنجرف مع التيار", "أذوب رويدًا", "أتكاثف قطرات",
+      "أنساب كجدول صغير", "أدور في دوامة", "أعتلي قمة الموجة", "أمتلئ حتى الحافة",
+      "أفتح بوابات السد", "أتسرّب ببطء", "أكتسي بالصقيع", "أمطر بَرَدًا", "أتساقط كالندى",
+      "أتجمّع كالغيوم", "أتشمّم الأثر", "أنبش في الأدراج", "أجمع ثمار الغابة",
+      "أخزّن المؤن كالهامستر", "أرتّب ريشي", "أتمسّح بأنفي", "أمشي جانبيًا كالسرطان",
+      "أدخل في سبات شتوي", "أبدّل ريشي", "أكتسي بريشي الأول", "أتمرّغ في الوحل", "أرعى العشب",
+      "أحطّ على غصن", "أمهّد جحري", "أمشي على مهل", "أتنزّه", "أتدحرج ببطء", "أتسكّع بلا عجلة",
+      "أهيم بلا وجهة", "أتجوّل هنا وهناك", "أجرّ خطاي", "أطوف في الأرجاء", "أمرح وأقفز",
+      "أتقافز فرحًا", "أتبختر", "أتهادى كعارضة أزياء", "أتمايل", "أندفع بأقصى سرعة", "أخمّن",
+      "أستقرئ", "أوازن الحجج", "أحسب الحساب", "أستشرف ما سيأتي", "أتأمل أسراب الطيور",
+      "أفسّر المعنى", "أسوق الأدلة", "أستكمل المنحنى", "أملأ الفجوات", "أحدّد الموقع بالتثليث",
+      "أزيل الالتباس", "أقدّر بالعين", "أدوّن حواشي على الهامش", "أكتب الشروح", "أقابل النسخ",
+      "أعدّ الفهرس", "أضيف الحواشي", "أزخرف العناوين بالأحمر", "أعيد الصياغة", "أراجع التدقيق",
+      "أنسخ النص", "أذهّب المخطوطة", "أكتب فوق رقّ قديم", "أجمع مختارات", "أختصر", "أصحّح النص",
+      "أدبّر وألفّ وأدور", "أروح وأجيء بلا نظام", "أفكّر وأفكفك", "أتأرجح وأترنح", "أعمل طَبْ طَبْ",
+      "أغطس بأنبوب التنفس", "أعبث بالأداة", "أدير التروس", "أفتّش في الكراكيب", "أعدّل الشيء إياه",
+      "أربط الحاجة إياها", "أفعل هذا وذاك", "أبحث عن الشيء، ذاك الشيء", "أرقّع على عجل", "أتلكأ",
+      "أتباطأ", "أتردّد", "أثرثر بلا توقف", "أدردش", "أتسامر", "أتبادل أطراف الحديث", "أتكلم بسرعة",
+      "أطيل الكلام", "أخرخر كالماء", "أزقزق", "أعاير المحلول", "أدير جهاز الطرد", "أقطّر بالماصة",
+      "أستزرع الخلايا", "أحلّل العيّنة", "أضبط المعايرة", "أحدّد التسلسل", "أصبغ الشريحة",
+      "أكسر الضوء", "أحيد الضوء", "أستقطب الضوء", "ألبّد المسحوق", "أطلي كهربائيًا", "أفلكن المطاط",
+      "أتأمل النجوم", "أرسم الأبراج", "أحجب القرص", "أعبر أمام الشمس", "أقترن بكوكب",
+      "أصعد إلى السمت", "أجمع المادة", "أنزاح نحو الأحمر", "أحني الضوء", "أدور في لولب",
+      "أبلغ الذروة", "أتمايل كالقمر", "أترنّح كالنحلة الدوّارة", "أفرش الغطاء العضوي",
+      "أقلّم الأغصان", "أطعّم الشجرة", "أقطف الأزهار الذابلة", "أصنع السماد",
+      "أمدّ الشجرة على السياج", "أجدّد الأيكة", "أجذّر الأفرع", "أقسّي الشتلات", "أنقل إلى أصيص",
+      "أحفر حفرًا للبذور", "أكوّم التراب حول البطاطا", "أسند الطماطم بالأوتاد", "أخفّف الجزر",
+      "أتلمّس الطريق", "أحمل القارب برًّا", "أخوض النهر", "أصعد في طريق متعرج", "أتسلّق على أربع",
+      "أمشّط الشاطئ", "أنبش في طين النهر", "أخيّم في البرية", "أوقف سيارة عابرة",
+      "أنطلق بلا دوّاسات", "أنساب بقوة الدفع", "أنصب مخيمًا", "أسير بحقيبة ثقيلة", "أتعجّب",
+      "أتمهّل في الطريق", "أتكاسل", "أدور في وضع الخمول", "أعبث في الحديقة", "أتذمّر",
+      "أعيد ترتيب كل شيء",
+    ],
+  };
   let wordTimer = null;
-  const aWord = () => WAIT_WORDS[Math.floor(Math.random() * WAIT_WORDS.length)] + '…';
+  // L: which language the waiting words are in. A per-viewer preference, like the palette.
+  const LANGS = [
+    ['en', 'English'], ['pl', 'Polski'], ['es', 'Español'], ['fr', 'Français'], ['de', 'Deutsch'],
+    ['pt', 'Português'], ['ru', 'Русский'], ['zh', '中文'], ['ja', '日本語'], ['hi', 'हिन्दी'],
+    ['ar', 'العربية'],
+  ].filter(([code]) => WAIT_WORDS[code]);
+  let waitLang = (() => { try { return localStorage.getItem('ctrl-words') || 'en'; } catch { return 'en'; } })();
+  if (!WAIT_WORDS[waitLang]) waitLang = 'en';
+  const aWord = () => {
+    const words = WAIT_WORDS[waitLang] || WAIT_WORDS.en;
+    return words[Math.floor(Math.random() * words.length)] + '…';
+  };
   function stopWords() {
     if (wordTimer) { clearInterval(wordTimer); wordTimer = null; }
   }
@@ -1781,6 +2208,7 @@
     const wasAt = before ? before.scrollTop : 0;
     const box = el('div', 'thinking');
     const word = el('span', '', aWord());
+    word.dir = 'auto';                       // Arabic reads right to left
     box.append(el('i'), el('i'), el('i'), word);
     const wrap = el('div', 'waitbox');
     wrap.append(box);
@@ -2139,11 +2567,42 @@
   });
 
   palBtn.onclick = () => {
+    const langs = document.getElementById('langs');
+    if (langs) { langs.classList.remove('open'); document.getElementById('lang-btn').classList.remove('on'); }
     const open = palEl.classList.toggle('open');
     palBtn.classList.toggle('on', open);
     if (!open) endPreview();                 // closing it abandons whatever was on screen
   };
   applyTheme(document.documentElement.dataset.theme || 'peas');
+
+  const langBtn = document.getElementById('lang-btn');
+  const langsEl = document.getElementById('langs');
+  function drawLangs() {
+    langsEl.replaceChildren();
+    LANGS.forEach(([code, name]) => {
+      const b = el('button');
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(code === waitLang));
+      // each language shows one of its own words, so the choice is seen, not just named
+      const sample = WAIT_WORDS[code][Math.floor(Math.random() * WAIT_WORDS[code].length)];
+      b.append(el('span', '', name), el('em', '', sample + '…'));
+      b.onclick = () => {
+        waitLang = code;
+        try { localStorage.setItem('ctrl-words', code); } catch {}
+        langsEl.classList.remove('open'); langBtn.classList.remove('on');
+        // a wait on screen switches language at once rather than at its next five-second turn
+        document.querySelectorAll('.thinking span').forEach(w => { w.textContent = aWord(); });
+      };
+      langsEl.append(b);
+    });
+  }
+  langBtn.onclick = () => {
+    if (!langsEl.classList.contains('open')) drawLangs();
+    const open = langsEl.classList.toggle('open');
+    langBtn.classList.toggle('on', open);
+    palEl.classList.remove('open'); palBtn.classList.remove('on');
+  };
 
   /* Text size. Kept like the palette: a preference that survives a reload, because
      losing it silently is how a panel ends up unreadable on the next open. */
