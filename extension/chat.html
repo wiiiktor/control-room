@@ -655,6 +655,13 @@
        ⛔ The floor has to beat the cap as well -- on a short panel 45% is less than 150px, and a
        max-height under the min-height wins, which would have quietly restored the sliver. */
     #detail:not(.empty) { min-height: 150px; max-height: max(45%, 150px); }
+    /* \u26d4 AN EMPTY PANE TAKES NO ROOM HERE. Folded under the answer, "Pick something on the left"
+       and its padding kept a band of nothing at the bottom of a half-screen panel. It appears when
+       something is opened in it; the +/- buttons float in the corner either way. */
+    #detail.empty { display: none; }
+    #left { padding-right: 44px; }            /* the text keeps clear of the floating +/- */
+    #stage { grid-template-rows: minmax(0, 1fr); }
+    #stage:has(#detail:not(.empty)) { grid-template-rows: minmax(0, 1fr) auto; }
   }
   #screen {
     width: 100%; transform-origin: top left;
