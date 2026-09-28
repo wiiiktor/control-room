@@ -432,7 +432,10 @@
   }
   #palette button:hover, #langs button:hover { background: var(--yellow-soft); }
   #palette button[aria-checked="true"], #langs button[aria-checked="true"] { background: var(--green-soft); }
-  #langs { top: 181px; }
+  #langs { top: 181px; max-width: 300px; }
+  #langs .langs-head { display: flex; flex-direction: column; gap: 4px; padding: 2px 4px 6px; }
+  #langs .langs-head b { font-size: 15px; font-weight: 900; }
+  #langs .langs-head span { font-size: 13px; font-weight: 600; line-height: 1.35; opacity: var(--dim-1); }
   #langs button em { font-style: normal; font-weight: 600; opacity: var(--dim-2); margin-left: auto; padding-left: 14px; }
   #palette .chip {
     flex: none; width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--ink);
@@ -938,8 +941,8 @@
   <button id="pal-btn" type="button" title="Colour palette">C</button>
   <button id="sess-btn" type="button" title="Sessions — choose which Claude answers"><i>S</i><b>SESSIONS</b></button>
   <div id="palette" role="radiogroup" aria-label="Colour palette"></div>
-  <button id="lang-btn" type="button" title="Language of the waiting words">L</button>
-  <div id="langs" role="radiogroup" aria-label="Language of the waiting words"></div>
+  <button id="lang-btn" type="button" title="Waiting words — the language of the playful words beside the three dots (only those)">L</button>
+  <div id="langs" role="radiogroup" aria-label="Waiting words: language"></div>
   <div id="lamp" title="Connected"></div>
   <button id="deaf" type="button" title="Nobody is reading the log — click to see what to do">not watching</button>
   <div id="splash" role="dialog" aria-label="Start a working session">
@@ -2579,6 +2582,13 @@
   const langsEl = document.getElementById('langs');
   function drawLangs() {
     langsEl.replaceChildren();
+    // \u26d4 SAY WHAT IT CHANGES. "Language" alone reads as the language of the whole panel, or of
+    // Claude's answers; it is only the playful words beside the three dots.
+    const head = el('div', 'langs-head');
+    head.append(el('b', '', 'Waiting words'),
+                el('span', '', 'The playful words beside the three dots while Claude works. Only these: '
+                  + 'Claude\u2019s answers and the panel stay as they are.'));
+    langsEl.append(head);
     LANGS.forEach(([code, name]) => {
       const b = el('button');
       b.type = 'button';
