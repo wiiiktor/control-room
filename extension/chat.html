@@ -1575,7 +1575,9 @@
     try { input.setSelectionRange(0, input.value.length); } catch { /* older webview */ }
   }
 
-  let wakingNow = {};    // session id -> seconds since the extension asked it to wake
+  let wakingNow = {};
+
+  let workingNow = {};   // started and running, not yet listening: awake, reading    // session id -> seconds since the extension asked it to wake
 
   function drawTarget() {
     try { target ? localStorage.setItem('ctrl-to', target) : localStorage.removeItem('ctrl-to'); } catch {}
@@ -1603,17 +1605,22 @@
     // instruction that applies. Red is kept for a session that is running somewhere this room
     // cannot reach, which IS a thing you have to act on.
     const id8 = target ? target.slice(0, 8) : '';
-    const isWaking = !alive && wakingNow[target] !== undefined;
-    const busyElsewhere = !alive && !away && !isWaking && liveNow[target];
+    // \u26d4 "waking" OVERSTATED IT. The process is up a second after the ask; what takes longer is the
+    // session reading the message and arming its watch -- it is awake and working, not waking. The
+    // extension says which: `working` once the start succeeded, `waking` only before that.
+    const isWorking = !alive && workingNow[target] !== undefined;
+    const isWaking = !alive && !isWorking && wakingNow[target] !== undefined;
+    const busyElsewhere = !alive && !away && !isWaking && !isWorking && liveNow[target];
     toHint.textContent = !target ? ''
       : alive ? id8 + ' · ' + name.slice(0, 36)
-      : isWaking ? id8 + ' · waking… ' + wakingNow[target] + 's'
+      : isWorking ? id8 + ' · awake — reading your message'
+      : isWaking ? id8 + ' · starting… ' + wakingNow[target] + 's'
       : away  ? id8 + ' · listening in ' + String(away).slice(0, 26) + ' — not here'
       : busyElsewhere ? id8 + ' · live elsewhere — Enter stops it and wakes it here'
               : id8 + ' · asleep — write and it wakes';
     toHint.classList.toggle('on', !!target);
-    toHint.classList.toggle('dead', !!target && !alive && !isWaking && !!away);
-    toHint.classList.toggle('sleeping', !!target && !alive && (isWaking || !away));
+    toHint.classList.toggle('dead', !!target && !alive && !isWaking && !isWorking && !!away);
+    toHint.classList.toggle('sleeping', !!target && !alive && (isWaking || isWorking || !away));
   }
 
   // The VS Code extension asks WHICH SESSION in the command palette, before this page
@@ -1903,6 +1910,7 @@
       // treating its absence as "nothing is live"
       if (data.live) liveNow = data.live;
       if (data.waking) wakingNow = data.waking;
+      if (data.working) workingNow = data.working;
       drawWatchers(data.watchers || [], data.elsewhere);
       const dead = lastWatchAge === null || lastWatchAge === undefined || lastWatchAge > 90;
       // \u26d4 NOT WHILE A WAKE IS IN FLIGHT. Red "not watching" is true in the seconds after a
@@ -2720,6 +2728,9 @@
       const isNew = (i === 0 || sid !== seen);
       if (isNew) { nth++; seen = sid; }
       if (tlFilter !== null && sid !== tlFilter) return;
+      // \u26d4 ONE SESSION CHOSEN, NO HEADER: every row below belongs to it, and its name and id are
+      // already in the corner -- the header was the same words a third time
+      if (isNew && tlFilter !== null) { shown++; nodes.push(thumbOf(m, i + 1)); return; }
       if (isNew) {
         const n = nth;
         if (nodes.length) nodes.push(el('div', 'tl-rule'));

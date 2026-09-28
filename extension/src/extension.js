@@ -141,6 +141,18 @@ let lastBg = null;                       // the short id of the last background 
 // sessions it just asked, so it says so, and the alarms hold off until the ask has had its chance.
 const woke = new Map();                  // session id -> when we asked it to wake
 function noteWoke(sid) { if (sid) woke.set(sid, Date.now()); }
+// started for real (the process runs) but not yet listening: the panel says "awake", not "waking"
+const started = new Map();
+function noteStarted(sid) { if (sid) { woke.delete(sid); started.set(sid, Date.now()); } }
+function workingIds(listening) {
+  const out = {};
+  for (const [sid, at] of started) {
+    const age = Math.round((Date.now() - at) / 1000);
+    if (age > 180 || listening.includes(sid)) { started.delete(sid); continue; }
+    out[sid] = age;
+  }
+  return out;
+}
 function wakingIds() {
   const out = {};
   for (const [sid, at] of woke) {
@@ -464,6 +476,7 @@ function resumeIn(dir, sid) {
     startHeadless(dir, ['--resume', sid, WAKE], 'Waking session ' + sid.slice(0, 8) + '.', (r) => {
       if (r.ok) {
         lastBg = r.id;
+        noteStarted(sid);
         if (r.copied && r.id.slice(0, 8) !== sid.slice(0, 8)) {
           announce(dir, [
             '::warn ' + sid.slice(0, 8) + ' is already running, so a copy of it answers instead',
@@ -1007,6 +1020,7 @@ function activate(context) {
             // re-asks for itself.
             live: null,
             waking: wakingIds(),
+            working: workingIds(watchers.map(w => w.session)),
           });
         }
         if (route === '/api/sessions') {
