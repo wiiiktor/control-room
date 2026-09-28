@@ -13,6 +13,7 @@
  *   background, bound to this room,
  *     watch lapsed (re-arming, busy)   -> nothing: the watch catches the message up when it re-arms.
  *                                         Waking again is what used to stop a busy session mid-step.
+ *     idle, watch silent over a minute -> stop and wake it: it stopped listening, and loses nothing
  *   background elsewhere, idle         -> stop it, wake it here
  *   background elsewhere, busy         -> refuse: stopping it would kill what it is doing
  *   in a Claude tab of this window,
@@ -30,9 +31,10 @@
  *                                  runs from this room's folder
  * @param {boolean} f.tabFound      a Claude tab in this window carries its title
  * @param {boolean} [f.known]     false when `claude agents` could not be asked
+ * @param {number}  [f.staleFor]  seconds since its heartbeat in this room (Infinity when none)
  * @returns {{do: 'none'|'wake'|'stop-then-wake'|'close-tab-then-wake'|'refuse', how?: string, why?: string}}
  */
-function plan({ row, listeningHere, boundHere, tabFound, known = true }) {
+function plan({ row, listeningHere, boundHere, tabFound, known = true, staleFor = Infinity }) {
   // `known` is false when `claude agents` could not be asked: then the heartbeat is all there is
   if (!known) return listeningHere ? { do: 'none', how: 'listening' } : { do: 'wake', how: 'woken' };
   // \u26d4 NOT RUNNING BEATS A FRESH HEARTBEAT. The file keeps its time for up to 90 s after its session
@@ -41,6 +43,11 @@ function plan({ row, listeningHere, boundHere, tabFound, known = true }) {
   if (!row) return { do: 'wake', how: 'woken' };
   if (listeningHere) return { do: 'none', how: 'listening' };
   if (row.kind === 'background') {
+    // \u26d4 BUT NOT FOREVER. A session re-arms its watch when the old one expires -- if it is busy,
+    // after its step. One that is IDLE with a watch silent for over a minute is not re-arming: it has
+    // stopped listening, and waiting on it would leave the message unread for good. Idle means stopping
+    // it loses nothing, and the wake re-arms the watch and catches the message up.
+    if (boundHere && row.status === 'idle' && staleFor > 60) return { do: 'stop-then-wake', how: 'rewoken' };
     if (boundHere) return { do: 'none', how: 'rearming' };
     if (row.status === 'busy') return { do: 'refuse', why: 'busy-background' };
     return { do: 'stop-then-wake', how: 'taken-from-background' };

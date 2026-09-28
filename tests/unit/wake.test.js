@@ -19,8 +19,11 @@ module.exports = {
   },
   'not running anywhere: wake it': (t) => { t.eq(P(null), { do: 'wake', how: 'woken' }); },
   "this room's background session between watches: never stopped, never copied": (t) => {
-    t.eq(P(bg('busy'), { boundHere: true }), { do: 'none', how: 'rearming' });
-    t.eq(P(bg('idle'), { boundHere: true }), { do: 'none', how: 'rearming' });
+    t.eq(P(bg('busy'), { boundHere: true, staleFor: 600 }), { do: 'none', how: 'rearming' }, 'busy: wait');
+    t.eq(P(bg('idle'), { boundHere: true, staleFor: 20 }), { do: 'none', how: 'rearming' }, 'just lapsed: wait');
+  },
+  "this room's idle session whose watch stopped for good: re-woken": (t) => {
+    t.eq(P(bg('idle'), { boundHere: true, staleFor: 300 }), { do: 'stop-then-wake', how: 'rewoken' });
   },
   'background elsewhere, idle: take it over': (t) => { t.eq(P(bg('idle')).do, 'stop-then-wake'); },
   'background elsewhere, busy: refuse (it would be killed mid-step)': (t) => {

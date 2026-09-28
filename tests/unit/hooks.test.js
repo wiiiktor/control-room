@@ -74,6 +74,15 @@ module.exports = {
     let log = ''; try { log = fs.readFileSync(path.join(room, 'chat.jsonl'), 'utf8'); } catch { /* none */ }
     t.ok(!log.includes('OLD ANSWER'), 'old answer not mirrored'); t.ok(Date.now() - t0 < 9000, 'gave up in time');
   },
+  "U5 the Python extension's venv activation is not mirrored as the reader's words (P10)": (t) => {
+    const { ws, room } = workspace();
+    fs.writeFileSync(path.join(room, '.watch.' + SID), '');
+    runHook(path.join(ws, 'mirror-hook.py'), { hook_event_name: 'UserPromptSubmit', session_id: SID,
+      prompt: 'source /Users/x/proj/.venv/bin/activate' });
+    runHook(path.join(ws, 'mirror-hook.py'), { hook_event_name: 'UserPromptSubmit', session_id: SID, prompt: 'a real question' });
+    const log = fs.readFileSync(path.join(room, 'chat.jsonl'), 'utf8');
+    t.ok(!log.includes('bin/activate'), 'activation skipped'); t.ok(log.includes('a real question'), 'real prompt kept');
+  },
   'U6 notices and mirrored lines do not count as answers (catch-up)': (t) => {
     const { room } = workspace();
     const lines = [{ id: 1, role: 'assistant', text: 'old', session: 'x' },

@@ -187,9 +187,15 @@ MACHINE = (
 )
 
 
+# \u26d4 THE PYTHON EXTENSION TYPES INTO VISIBLE TERMINALS. In a folder with a venv it sends
+# 'source <venv>/bin/activate' to every new terminal it can see -- a Claude session running in one
+# receives that as a prompt, and the mirror put it in the panel as something the reader said.
+VENV_ACTIVATE = re.compile(r"^(source|\\.) \\S*/bin/activate(\\.\\w+)?\\s*$")
+
+
 def machine_typed(text):
     head = text.lstrip()
-    return any(head.startswith(m) for m in MACHINE)
+    return any(head.startswith(m) for m in MACHINE) or bool(VENV_ACTIVATE.match(head.strip()))
 
 
 # Blocks the harness wraps around or appends to a prompt. The reader did not type these,

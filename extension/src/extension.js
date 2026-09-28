@@ -758,7 +758,9 @@ async function wakeForRoom(dir, sid) {
   // counts as not found and the room says so instead of guessing.
   const tabs = title ? claudeTabsFor(title) : 0;
   const tabFound = tabs === 1;
-  const p = wake.plan({ row, listeningHere, boundHere, tabFound, known: liveKnown });
+  let staleFor = Infinity;
+  try { staleFor = (Date.now() - fs.statSync(path.join(dir, '.watch.' + sid)).mtimeMs) / 1000; } catch { /* never beat here */ }
+  const p = wake.plan({ row, listeningHere, boundHere, tabFound, known: liveKnown, staleFor });
   const name = title || sid.slice(0, 8);
   if (p.do === 'refuse' && tabs > 1) {
     return { error: 'refused', why: 'ambiguous', screen: [
