@@ -26,11 +26,13 @@ module.exports = {
       tool('Bash', { command: 'node tests/run.js', description: 'Run unit tests' }), result(),
       tool('Grep', { pattern: 'typing' }),
     ]);
-    t.eq(JSON.stringify(activity(f)), JSON.stringify(['Thinking…', 'Read chat.html', 'Found it. More below', 'Run unit tests', 'Search "typing"']));
+    t.eq(activity(f).map(x => x.t), ['Read chat.html', 'Found it. More below', 'Run unit tests', 'Search "typing"']);
+    // each step carries what was behind it, for the right pane: the command itself, the path
+    t.eq(activity(f)[2].d.split('\n')[0], 'node tests/run.js');
   },
-  'U7 a finished turn shows nothing; a thought is one line': (t) => {
+  'U7 a finished turn shows nothing; a thought is not a step': (t) => {
     t.eq(activity(transcript([prompt('q'), tool('Read', { file_path: 'x' }), result(),
       said([{ type: 'text', text: 'done' }], 'end_turn')])).length, 0);
-    t.eq(JSON.stringify(activity(transcript([prompt('q'), said([{ type: 'thinking', thinking: '' }])]))), JSON.stringify(['Thinking…']));
+    t.eq(activity(transcript([prompt('q'), said([{ type: 'thinking', thinking: '' }])])).length, 0);   // "Thinking…" is never a step
   },
 };

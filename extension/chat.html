@@ -628,8 +628,11 @@
   }
   .cards button.on { background: var(--yellow); color: var(--on-yellow); box-shadow: 0 0 0 var(--ink); transform: translate(4px, 4px); }
   @media (max-width: 900px) {
-    #stage { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    /* \u26d4 minmax(0, 1fr), not 1fr: a plain 1fr row will not shrink below its content, so a long
+       reply on the left squeezed the folded pane to a sliver (~30px) with no room to scroll. */
+    #stage { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
     #detail { border-left: none; border-top: var(--line) dashed var(--hair); padding: 16px 56px 4px 4px; max-height: 45%; }
+    #detail:not(.empty) { min-height: 100px; }
   }
   #screen {
     width: 100%; transform-origin: top left;
@@ -650,6 +653,12 @@
      DOWNWARD over the reply instead of pushing everything below it further down. */
   .head .slot { position: relative; flex: 1 1 auto; min-width: 0; height: 38px; }
   .head .crumb { position: absolute; top: 0; left: 0; max-width: 100%; z-index: 20; }
+  /* Einstein peeks over the YOU SAID box: he sits in the row's own height, so nothing moves, and
+     the box is never narrower than he is. */
+  .head .slot.with-einstein { height: 88px; }
+  .head .slot.with-einstein .crumb { top: 50px; min-width: 150px; }
+  .head .slot.with-einstein ~ .stamp-slot { margin-top: 50px; }
+  .einstein { position: absolute; top: 0; left: 16px; width: 64px; height: 56px; z-index: 21; pointer-events: none; }
   /* the stamp holds its own slot too, so showing the date grows DOWNWARD over the
      reply and nothing below it moves. No rim: it is a label, not a control. */
   .head .stamp-slot { position: relative; flex: none; height: 38px; width: 84px; }
@@ -1090,6 +1099,18 @@
     return slot;
   }
 
+  // a cartoon, in the panel's own ink: wild white hair, moustache, and the tongue
+  const EINSTEIN = '<svg class="einstein" viewBox="0 0 64 56" aria-hidden="true">'
+    + '<g stroke="var(--ink)" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round">'
+    + '<path d="M13 36L3 33L9 28L1 20L10 19L6 10L15 13L16 3L23 9L29 1L33 8L40 1L43 9L51 4L50 13L59 11L55 19L63 22L56 27L62 33L51 36Z" fill="#f4f3ee"/>'
+    + '<ellipse cx="17.5" cy="31" rx="3.5" ry="5" fill="#f2c9a0"/><ellipse cx="46.5" cy="31" rx="3.5" ry="5" fill="#f2c9a0"/>'
+    + '<ellipse cx="32" cy="31" rx="14" ry="16" fill="#f2c9a0"/>'
+    + '<path d="M20 23q5-5 10-1M34 22q5-4 10 1" fill="none" stroke-width="3"/>'
+    + '<path d="M32 28q-3 6 0 7" fill="none" stroke-width="2"/>'
+    + '<path d="M28.5 41q3.5 12 7 0Z" fill="#e8707a" stroke-width="1.8"/>'
+    + '<path d="M22 40q4-6 10-3q6-3 10 3q-5 3-10 1q-5 2-10-1Z" fill="#f4f3ee" stroke-width="2"/>'
+    + '</g><circle cx="26" cy="27.5" r="1.9" fill="var(--ink)"/><circle cx="38" cy="27.5" r="1.9" fill="var(--ink)"/></svg>';
+
   function show(nodes, crumb = true, ts = null) {
     stopWords();          // whatever replaces the screen ends the wait
     closeSheet();          // a new reply invalidates whatever detail was open
@@ -1102,7 +1123,8 @@
       if (crumb && lastCommand) {
         const c = el('div', 'crumb', lastCommand);
         c.onclick = () => c.classList.toggle('open');   // no fit(): the row keeps its height
-        const slot = el('div', 'slot');
+        const slot = el('div', 'slot with-einstein');
+        slot.innerHTML = EINSTEIN;
         slot.append(c);
         head.append(slot);
       }
