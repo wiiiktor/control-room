@@ -2,7 +2,7 @@
   "name": "control-room",
   "displayName": "Control Room",
   "description": "A big-button control panel for driving Claude Code from inside the editor.",
-  "version": "0.32.2",
+  "version": "0.32.3",
   "publisher": "wiiiktor",
   "license": "MIT",
   "icon": "icon.png",
@@ -78,7 +78,7 @@
             "The terminal view at the bottom, as before."
           ],
           "default": "hidden",
-          "markdownDescription": "How this extension starts a Claude session. `hidden` (the default) starts it as a BACKGROUND session with `claude --bg` — there is no terminal to hide, and `claude attach <id>` opens it if you want to watch; the panel offers that when a session does not answer. `tab` runs it in an editor tab, `panel` in the terminal view at the bottom. A background start that fails falls back to a tab, with the reason printed in the room."
+          "markdownDescription": "How this extension starts a Claude session. `hidden` (the default) starts it as a BACKGROUND session with `claude --bg` \u2014 there is no terminal to hide, and `claude attach <id>` opens it if you want to watch; the panel offers that when a session does not answer. `tab` runs it in an editor tab, `panel` in the terminal view at the bottom. A background start that fails falls back to a tab, with the reason printed in the room."
         },
         "controlRoom.autoTrust": {
           "type": "boolean",
@@ -88,7 +88,7 @@
         "controlRoom.claudeWindowHandoff": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Let the Claude window open a conversation this room is running in the background. Control Room installs a small wrapper as `claudeCode.claudeProcessWrapper` that releases the conversation from the room just before the window resumes it — without it the window fails with \"Claude Code process exited with code 1\". Turning this off removes the wrapper setting (only if it is Control Room's own); a wrapper you set yourself is never replaced."
+          "markdownDescription": "Let the Claude window open a conversation this room is running in the background. Control Room installs a small wrapper as `claudeCode.claudeProcessWrapper` that releases the conversation from the room just before the window resumes it \u2014 without it the window fails with \"Claude Code process exited with code 1\". Turning this off removes the wrapper setting (only if it is Control Room's own); a wrapper you set yourself is never replaced."
         }
       }
     },

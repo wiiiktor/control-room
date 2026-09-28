@@ -651,7 +651,10 @@
        reply on the left squeezed the folded pane to a sliver (~30px) with no room to scroll. */
     #stage { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
     #detail { border-left: none; border-top: var(--line) dashed var(--hair); padding: 16px 56px 4px 4px; max-height: 45%; }
-    #detail:not(.empty) { min-height: 100px; }
+    /* 150px, asked for by name: 100 showed a heading and a line and left nothing to scroll.
+       ⛔ The floor has to beat the cap as well -- on a short panel 45% is less than 150px, and a
+       max-height under the min-height wins, which would have quietly restored the sliver. */
+    #detail:not(.empty) { min-height: 150px; max-height: max(45%, 150px); }
   }
   #screen {
     width: 100%; transform-origin: top left;
