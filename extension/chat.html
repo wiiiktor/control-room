@@ -720,6 +720,7 @@
   /* a long command is cut to one line and opens on hover or click -- no tooltip, the
      hover already shows the whole thing */
   .crumb { cursor: pointer; }
+  .crumb.quiet { font-weight: 600; opacity: .7; cursor: default; }
   .crumb:hover, .crumb.open {
     white-space: normal; overflow: visible; border-radius: 18px;
     background: var(--yellow-soft); box-shadow: var(--pop);
@@ -1265,6 +1266,8 @@
     setTimeout(friendTick, wait);
   }
   setTimeout(friendTick, 800);
+  // the friend is there from the first moment, before any reply has drawn a screen
+  setTimeout(() => { try { if (!screenEl.children.length) show([], false); } catch { /* not up yet */ } }, 1500);
 
   function show(nodes, crumb = true, ts = null) {
     stopWords();          // whatever replaces the screen ends the wait
@@ -1273,10 +1276,15 @@
     held = null; pinned = null;
     const kids = [];
     const stamp = stampOf(ts);
-    if ((crumb && lastCommand) || stamp) {
+    // \u26d4 THE FRIEND IS ALWAYS THERE. It stood behind the YOU SAID box, and the box only existed once
+    // something had been said -- so after a reload the friend appeared only after you wrote. With a
+    // friend chosen the row is always drawn; with nothing said yet the box says so.
+    const friend = friendId !== 'none';
+    if ((crumb && lastCommand) || stamp || friend) {
       const head = el('div', 'head');
-      if (crumb && lastCommand) {
-        const c = el('div', 'crumb', lastCommand);
+      if ((crumb && lastCommand) || friend) {
+        const said = crumb && lastCommand;
+        const c = el('div', said ? 'crumb' : 'crumb quiet', said ? lastCommand : 'nothing yet');
         c.onclick = () => c.classList.toggle('open');   // no fit(): the row keeps its height
         head.append(crumbSlot(c));
       }
