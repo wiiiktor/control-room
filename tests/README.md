@@ -18,6 +18,7 @@ sh tests/sandbox/all.sh --no-e2e
 | `handoff.test.js` | the wrapper releases exactly the conversation being resumed, in every argument form, and only a background one; the setting is set, updated, cleared — never overwritten when it is someone else's |
 | `wake.test.js` | the decision table in [docs/SESSIONS.md](../docs/SESSIONS.md), and the property that no outcome resumes a running conversation without ending it first (no copies) |
 | `hooks.test.js` | the generated hook scripts: who is told to watch (room folder, `.expect`, a Claude-window session never, an inherited marker ignored), the mirror (reply from `last_assistant_message`, a stale transcript never mirrored, the venv line dropped), catch-up (notices are not answers) |
+| `activity.test.js` | what a session is doing, read from its transcript: the steps of the running turn labelled as the Claude window labels them, nothing once the turn ends |
 | `page.test.js` | the panel page runs under a DOM shim with every entry point and clickable row exercised (`tools/check_page.sh`) |
 
 ## Sandbox — `tests/sandbox/`

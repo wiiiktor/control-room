@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
 const { Log, setFloor } = require('./log');
-const { labels, titleOf, labelMatchesTitle } = require('./sessions');
+const { labels, titleOf, labelMatchesTitle, activityOf } = require('./sessions');
 const hook = require('./hook');
 const runtime = require('./runtime');
 const diagnose = require('./diagnose');
@@ -1050,7 +1050,10 @@ function activate(context) {
       try {
         const [route, query] = String(req.url).split('?');
         if (route === '/api/messages') {
-          const since = parseInt(new URLSearchParams(query || '').get('since') || '0', 10) || 0;
+          const q = new URLSearchParams(query || '');
+          const since = parseInt(q.get('since') || '0', 10) || 0;
+          // what the session being waited on is doing, as the Claude window shows it (its transcript)
+          const doingSid = q.get('doing') || '';
           const messages = log.read(since);
           const names = await labels(workspaceRoot(dir), dir);
           const watchers = log.watchers(names);
@@ -1060,6 +1063,7 @@ function activate(context) {
             last: messages.length ? messages[messages.length - 1].id : since,
             build: BUILD,
             status: log.readStatus(),
+            doing: doingSid ? activityOf(doingSid, workspaceRoot(dir), dir) : [],
             watch: log.watchAge(),
             hidden: hiddenIds(),
             watchers,

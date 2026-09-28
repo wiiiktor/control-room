@@ -98,6 +98,14 @@ can see — for over 20 s is named in the room, once, with two buttons: *Answer 
 (`claude attach <id>`, which shows the question; the step continues when you answer) and *Move it to the
 Claude window* (the step ends; the conversation continues there).
 
+## What a session is doing
+
+While the panel waits for an answer, the three dots carry what the session is doing, as the Claude
+window shows it: *Thinking…*, *Read chat.html*, a command's own description, the lines it writes
+between tools — the last six steps of the turn in progress, newest last. The extension reads them from
+the session's transcript (Claude Code appends each tool call before running it), so nothing has to be
+installed in the session. A transcript untouched for ten minutes counts as idle.
+
 ## Names
 
 Sessions are named the way the Claude window names them: the transcript's latest `aiTitle` (read from

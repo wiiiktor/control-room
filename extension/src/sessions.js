@@ -154,4 +154,94 @@ function labelMatchesTitle(label, title) {
   return t === l || t.startsWith(l) || l.startsWith(t);
 }
 
-module.exports = { labels, projectDir, aiTitle, titleOf, labelMatchesTitle };
+/** What a session is doing right now, the way the Claude window shows it: the steps of the turn in
+ *  progress, newest last -- "Thinking…", "Read chat.html", a command's own description, the lines it
+ *  writes between tools. Empty when no turn is running.
+ *
+ * ⭐ READ FROM THE TRANSCRIPT. Claude Code appends each tool call BEFORE running it (measured), so
+ * the file is as current as the Claude window's own view, and nothing has to be installed in the
+ * session for it -- a hook would only reach sessions started after it was. Only the tail is read. */
+function stepLabel(b) {
+  const i = b.input || {};
+  const base = (f) => path.basename(String(f || ''));
+  const cut = (t, n = 80) => { t = String(t || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+  switch (b.name) {
+    case 'Bash': return cut(i.description || i.command);
+    case 'Read': return 'Read ' + base(i.file_path);
+    case 'Edit': case 'MultiEdit': return 'Edit ' + base(i.file_path);
+    case 'Write': return 'Write ' + base(i.file_path);
+    case 'NotebookEdit': return 'Edit ' + base(i.notebook_path);
+    case 'Grep': return cut('Search "' + (i.pattern || '') + '"');
+    case 'Glob': return cut('Find ' + (i.pattern || ''));
+    case 'WebFetch': try { return 'Fetch ' + new URL(i.url).host; } catch { return 'Fetch'; }
+    case 'WebSearch': return cut('Search the web: ' + (i.query || ''));
+    case 'Agent': case 'Task': return cut('Agent: ' + (i.description || ''));
+    case 'Monitor': return cut('Watch: ' + (i.description || ''));
+    case 'TodoWrite': case 'TaskCreate': case 'TaskUpdate': return 'Update tasks';
+    case 'Skill': return cut('Skill: ' + (i.skill || ''));
+    default: return String(b.name || 'Working').replace(/^mcp__[^_]+__/, '');
+  }
+}
+
+const doingCache = new Map();
+function activity(file, keep = 6) {
+  let st;
+  try { st = fs.statSync(file); } catch { return []; }
+  // a turn that ended without a closing message (interrupted, killed) must not read as running forever
+  if (Date.now() - st.mtimeMs > 10 * 60 * 1000) return [];
+  const key = st.size + ':' + st.mtimeMs;
+  const hit = doingCache.get(file);
+  if (hit && hit.key === key) return hit.steps;
+  let steps = [];
+  let fd;
+  try {
+    fd = fs.openSync(file, 'r');
+    const len = Math.min(st.size, 262144);
+    const buf = Buffer.alloc(len);
+    fs.readSync(fd, buf, 0, len, st.size - len);
+    let running = false;
+    for (const line of buf.toString('utf8').split('\n')) {
+      let d;
+      try { d = JSON.parse(line); } catch { continue; }
+      const m = d.message;
+      if (!m || d.isSidechain) continue;
+      const c = m.content;
+      if (m.role === 'user') {
+        const isResult = Array.isArray(c) && c.some(x => x && x.type === 'tool_result');
+        if (!isResult && !d.isMeta) { steps = []; running = true; }   // a new prompt: a new turn
+        continue;
+      }
+      if (m.role !== 'assistant' || !Array.isArray(c)) continue;
+      running = true;
+      for (const b of c) {
+        if (b.type === 'thinking') steps.push('Thinking…');
+        else if (b.type === 'tool_use') steps.push(stepLabel(b));
+        else if (b.type === 'text' && b.text && b.text.trim()) {
+          const t = b.text.trim().split('\n')[0].replace(/[*_`#>]/g, '').trim();
+          if (t) steps.push(t.length > 90 ? t.slice(0, 89) + '…' : t);
+        }
+      }
+      if (m.stop_reason === 'end_turn' || m.stop_reason === 'stop_sequence') running = false;
+    }
+    if (!running) steps = [];
+    // a thought is news only while it is the latest thing; once a tool follows, it is noise
+    steps = steps.filter((s, i) => s !== 'Thinking…' || i === steps.length - 1);
+    steps = steps.slice(-keep);
+  } catch { steps = []; } finally {
+    if (fd !== undefined) try { fs.closeSync(fd); } catch { /* closed */ }
+  }
+  doingCache.set(file, { key, steps });
+  return steps;
+}
+
+/** activity() for a session id, wherever its transcript is filed. */
+function activityOf(sid, ...paths) {
+  if (!/^[0-9a-f-]{36}$/.test(String(sid || ''))) return [];
+  for (const p of paths.filter(Boolean)) {
+    const f = path.join(projectDir(p), sid + '.jsonl');
+    if (fs.existsSync(f)) return activity(f);
+  }
+  return [];
+}
+
+module.exports = { labels, projectDir, aiTitle, titleOf, labelMatchesTitle, activity, activityOf, stepLabel };

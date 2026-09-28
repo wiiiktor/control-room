@@ -1911,9 +1911,13 @@
 
   async function poll() {
     try {
-      const res = await fetch('/api/messages?since=' + since + '&v=' + BUILD, { cache: 'no-store' });
+      const res = await fetch('/api/messages?since=' + since + '&v=' + BUILD
+        + (target ? '&doing=' + encodeURIComponent(target) : ''), { cache: 'no-store' });
       const data = await res.json();
       if (data.build && BUILD !== "__BUILD__" && data.build !== BUILD) return location.reload();
+      // \u2b50 WHAT IT IS DOING, AS THE CLAUDE WINDOW SHOWS IT: the steps of the turn in progress, read
+      // from the session's transcript by the extension, under whatever it said itself with status.py
+      data.status = (data.status || []).concat(data.doing || []);
 
       fails = 0;
       lamp.classList.remove('off');
