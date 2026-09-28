@@ -797,11 +797,17 @@
     text-transform: uppercase; opacity: .6;
   }
   /* progress notes under "Working on it…" — scaffolding, so it stays quiet */
-  .progress { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
-  .progress .step {
-    display: flex; gap: 10px; align-items: baseline;
-    font-size: 16px; font-weight: 650; opacity: .55;
+  /* Every step stays, newest at the bottom. Not a box: no border, no fill -- five rows tall at most,
+     and only past five does a scroll bar appear, the list itself following the newest step. */
+  .progress {
+    display: flex; flex-direction: column; gap: 6px; margin-top: 4px;
+    max-height: calc(5 * 22px + 4 * 6px); overflow-y: auto; scrollbar-width: thin;
   }
+  .progress .step {
+    display: flex; gap: 10px; align-items: baseline; flex: none;
+    font-size: 16px; line-height: 22px; font-weight: 650; opacity: .55;
+  }
+  .progress .step span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .progress .step b { font-size: 13px; opacity: .8; }
   .progress .step.now { opacity: 1; font-weight: 800; }
 
@@ -1732,6 +1738,11 @@
 
   function waiting(status) {
     waitingNow = true;
+    // the list is rebuilt on every new step: keep reading where the reader was, or follow the newest
+    let before = null;
+    try { before = document.querySelector('.progress'); } catch { /* no DOM yet */ }
+    const followed = !before || before.scrollHeight - before.scrollTop - before.clientHeight < 4;
+    const wasAt = before ? before.scrollTop : 0;
     const box = el('div', 'thinking');
     const word = el('span', '', aWord());
     box.append(el('i'), el('i'), el('i'), word);
@@ -1747,6 +1758,8 @@
       kids.push(log);
     }
     show(kids);
+    const list = kids[1];
+    if (list) try { list.scrollTop = followed ? list.scrollHeight : wasAt; } catch { /* no layout */ }
     // ⛔ AFTER show(), not before: show() stops the timer, because anything replacing the
     // screen ends the wait -- and waiting() goes through show() itself, so a timer armed
     // first would be cleared a line later and the word would never change.

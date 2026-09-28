@@ -26,9 +26,9 @@ module.exports = {
       tool('Bash', { command: 'node tests/run.js', description: 'Run unit tests' }), result(),
       tool('Grep', { pattern: 'typing' }),
     ]);
-    t.eq(JSON.stringify(activity(f)), JSON.stringify(['Read chat.html', 'Found it. More below', 'Run unit tests', 'Search "typing"']));
+    t.eq(JSON.stringify(activity(f)), JSON.stringify(['Thinking…', 'Read chat.html', 'Found it. More below', 'Run unit tests', 'Search "typing"']));
   },
-  'U7 a finished turn shows nothing; a thought shows only while it is the latest thing': (t) => {
+  'U7 a finished turn shows nothing; a thought is one line': (t) => {
     t.eq(activity(transcript([prompt('q'), tool('Read', { file_path: 'x' }), result(),
       said([{ type: 'text', text: 'done' }], 'end_turn')])).length, 0);
     t.eq(JSON.stringify(activity(transcript([prompt('q'), said([{ type: 'thinking', thinking: '' }])]))), JSON.stringify(['Thinking…']));

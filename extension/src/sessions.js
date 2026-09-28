@@ -184,7 +184,7 @@ function stepLabel(b) {
 }
 
 const doingCache = new Map();
-function activity(file, keep = 6) {
+function activity(file, keep = 100) {
   let st;
   try { st = fs.statSync(file); } catch { return []; }
   // a turn that ended without a closing message (interrupted, killed) must not read as running forever
@@ -224,8 +224,8 @@ function activity(file, keep = 6) {
       if (m.stop_reason === 'end_turn' || m.stop_reason === 'stop_sequence') running = false;
     }
     if (!running) steps = [];
-    // a thought is news only while it is the latest thing; once a tool follows, it is noise
-    steps = steps.filter((s, i) => s !== 'Thinking…' || i === steps.length - 1);
+    // every step of the turn stays (the page scrolls past five); one thought after another is one line
+    steps = steps.filter((s, i) => s !== 'Thinking…' || steps[i - 1] !== 'Thinking…');
     steps = steps.slice(-keep);
   } catch { steps = []; } finally {
     if (fd !== undefined) try { fs.closeSync(fd); } catch { /* closed */ }

@@ -102,7 +102,7 @@ Claude window* (the step ends; the conversation continues there).
 
 While the panel waits for an answer, the three dots carry what the session is doing, as the Claude
 window shows it: *Thinking…*, *Read chat.html*, a command's own description, the lines it writes
-between tools — the last six steps of the turn in progress, newest last. The extension reads them from
+between tools — every step of the turn in progress, newest last, the list scrolling once it passes five. The extension reads them from
 the session's transcript (Claude Code appends each tool call before running it), so nothing has to be
 installed in the session. A transcript untouched for ten minutes counts as idle.
 
