@@ -183,6 +183,32 @@ function stepLabel(b) {
   }
 }
 
+/** The WHOLE thing behind the label, for the right pane: the command that ran, the text that was
+ *  written, the pattern that was searched. The label is a line; this is what the line is about.
+ *  Returned as plain text and rendered as a text node, never as markup. */
+function stepDetail(b) {
+  const i = b.input || {};
+  const cap = (t) => { t = String(t == null ? '' : t); return t.length > 8000 ? t.slice(0, 8000) + '\n…' : t; };
+  const pair = (...xs) => cap(xs.filter(Boolean).join('\n'));
+  switch (b.name) {
+    case 'Bash': return pair(i.command, i.description && i.description !== i.command ? '\n# ' + i.description : '');
+    case 'Write': return pair(i.file_path, i.content && '\n' + i.content);
+    case 'Edit': return pair(i.file_path, i.old_string && '\n--- was\n' + i.old_string,
+                             i.new_string && '\n+++ now\n' + i.new_string);
+    case 'Read': return pair(i.file_path, i.offset ? 'from line ' + i.offset : '', i.limit ? i.limit + ' lines' : '');
+    case 'Grep': return pair('pattern: ' + (i.pattern || ''), i.path && 'in: ' + i.path, i.glob && 'glob: ' + i.glob);
+    case 'Glob': return pair(i.pattern, i.path);
+    case 'WebFetch': return pair(i.url, i.prompt);
+    case 'WebSearch': return cap(i.query);
+    case 'Agent': case 'Task': return pair(i.description, i.prompt && '\n' + i.prompt);
+    case 'Monitor': return pair(i.description, i.command);
+    case 'Skill': return pair(i.skill, i.args);
+    default: {
+      try { return cap(JSON.stringify(i, null, 2)); } catch { return ''; }
+    }
+  }
+}
+
 const doingCache = new Map();
 function activity(file, keep = 100) {
   let st;
@@ -214,18 +240,20 @@ function activity(file, keep = 100) {
       if (m.role !== 'assistant' || !Array.isArray(c)) continue;
       running = true;
       for (const b of c) {
-        if (b.type === 'thinking') steps.push('Thinking…');
-        else if (b.type === 'tool_use') steps.push(stepLabel(b));
+        // ⛔ NO 'Thinking…'. It was the one step that said nothing about what is happening, and it
+        // crowded out the ones that do. Asked for twice.
+        if (b.type === 'tool_use') steps.push({ t: stepLabel(b), d: stepDetail(b) });
         else if (b.type === 'text' && b.text && b.text.trim()) {
-          const t = b.text.trim().split('\n')[0].replace(/[*_`#>]/g, '').trim();
-          if (t) steps.push(t.length > 90 ? t.slice(0, 89) + '…' : t);
+          const whole = b.text.trim();
+          const t = whole.split('\n')[0].replace(/[*_`#>]/g, '').trim();
+          if (t) steps.push({ t: t.length > 90 ? t.slice(0, 89) + '…' : t,
+                              d: whole.length > t.length ? whole : '' });
         }
       }
       if (m.stop_reason === 'end_turn' || m.stop_reason === 'stop_sequence') running = false;
     }
     if (!running) steps = [];
     // every step of the turn stays (the page scrolls past five); one thought after another is one line
-    steps = steps.filter((s, i) => s !== 'Thinking…' || steps[i - 1] !== 'Thinking…');
     steps = steps.slice(-keep);
   } catch { steps = []; } finally {
     if (fd !== undefined) try { fs.closeSync(fd); } catch { /* closed */ }

@@ -667,7 +667,15 @@
   .crumb { cursor: pointer; }
   .crumb:hover, .crumb.open {
     white-space: normal; overflow: visible; border-radius: 18px;
-    background: var(--yellow-soft); box-shadow: var(--pop-sm);
+    background: var(--yellow-soft); box-shadow: var(--pop);
+  }
+
+  /* a step with something behind it: click opens the whole thing in the right pane */
+  .step.has-more { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+  .step.has-more:hover { opacity: 1; text-decoration-style: solid; }
+  .detail-pre {
+    margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+    line-height: 1.45; white-space: pre-wrap; word-break: break-word;
   }
 
   .badge {
@@ -2182,21 +2190,48 @@
    *  \u26d4 NOT A NEW SCREEN. Rebuilding it for every step replayed the entrance fade and re-measured
    *  the layout -- the screen shook and blinked each time a step arrived. Returns false when there is
    *  no waiting screen to update, and the caller draws one. */
+  /** A step is either a line status.py wrote (a string) or one read from the transcript
+   *  ({t: label, d: the whole thing}). One shape from here on. */
+  const stepOf = (x) => (x && typeof x === 'object') ? { t: String(x.t || ''), d: String(x.d || '') }
+                                                     : { t: String(x == null ? '' : x), d: '' };
+
+  /** The right pane, holding one step's detail as TEXT. Not markup: a command or a file's
+   *  contents is data, and buildBlocks would read `::` or `**` in it as instructions. */
+  function openStep(title, text) {
+    detail.classList.remove('empty');
+    detail.replaceChildren(el('h2', '', title), el('pre', 'detail-pre', text));
+    detail.scrollTop = 0;
+    screenEl.querySelectorAll('.cards button.on').forEach(b => b.classList.remove('on'));
+    sheet = detail;
+    if (clearBtn) clearBtn.hidden = false;
+  }
+
+  function stepNode(x) {
+    const s = stepOf(x);
+    const n = el('div', 'step', s.t);
+    if (s.d) {
+      n.classList.add('has-more');
+      n.title = 'Show it in the right pane';
+      n.onclick = () => openStep(s.t, s.d);
+    }
+    return n;
+  }
+
   function addSteps(status) {
     const wrap = screenEl.querySelector ? screenEl.querySelector('.waitbox') : null;
     if (!wrap || !waitingNow) return false;
     let list = wrap.querySelector('.progress');
-    const lines = status || [];
+    const lines = (status || []).map(stepOf);
     const had = list ? [...list.children].map(r => r.textContent) : [];
     // only ever appended to; anything else (a new turn, status.py lines cleared) is a fresh list
-    const grows = had.length <= lines.length && had.every((t, i) => t === lines[i]);
+    const grows = had.length <= lines.length && had.every((t, i) => t === lines[i].t);
     if (!lines.length) { if (list) list.remove(); return true; }
     if (!list) { list = el('div', 'progress'); wrap.append(list); }
     const followed = list.scrollHeight - list.scrollTop - list.clientHeight < 4;
     if (!grows) list.replaceChildren();
     const from = grows ? had.length : 0;
     [...list.children].forEach(r => r.classList.remove('now'));
-    lines.slice(from).forEach(t => list.append(el('div', 'step', t)));
+    lines.slice(from).forEach(x => list.append(stepNode(x)));
     if (list.lastElementChild) list.lastElementChild.classList.add('now');
     if (followed || !grows) list.scrollTop = list.scrollHeight;
     return true;
@@ -2595,7 +2630,12 @@
       b.setAttribute('role', 'radio');
       b.setAttribute('aria-checked', String(code === waitLang));
       // each language shows one of its own words, so the choice is seen, not just named
-      const sample = WAIT_WORDS[code][Math.floor(Math.random() * WAIT_WORDS[code].length)];
+      // ⛔ NOT ANY WORD. Some languages' words are long enough to stretch the button past the
+      // menu and wrap it; sample from the short ones, and fall back to the shortest there is.
+      const pool = WAIT_WORDS[code].filter(w => [...w].length <= 12);
+      const from = pool.length ? pool
+        : [WAIT_WORDS[code].slice().sort((a, b) => [...a].length - [...b].length)[0]];
+      const sample = from[Math.floor(Math.random() * from.length)];
       b.append(el('span', '', name), el('em', '', sample + '…'));
       b.onclick = () => {
         waitLang = code;
