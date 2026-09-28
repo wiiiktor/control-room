@@ -1748,6 +1748,30 @@
     if (wordTimer) { clearInterval(wordTimer); wordTimer = null; }
   }
 
+  /** A new step while already waiting: add it to the list that is on screen, nothing else.
+   *  \u26d4 NOT A NEW SCREEN. Rebuilding it for every step replayed the entrance fade and re-measured
+   *  the layout -- the screen shook and blinked each time a step arrived. Returns false when there is
+   *  no waiting screen to update, and the caller draws one. */
+  function addSteps(status) {
+    const wrap = screenEl.querySelector ? screenEl.querySelector('.waitbox') : null;
+    if (!wrap || !waitingNow) return false;
+    let list = wrap.querySelector('.progress');
+    const lines = status || [];
+    const had = list ? [...list.children].map(r => r.textContent) : [];
+    // only ever appended to; anything else (a new turn, status.py lines cleared) is a fresh list
+    const grows = had.length <= lines.length && had.every((t, i) => t === lines[i]);
+    if (!lines.length) { if (list) list.remove(); return true; }
+    if (!list) { list = el('div', 'progress'); wrap.append(list); }
+    const followed = list.scrollHeight - list.scrollTop - list.clientHeight < 4;
+    if (!grows) list.replaceChildren();
+    const from = grows ? had.length : 0;
+    [...list.children].forEach(r => r.classList.remove('now'));
+    lines.slice(from).forEach(t => list.append(el('div', 'step', t)));
+    if (list.lastElementChild) list.lastElementChild.classList.add('now');
+    if (followed || !grows) list.scrollTop = list.scrollHeight;
+    return true;
+  }
+
   function waiting(status) {
     waitingNow = true;
     // the list is rebuilt on every new step: keep reading where the reader was, or follow the newest
@@ -1966,7 +1990,10 @@
       // progress lines move while NO new message arrives, so they are their own redraw
       if (!data.messages.length) {
         const sig = (data.status || []).join('\u0001');
-        if (waitingNow && sig !== lastStatusSig) { lastStatusSig = sig; waiting(data.status); }
+        if (waitingNow && sig !== lastStatusSig) {
+          lastStatusSig = sig;
+          if (!addSteps(data.status)) waiting(data.status);
+        }
         return;
       }
       lastStatusSig = (data.status || []).join('\u0001');
