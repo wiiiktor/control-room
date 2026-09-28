@@ -2862,7 +2862,7 @@
       b.setAttribute('aria-checked', String(id === friendId));
       const pic = el('span', 'friend-pic');
       pic.innerHTML = friendSvg(id, 'friend-pic');
-      b.append(pic, el('span', '', id === 'none' ? 'No one' : FRIENDS[id].name));
+      b.append(pic, el('span', '', id === 'none' ? 'No one, I am an island' : FRIENDS[id].name));
       b.onclick = () => {
         friendId = id;
         try { localStorage.setItem('ctrl-friend', id); } catch {}
