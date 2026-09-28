@@ -678,6 +678,15 @@
   .head .slot.with-friend { height: 132px; }
   .head .slot.with-friend .crumb { top: 94px; min-width: 380px; }
   .head .slot.with-friend ~ .stamp-slot { margin-top: 94px; }
+  /* \u26d4 THE FRIENDS ARE DRAWN IN THEIR OWN INK. --ink is light in the dark palettes, and a cartoon
+     outlined in light grey reads as a negative. The figures are always outlined dark. */
+  :root { --fig-ink: #1c1d17; }
+  /* ...and on a dark page a dark outline vanishes into it: a thin light rim, like a sticker, keeps the
+     silhouette. The dark palettes are the default :root, dark, cobalt, plum and moss. */
+  :root:not([data-theme]) .friend, :root[data-theme="dark"] .friend, :root[data-theme="cobalt"] .friend,
+  :root[data-theme="plum"] .friend, :root[data-theme="moss"] .friend {
+    filter: drop-shadow(0 0 .8px rgba(255,255,255,.9)) drop-shadow(0 0 .8px rgba(255,255,255,.9));
+  }
   .friend {
     position: absolute; top: 0; left: 12px; width: 125px; height: 113px; z-index: 19; pointer-events: none;
     transform-origin: 50% 95%; transition: transform .28s ease; overflow: visible;
@@ -1164,69 +1173,68 @@
       name: 'Einstein',
       moves: ['blink'],   // calm: blinking only; the star and the steam do the rest
       svg: "<path class=\"sparkle\" d=\"M70 3l1.6 4.4l4.4 1.6l-4.4 1.6l-1.6 4.4l-1.6-4.4l-4.4-1.6l4.4-1.6Z\" fill=\"var(--yello"
-        + "w)\" stroke=\"var(--ink)\" stroke-width=\"1.2\"/><g stroke=\"var(--ink)\" stroke-width=\"2.2\" stroke-linejoin=\"round\" "
-        + "stroke-linecap=\"round\"><path d=\"M5 72C5 57 17 50 31 50C45 50 55 57 57 72Z\" fill=\"var(--green)\"/><path d=\"M12 7"
-        + "2C13 63 18 58 24 56\" fill=\"none\" stroke=\"var(--green-deep)\" stroke-width=\"2.4\"/><path d=\"M24.5 51L31 60.5L37.5"
-        + " 51Z\" fill=\"#f4f3ee\"/><path d=\"M27 43h9v9h-9Z\" fill=\"#f2c9a0\"/><path d=\"M20 39L8 36L14 30.5L4 23L15 20.5L9 11L"
-        + "20 13.5L20 3L28.5 9.5L34.5 0.5L40 8L47.5 1.5L48.5 11L57 8L53 17.5L61 20L52 25.5L50 36Z\" fill=\"#f7f6f1\"/><path "
-        + "d=\"M14 26q5-2 8 1M17 15q4 2 5 6M30 6q1 4 0 7M44 6q-2 3-1 7M53 19q-3 1-5 4\" fill=\"none\" stroke=\"#b9b8b0\" stroke"
-        + "-width=\"1.3\"/><ellipse cx=\"20.8\" cy=\"31.5\" rx=\"4.3\" ry=\"5.6\" fill=\"#f2c9a0\"/><ellipse cx=\"34\" cy=\"31\" rx=\"13.5"
-        + "\" ry=\"15.5\" fill=\"#f2c9a0\"/><path d=\"M22 32q1.5 10.5 10.5 14q-9-.5-10.5-14Z\" fill=\"#dfae84\" stroke=\"none\"/><pa"
-        + "th d=\"M29 18.5q4-1.5 8 0M30.5 16q3-1 6 0\" fill=\"none\" stroke-width=\"1.1\" opacity=\".45\"/><path class=\"brows\" d="
-        + "\"M27.5 22.5q4-4.2 8.5-.6M38.5 22q3.5-3.6 7.5.5\" fill=\"none\" stroke-width=\"3\"/><path d=\"M42 26q5.5 6 4.5 8.5q-2"
-        + ".5 1.2-5 0\" fill=\"#f2c9a0\" stroke-width=\"2\"/><path class=\"m-smile\" d=\"M34 41.5q5 4.5 10 0\" fill=\"none\" stroke-"
-        + "width=\"2.1\"/><path class=\"m-grin\" d=\"M33.5 41q5.5 7.5 11 0Z\" fill=\"#fff\" stroke-width=\"1.9\"/><ellipse class=\"m"
-        + "-o\" cx=\"39\" cy=\"43\" rx=\"2.2\" ry=\"2.7\" fill=\"#6b2a2a\" stroke-width=\"1.7\"/><path class=\"tongue\" d=\"M36.8 42.2q2."
-        + "2 7 4.4 0Z\" fill=\"#e8707a\" stroke-width=\"1.5\"/><path d=\"M30 37.5q4.5-5.5 9.5-2q4.5-2.8 9 2q-4 3.2-9 1q-5.5 2.2"
-        + "-9.5-1Z\" fill=\"#f7f6f1\" stroke-width=\"1.9\"/><path d=\"M42 66Q46 57 52 51\" fill=\"none\" stroke-width=\"9\"/><path d"
-        + "=\"M42 66Q46 57 52 51\" fill=\"none\" stroke=\"var(--green)\" stroke-width=\"5\"/><g class=\"cup\"><path class=\"steam\" d"
-        + "=\"M56.5 36q-2-3 0-6t0-6M61 35q-2-3 0-6t0-6M65.5 36q-2-3 0-6t0-6\" fill=\"none\" stroke-width=\"1.5\"/><path d=\"M66 "
-        + "43q6 0 6 4.8t-6 4.8\" fill=\"none\" stroke-width=\"2.6\"/><rect x=\"53.5\" y=\"38.5\" width=\"13\" height=\"15.5\" rx=\"2.4\""
-        + " fill=\"var(--yellow)\"/><path d=\"M53.5 41.5h13\" fill=\"none\" stroke=\"var(--on-yellow)\" stroke-width=\"1.2\"/><text"
-        + " x=\"61.6\" y=\"49.6\" font-size=\"3.4\" font-weight=\"900\" text-anchor=\"middle\" fill=\"var(--on-yellow)\" stroke=\"none"
-        + "\" font-family=\"Arial,Helvetica,sans-serif\">E=mc\u00b2</text><ellipse cx=\"53.5\" cy=\"48.5\" rx=\"3.5\" ry=\"3.9\" fill=\"#f"
-        + "2c9a0\"/></g></g><circle cx=\"28.5\" cy=\"36.2\" r=\"2.4\" fill=\"#f08c8c\" opacity=\".5\"/><g class=\"eyes\" fill=\"var(--i"
-        + "nk)\"><circle class=\"eye-l\" cx=\"32\" cy=\"27.5\" r=\"1.95\"/><circle class=\"eye-r\" cx=\"41\" cy=\"27.5\" r=\"1.75\"/></g><"
-        + "circle cx=\"32.6\" cy=\"26.9\" r=\".55\" fill=\"#fff\"/><circle cx=\"41.5\" cy=\"26.9\" r=\".5\" fill=\"#fff\"/>",
+        + "w)\" stroke=\"var(--fig-ink)\" stroke-width=\"1.2\"/><g stroke=\"var(--fig-ink)\" stroke-width=\"2.2\" stroke-linejoin="
+        + "\"round\" stroke-linecap=\"round\"><path d=\"M5 72C5 57 17 50 31 50C45 50 55 57 57 72Z\" fill=\"var(--green)\"/><path "
+        + "d=\"M12 72C13 63 18 58 24 56\" fill=\"none\" stroke=\"var(--green-deep)\" stroke-width=\"2.4\"/><path d=\"M24.5 51L31 6"
+        + "0.5L37.5 51Z\" fill=\"#f4f3ee\"/><path d=\"M27 43h9v9h-9Z\" fill=\"#f2c9a0\"/><path d=\"M20 39L8 36L14 30.5L4 23L15 20"
+        + ".5L9 11L20 13.5L20 3L28.5 9.5L34.5 0.5L40 8L47.5 1.5L48.5 11L57 8L53 17.5L61 20L52 25.5L50 36Z\" fill=\"#f7f6f1\""
+        + "/><path d=\"M14 26q5-2 8 1M17 15q4 2 5 6M30 6q1 4 0 7M44 6q-2 3-1 7M53 19q-3 1-5 4\" fill=\"none\" stroke=\"#b9b8b0"
+        + "\" stroke-width=\"1.3\"/><ellipse cx=\"20.8\" cy=\"31.5\" rx=\"4.3\" ry=\"5.6\" fill=\"#f2c9a0\"/><ellipse cx=\"34\" cy=\"31\" "
+        + "rx=\"13.5\" ry=\"15.5\" fill=\"#f2c9a0\"/><path d=\"M22 32q1.5 10.5 10.5 14q-9-.5-10.5-14Z\" fill=\"#dfae84\" stroke=\"no"
+        + "ne\"/><path d=\"M29 18.5q4-1.5 8 0M30.5 16q3-1 6 0\" fill=\"none\" stroke-width=\"1.1\" opacity=\".45\"/><path class=\"b"
+        + "rows\" d=\"M27.5 22.5q4-4.2 8.5-.6M38.5 22q3.5-3.6 7.5.5\" fill=\"none\" stroke-width=\"3\"/><path d=\"M42 26q5.5 6 4."
+        + "5 8.5q-2.5 1.2-5 0\" fill=\"#f2c9a0\" stroke-width=\"2\"/><path class=\"m-smile\" d=\"M34 41.5q5 4.5 10 0\" fill=\"none\""
+        + " stroke-width=\"2.1\"/><path class=\"m-grin\" d=\"M33.5 41q5.5 7.5 11 0Z\" fill=\"#fff\" stroke-width=\"1.9\"/><ellipse "
+        + "class=\"m-o\" cx=\"39\" cy=\"43\" rx=\"2.2\" ry=\"2.7\" fill=\"#6b2a2a\" stroke-width=\"1.7\"/><path class=\"tongue\" d=\"M36.8"
+        + " 42.2q2.2 7 4.4 0Z\" fill=\"#e8707a\" stroke-width=\"1.5\"/><path d=\"M30 37.5q4.5-5.5 9.5-2q4.5-2.8 9 2q-4 3.2-9 1q"
+        + "-5.5 2.2-9.5-1Z\" fill=\"#f7f6f1\" stroke-width=\"1.9\"/><path d=\"M42 66Q46 57 52 51\" fill=\"none\" stroke-width=\"9\"/"
+        + "><path d=\"M42 66Q46 57 52 51\" fill=\"none\" stroke=\"var(--green)\" stroke-width=\"5\"/><g class=\"cup\"><path class=\""
+        + "steam\" d=\"M56.5 36q-2-3 0-6t0-6M61 35q-2-3 0-6t0-6M65.5 36q-2-3 0-6t0-6\" fill=\"none\" stroke-width=\"1.5\"/><path"
+        + " d=\"M66 43q6 0 6 4.8t-6 4.8\" fill=\"none\" stroke-width=\"2.6\"/><rect x=\"53.5\" y=\"38.5\" width=\"13\" height=\"15.5\" "
+        + "rx=\"2.4\" fill=\"var(--yellow)\"/><path d=\"M53.5 41.5h13\" fill=\"none\" stroke=\"var(--on-yellow)\" stroke-width=\"1.2"
+        + "\"/><text x=\"61.6\" y=\"49.6\" font-size=\"3.4\" font-weight=\"900\" text-anchor=\"middle\" fill=\"var(--on-yellow)\" stro"
+        + "ke=\"none\" font-family=\"Arial,Helvetica,sans-serif\">E=mc\u00b2</text><ellipse cx=\"53.5\" cy=\"48.5\" rx=\"3.5\" ry=\"3.9\" "
+        + "fill=\"#f2c9a0\"/></g></g><circle cx=\"28.5\" cy=\"36.2\" r=\"2.4\" fill=\"#f08c8c\" opacity=\".5\"/><g class=\"eyes\" fill="
+        + "\"var(--fig-ink)\"><circle class=\"eye-l\" cx=\"32\" cy=\"27.5\" r=\"1.95\"/><circle class=\"eye-r\" cx=\"41\" cy=\"27.5\" r=\""
+        + "1.75\"/></g><circle cx=\"32.6\" cy=\"26.9\" r=\".55\" fill=\"#fff\"/><circle cx=\"41.5\" cy=\"26.9\" r=\".5\" fill=\"#fff\"/>",
     },
     android: {
       name: 'Android',
       moves: ['blink', 'blink', 'wink'],
       svg: "<g transform=\"translate(80 0) scale(-1 1)\"><path class=\"sparkle\" d=\"M71 6l1.6 4.4l4.4 1.6l-4.4 1.6l-1.6 4.4l-1"
-        + ".6-4.4l-4.4-1.6l4.4-1.6Z\" fill=\"var(--yellow)\" stroke=\"var(--ink)\" stroke-width=\"1.2\"/><g stroke=\"var(--ink)\" "
-        + "stroke-width=\"2.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M20 72C20 57 30 50 44 50C58 50 67 5"
-        + "7 67 72Z\" fill=\"var(--red)\"/><g fill=\"var(--panel)\" stroke=\"none\"><circle cx=\"29\" cy=\"63\" r=\"1.4\"/><circle cx="
-        + "\"37\" cy=\"68\" r=\"1.4\"/><circle cx=\"55\" cy=\"60\" r=\"1.4\"/><circle cx=\"61\" cy=\"67\" r=\"1.4\"/><circle cx=\"47\" cy=\"65"
-        + "\" r=\"1.4\"/><circle cx=\"33\" cy=\"57.5\" r=\"1.4\"/></g><path d=\"M36.5 50.5L44 58.5L51.5 50.5L47 50L44 53.5L41 50Z\" "
-        + "fill=\"var(--panel)\"/><path d=\"M40 43h8v8.5h-8Z\" fill=\"var(--grey)\"/><path d=\"M40 46.5h8\" fill=\"none\" stroke-wi"
-        + "dth=\"1.2\"/><path d=\"M48 13L51 5.5\" fill=\"none\"/><circle class=\"antenna\" cx=\"51.5\" cy=\"4.5\" r=\"2.7\" fill=\"var(-"
-        + "-yellow)\"/><path d=\"M27 41C22 21 31 10 44 10C57 10 64 21 60 41C63.5 43 61.5 48 56 45.5L56 30L31 30L31 45.5C25."
-        + "5 48 23.5 43 27 41Z\" fill=\"var(--green)\"/><path d=\"M58 22q1.5 6 1 13M29 20q-1.5 5-1 12\" fill=\"none\" stroke=\"#f"
-        + "ff\" stroke-width=\"1.4\" opacity=\".55\"/><circle cx=\"57.2\" cy=\"31\" r=\"4.1\" fill=\"var(--grey)\"/><circle cx=\"57.2\" "
-        + "cy=\"31\" r=\"1.5\" fill=\"var(--green-deep)\" stroke-width=\"1.2\"/><circle cx=\"56.5\" cy=\"39\" r=\"1.9\" fill=\"none\" str"
-        + "oke=\"var(--yellow)\" stroke-width=\"1.5\"/><rect x=\"29.5\" y=\"14\" width=\"26\" height=\"31\" rx=\"11.5\" fill=\"#eef1f4\"/"
-        + "><path d=\"M50 40q4-2 5.3-8.5V36q-.7 6-5.3 4Z\" fill=\"#cdd8e5\" stroke=\"none\"/><path d=\"M29.5 27C29.5 16.5 36 12."
-        + "5 44 12.5C52 12.5 56 17.5 55.5 24C48.5 23 42.5 19.5 39.5 15.5C37.5 21 33.5 25 29.5 27Z\" fill=\"var(--green)\"/><"
-        + "path d=\"M33 21q3-5 8-6.5\" fill=\"none\" stroke=\"#fff\" stroke-width=\"1.3\" opacity=\".6\"/><path d=\"M35 14q-4-4.5-7."
-        + "5-1.5q1.5 3.2 5 3.4q-3 2-2.5 5.4q4.5 1 5.5-4.5Z\" fill=\"var(--yellow)\" stroke-width=\"1.8\"/><circle cx=\"35.2\" cy"
-        + "=\"15.6\" r=\"1.7\" fill=\"var(--yellow)\" stroke-width=\"1.6\"/><path d=\"M39 33.5l-1.8 2.3l2.2.5\" fill=\"none\" stroke-"
-        + "width=\"1.5\"/><path class=\"m-smile\" d=\"M35 39.2q4.5-1.6 9 0q-4.5 4.6-9 0Z\" fill=\"var(--red)\" stroke-width=\"1.7\""
-        + "/><path class=\"m-grin\" d=\"M34.5 38.5q5-1 10 0q-5 7-10 0Z\" fill=\"#fff\" stroke=\"var(--red)\" stroke-width=\"2\"/><e"
-        + "llipse class=\"m-o\" cx=\"39.5\" cy=\"40.5\" rx=\"2\" ry=\"2.5\" fill=\"var(--red)\" stroke-width=\"1.5\"/><g class=\"eyes\"><"
-        + "g class=\"eye-l\"><ellipse cx=\"35\" cy=\"30\" rx=\"2.7\" ry=\"3.3\" fill=\"var(--green-deep)\" stroke-width=\"1.7\"/><path "
-        + "d=\"M32.4 28.2l-2.6-1.3M32.8 26.9l-1.8-1.9\" fill=\"none\" stroke-width=\"1.5\"/></g><g class=\"eye-r\"><ellipse cx=\"4"
-        + "5\" cy=\"30\" rx=\"2.5\" ry=\"3.1\" fill=\"var(--green-deep)\" stroke-width=\"1.7\"/><path d=\"M47.5 28.1l2.6-1.3M47.2 26."
-        + "8l1.8-1.9\" fill=\"none\" stroke-width=\"1.5\"/></g></g><path d=\"M31 64Q23 62 20 55\" fill=\"none\" stroke-width=\"8\"/>"
-        + "<path d=\"M31 64Q23 62 20 55\" fill=\"none\" stroke=\"var(--grey)\" stroke-width=\"4\"/><g class=\"cup\"><path d=\"M15.5 "
-        + "38L21 30\" fill=\"none\" stroke=\"var(--red)\" stroke-width=\"1.9\"/><path d=\"M7.5 42L19.5 42L18 60L9 60Z\" fill=\"#e8f"
-        + "7ff\" stroke-width=\"1.9\"/><path d=\"M8.6 47L18.4 47L17.2 58.8L9.8 58.8Z\" fill=\"var(--red)\" stroke=\"none\" opacity"
-        + "=\".75\"/><g fill=\"#fff\" stroke=\"none\" opacity=\".85\"><circle cx=\"12\" cy=\"53\" r=\".9\"/><circle cx=\"15\" cy=\"50\" r=\""
-        + ".7\"/><circle cx=\"13.5\" cy=\"56.5\" r=\".7\"/></g><path d=\"M7 42.5q-.5-4 3-4.5q1-3.5 4.5-2.5q3.5-1 4.5 2.5q3 1 1.5 "
-        + "4.5Z\" fill=\"#fff\" stroke-width=\"1.7\"/><path d=\"M13 35.5q1-3 3-4\" fill=\"none\" stroke-width=\"1.3\"/><circle cx=\"1"
-        + "2.6\" cy=\"36\" r=\"2.3\" fill=\"var(--red)\" stroke-width=\"1.5\"/><circle cx=\"19.8\" cy=\"54\" r=\"3.3\" fill=\"var(--grey)"
-        + "\"/></g></g><circle cx=\"33\" cy=\"36\" r=\"2.1\" fill=\"#ff9bb5\" opacity=\".75\"/><circle cx=\"48.5\" cy=\"36\" r=\"1.9\" fil"
-        + "l=\"#ff9bb5\" opacity=\".75\"/><circle cx=\"36\" cy=\"29\" r=\".85\" fill=\"#fff\"/><circle cx=\"45.8\" cy=\"29\" r=\".8\" fill="
-        + "\"#fff\"/></g>",
+        + ".6-4.4l-4.4-1.6l4.4-1.6Z\" fill=\"var(--yellow)\" stroke=\"var(--fig-ink)\" stroke-width=\"1.2\"/><g stroke=\"var(--fi"
+        + "g-ink)\" stroke-width=\"2.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M20 72C20 57 30 50 44 50C58"
+        + " 50 67 57 67 72Z\" fill=\"var(--red)\"/><g fill=\"#fffdf5\" stroke=\"none\"><circle cx=\"29\" cy=\"63\" r=\"1.4\"/><circle "
+        + "cx=\"37\" cy=\"68\" r=\"1.4\"/><circle cx=\"55\" cy=\"60\" r=\"1.4\"/><circle cx=\"61\" cy=\"67\" r=\"1.4\"/><circle cx=\"47\" cy="
+        + "\"65\" r=\"1.4\"/><circle cx=\"33\" cy=\"57.5\" r=\"1.4\"/></g><path d=\"M36.5 50.5L44 58.5L51.5 50.5L47 50L44 53.5L41 50"
+        + "Z\" fill=\"#fffdf5\"/><path d=\"M40 43h8v8.5h-8Z\" fill=\"#aab6c4\"/><path d=\"M40 46.5h8\" fill=\"none\" stroke-width=\"1"
+        + ".2\"/><path d=\"M48 13L51 5.5\" fill=\"none\"/><circle class=\"antenna\" cx=\"51.5\" cy=\"4.5\" r=\"2.7\" fill=\"var(--yello"
+        + "w)\"/><path d=\"M27 41C22 21 31 10 44 10C57 10 64 21 60 41C63.5 43 61.5 48 56 45.5L56 30L31 30L31 45.5C25.5 48 2"
+        + "3.5 43 27 41Z\" fill=\"var(--green)\"/><path d=\"M58 22q1.5 6 1 13M29 20q-1.5 5-1 12\" fill=\"none\" stroke=\"#fff\" st"
+        + "roke-width=\"1.4\" opacity=\".55\"/><circle cx=\"57.2\" cy=\"31\" r=\"4.1\" fill=\"#aab6c4\"/><circle cx=\"57.2\" cy=\"31\" r="
+        + "\"1.5\" fill=\"var(--green-deep)\" stroke-width=\"1.2\"/><circle cx=\"56.5\" cy=\"39\" r=\"1.9\" fill=\"none\" stroke=\"var(-"
+        + "-yellow)\" stroke-width=\"1.5\"/><rect x=\"29.5\" y=\"14\" width=\"26\" height=\"31\" rx=\"11.5\" fill=\"#eef1f4\"/><path d=\""
+        + "M50 40q4-2 5.3-8.5V36q-.7 6-5.3 4Z\" fill=\"#cdd8e5\" stroke=\"none\"/><path d=\"M29.5 27C29.5 16.5 36 12.5 44 12.5C"
+        + "52 12.5 56 17.5 55.5 24C48.5 23 42.5 19.5 39.5 15.5C37.5 21 33.5 25 29.5 27Z\" fill=\"var(--green)\"/><path d=\"M3"
+        + "3 21q3-5 8-6.5\" fill=\"none\" stroke=\"#fff\" stroke-width=\"1.3\" opacity=\".6\"/><path d=\"M35 14q-4-4.5-7.5-1.5q1.5 "
+        + "3.2 5 3.4q-3 2-2.5 5.4q4.5 1 5.5-4.5Z\" fill=\"var(--yellow)\" stroke-width=\"1.8\"/><circle cx=\"35.2\" cy=\"15.6\" r="
+        + "\"1.7\" fill=\"var(--yellow)\" stroke-width=\"1.6\"/><path d=\"M39 33.5l-1.8 2.3l2.2.5\" fill=\"none\" stroke-width=\"1.5"
+        + "\"/><path class=\"m-smile\" d=\"M35 39.2q4.5-1.6 9 0q-4.5 4.6-9 0Z\" fill=\"var(--red)\" stroke-width=\"1.7\"/><path cl"
+        + "ass=\"m-grin\" d=\"M34.5 38.5q5-1 10 0q-5 7-10 0Z\" fill=\"#fff\" stroke=\"var(--red)\" stroke-width=\"2\"/><ellipse cla"
+        + "ss=\"m-o\" cx=\"39.5\" cy=\"40.5\" rx=\"2\" ry=\"2.5\" fill=\"var(--red)\" stroke-width=\"1.5\"/><g class=\"eyes\"><g class=\"e"
+        + "ye-l\"><ellipse cx=\"35\" cy=\"30\" rx=\"2.7\" ry=\"3.3\" fill=\"var(--green-deep)\" stroke-width=\"1.7\"/><path d=\"M32.4 2"
+        + "8.2l-2.6-1.3M32.8 26.9l-1.8-1.9\" fill=\"none\" stroke-width=\"1.5\"/></g><g class=\"eye-r\"><ellipse cx=\"45\" cy=\"30\""
+        + " rx=\"2.5\" ry=\"3.1\" fill=\"var(--green-deep)\" stroke-width=\"1.7\"/><path d=\"M47.5 28.1l2.6-1.3M47.2 26.8l1.8-1.9\""
+        + " fill=\"none\" stroke-width=\"1.5\"/></g></g><path d=\"M31 64Q23 62 20 55\" fill=\"none\" stroke-width=\"8\"/><path d=\"M"
+        + "31 64Q23 62 20 55\" fill=\"none\" stroke=\"#aab6c4\" stroke-width=\"4\"/><g class=\"cup\"><path d=\"M15.5 38L21 30\" fill"
+        + "=\"none\" stroke=\"var(--red)\" stroke-width=\"1.9\"/><path d=\"M7.5 42L19.5 42L18 60L9 60Z\" fill=\"#e8f7ff\" stroke-wi"
+        + "dth=\"1.9\"/><path d=\"M8.6 47L18.4 47L17.2 58.8L9.8 58.8Z\" fill=\"var(--red)\" stroke=\"none\" opacity=\".75\"/><g fil"
+        + "l=\"#fff\" stroke=\"none\" opacity=\".85\"><circle cx=\"12\" cy=\"53\" r=\".9\"/><circle cx=\"15\" cy=\"50\" r=\".7\"/><circle c"
+        + "x=\"13.5\" cy=\"56.5\" r=\".7\"/></g><path d=\"M7 42.5q-.5-4 3-4.5q1-3.5 4.5-2.5q3.5-1 4.5 2.5q3 1 1.5 4.5Z\" fill=\"#f"
+        + "ff\" stroke-width=\"1.7\"/><path d=\"M13 35.5q1-3 3-4\" fill=\"none\" stroke-width=\"1.3\"/><circle cx=\"12.6\" cy=\"36\" r"
+        + "=\"2.3\" fill=\"var(--red)\" stroke-width=\"1.5\"/><circle cx=\"19.8\" cy=\"54\" r=\"3.3\" fill=\"#aab6c4\"/></g></g><circle"
+        + " cx=\"33\" cy=\"36\" r=\"2.1\" fill=\"#ff9bb5\" opacity=\".75\"/><circle cx=\"48.5\" cy=\"36\" r=\"1.9\" fill=\"#ff9bb5\" opacit"
+        + "y=\".75\"/><circle cx=\"36\" cy=\"29\" r=\".85\" fill=\"#fff\"/><circle cx=\"45.8\" cy=\"29\" r=\".8\" fill=\"#fff\"/></g>",
     },
   };
   let friendId = (() => { try { return localStorage.getItem('ctrl-friend') || 'einstein'; } catch { return 'einstein'; } })();
