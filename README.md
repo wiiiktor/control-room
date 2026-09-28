@@ -45,15 +45,17 @@ echo "alias control-room-update=\"gh api repos/wiiiktor/control-room/contents/ex
 # zsh (macOS default): >> ~/.zshrc instead. Then: source ~/.bashrc
 ```
 
-Then **opening the two-way link**, which is the step that is not a command:
+Then **talking to a session**, which is not a command:
 
-1. Open a **Claude Code tab** and send it *any* message. A session begins when it is given
-   something to do, not when its tab is opened. Nothing below works before this.
-2. **Ctrl+Shift+P → Control Room** and pick that session.
-3. Type in the panel. The splash button turns green when the session answers.
+1. **Ctrl+Shift+P → Control Room** (it also opens by itself with the workspace). The splash lists the
+   sessions you already have, named as the Claude window names them, and offers a new one.
+2. Pick one, or **Start a new session**, and type. The panel wakes the session in the background —
+   nothing appears — and the splash button turns green when it answers.
 
-Anything typed in the Claude tab from then on appears in the panel too, and so does its
-answer — see [The panel holds both sides](#the-panel-holds-both-sides).
+A conversation runs in one place at a time: the room, or the Claude window. Opening it in the Claude
+window moves it there; writing to it from the panel moves it back. See
+[docs/SESSIONS.md](docs/SESSIONS.md). Anything typed in a Claude tab appears in the panel too, and so
+does its answer — see [The panel holds both sides](#the-panel-holds-both-sides).
 
 ## Install
 
@@ -120,12 +122,15 @@ Room**. The same scheme takes `/open` and `/diagnose`.
 
 ## Using it
 
-1. Open the Claude Code tab and send it **any** message. A session starts when it is given
-   something to do, not when its tab is opened — this is the step everyone misses, which is
-   why the panel opens on a splash that says exactly this.
-2. Open the panel: **Ctrl+Shift+P → Control Room: Open panel**. It asks which session you
-   want to talk to.
-3. Write. The session answers in the panel.
+1. Open the panel: **Ctrl+Shift+P → Control Room: Open panel** — or just open the workspace.
+2. Choose who you are talking to: a session from the list (the Claude window's titles), or **Start a
+   new session**. Choosing wakes nothing; typing does.
+3. Write. The panel wakes that session in the background (`claude --bg`), it arms its watch, and it
+   answers in the panel. `claude attach <id>` shows it in a terminal if you want to watch it work.
+
+A room talks to one session at a time: waking another lets the previous one go. What happens when the
+session you write to is open in the Claude window, busy, or somewhere the room cannot reach is in
+[docs/SESSIONS.md](docs/SESSIONS.md).
 
 A workspace can hold several rooms — one folder per session, each with its own
 `chat.jsonl` — and every `control-room*` folder is offered as a separate panel.
@@ -139,6 +144,8 @@ A workspace can hold several rooms — one folder per session, each with its own
 | `reply.py` | posts an assistant reply into the log | Python 3 |
 | `status.py` | progress lines shown while a reply is being worked on | Python 3 |
 | `chatlog.py` | the log format, shared by the three above | Python 3 |
+| `request.py` | lets a session in the room ask the extension for what only VS Code can do: open a conversation in the Claude window, close a Claude tab, wake a session | Python 3 |
+| `extension/handoff/claude-handoff` | installed as `claudeCode.claudeProcessWrapper`: releases a conversation from the room before the Claude window resumes it | `sh` |
 
 Nothing here is Linux-specific: the paths come from the workspace, the timestamps are
 local, and `fcntl` locking works on macOS. What is *not* portable is the conversation —
@@ -218,63 +225,28 @@ four possible faults it is: no room, no Python, no hook, or no session. It also 
 last few messages in the room, which is how you tell whether the panel is writing where the
 watch is reading.
 
-It does not cover the one fault that shows up in the *other* extension rather than here — a Claude
-tab that exits 1 on open. That is the next section.
+It also reports the handoff wrapper, which is what keeps the one fault that shows up in the *other*
+extension — a Claude tab that exits 1 on open — from happening. That is the next section.
 
 ## The Claude tab says "exited with code 1"
 
-⛔ **The text you can see is not the error.** The tab shows the *tail* of a page of debug
-output, so the line that ends up on screen is whatever came last — usually
-`[skills] skipping reserved dir name 'synced' … 'synced' is the sync-owned root`, which is
-harmless and appears in the launches that **succeed** too. The cause has scrolled off the top:
+That was the Claude window resuming a conversation the room was running as a **background**
+session: `claude --resume` refuses one (*"Session … is running as a background session"*), and the
+Claude extension prints the refusal over a page of debug output. The visible line is usually
+harmless noise; the cause has scrolled off the top.
 
-```
-Error: Session <uuid> is running as a background session (<short>).
-Run `claude attach <short>` to open it, or `claude stop <short>` first.
-```
+It no longer happens. Control Room sets `claudeCode.claudeProcessWrapper` to a small wrapper that
+releases the conversation from the room just before the window resumes it; the room is told that the
+conversation moved to the Claude window, and writing to it from the panel brings it back. How, and
+what else follows from "one conversation, one process", is in [docs/SESSIONS.md](docs/SESSIONS.md).
 
-Waking a session from this room resumes it with `--bg`, so that id now belongs to a
-**background** session. A Claude tab cannot resume one, so its process exits 1 — every time the
-tab is opened or restored, for as long as the room's session is running.
-
-**Two fixes, both one line:**
+If you see it anyway, **Control Room: Diagnose the bridge** says why — usually that
+`claudeCode.claudeProcessWrapper` was already set to something else, or `controlRoom.claudeWindowHandoff`
+is off. The one-line fix by hand is still the one the error names:
 
 ```bash
-claude attach 38224dad   # open that conversation in a terminal, room keeps it running
-claude stop 38224dad     # free the id, and the tab's own resume then works
+claude stop <short id>     # free the conversation; the Claude tab's own resume then works
 ```
-
-⛔ **What does not fix it:** reinstalling the Claude Code extension (the conflict is over
-ownership of a session id, not the extension), and clearing `panelTabSessions` while VS Code is
-running — it is rewritten from the live window on exit. See
-[`tools/clear_claude_tab_state.py`](tools/clear_claude_tab_state.py), which refuses to run with
-VS Code open for exactly that reason.
-
-⭐ **Where the truth is, when the tab will not show it.** The extension host logs every launch
-and every failure:
-
-```bash
-f=$(ls -t ~/.config/Code/logs/*/window*/exthost/Anthropic.claude-code/"Claude VSCode.log" | head -1)
-grep -n "Error spawning Claude" "$f"          # the failures, with their channel ids
-grep -n "launch_claude" "$f"                  # each channel's "resume":"<uuid>" — the id it wanted
-```
-
-Pairing the two is what makes the diagnosis certain rather than plausible. Measured 2026-09-28:
-six failures, every one of them a resume of the same background id; five launches that resumed a
-different id or started fresh all worked. That correlation is the proof — a single failing launch
-looks like a broken extension.
-
-⚠️ **The other half of the same mechanism.** A tab pinned to a session that is *not* background
-resumes it **successfully** — and takes it over. If that session was the one watching this room,
-its watch dies with the takeover, the panel goes NOT WATCHING, and messages sit unread until the
-`SessionStart` hook arms a watch in whatever session comes back. A panel that goes quiet right
-after a window reload is usually this, not a broken bridge.
-
-⚠️ **Two watchers, two voices.** Nothing stops two sessions watching one `chat.jsonl`; both
-answer, with different context, and the room reads as if it is arguing with itself. `ls
-<room>/.watch.*` is the check — one file per watching session — and `claude stop <short>` on the
-duplicate is the cure. The heartbeat file of a stopped session is stale, not live; deleting it
-stops the panel offering a dead session as a target.
 
 ## Keeping the panel alive
 
@@ -285,9 +257,11 @@ the corner pill goes **NOT WATCHING** and the tab title gains `(no watcher)`.
 
 The extension installs a `SessionStart` hook that closes most of this gap, the first time
 a panel opens — no prompt, because it is machinery you have not met yet. It writes
-`.claude/hooks/control-room-watch.py` and merges one entry into `.claude/settings.json`, so
-every Claude session in the workspace is told at startup to arm the watch — on the room
-*that* session belongs to — and how many messages are waiting. To redo it by hand, run **Control Room: Install the session-start watch hook**. Existing
+`.claude/hooks/control-room-watch.py` and merges one entry into `.claude/settings.json` (and a
+matching one in the room folder, where new room sessions start), so every session **the room
+launches** is told at startup to arm the watch — on the room *that* session belongs to — and how
+many messages are waiting. Your own conversations in the Claude window are not told: a second
+watcher would answer everything twice. To redo it by hand, run **Control Room: Install the session-start watch hook**. Existing
 settings are preserved and installing twice is a no-op.
 
 ## Permissions: letting Claude work without a prompt per action
@@ -334,6 +308,12 @@ tab says *"Claude Code stopped responding in this tab…"* and its session conne
 That is the install working. The Control Room panel comes back on its own — it registers a
 webview serializer and each panel records which room it belongs to — but the Claude tab
 needs reopening from the session list, and the watch needs one message to start again.
+
+## Tests
+
+`node tests/run.js` runs the unit tests (no Claude, no VS Code); `sh tests/sandbox/all.sh` starts
+real sessions on a cheap model in a throwaway workspace and runs the real Claude extension in an
+isolated VS Code. What each one checks: [tests/README.md](tests/README.md).
 
 ## The markup
 
