@@ -1,9 +1,21 @@
 # Control Room
 
-![Control Room](docs/control-room.png)
+**A big-button control panel for driving [Claude Code](https://claude.com/claude-code) from VS Code.**
 
-A big-button control panel for driving [Claude Code](https://claude.com/claude-code),
-as a VS Code extension.
+## Install: one prompt
+
+Paste this into Claude in VS Code (the Claude tab), on macOS, Linux or Windows:
+
+```text
+Install Control Room: download https://raw.githubusercontent.com/wiiiktor/control-room/main/skills/install-control-room/SKILL.md, save it as ~/.claude/skills/install-control-room/SKILL.md, then follow it.
+```
+
+That's all. Claude asks you once, then installs the right build for your system, turns on
+**bypass permissions** (Control Room needs them: its sessions work in the background, where nobody
+can answer a *"may I run this?"* question), and reloads the window. Open it with
+**Cmd/Ctrl+Shift+P → Control Room**. Later, *"update Control Room"* is enough.
+
+![Control Room](docs/control-room.png)
 
 You type in the panel; the message is appended to `chat.jsonl`. A Claude Code session
 watches that file, does the work, and answers with `reply.py` in a small line-based markup
@@ -18,21 +30,6 @@ panel  ────────►  chat.jsonl  ──►  Claude Code session
 
 The panel needs no server and no dependencies. Answering needs Python 3 (standard library
 only) on the same machine as the session.
-
-## Install: one prompt
-
-Give this to Claude in VS Code (the Claude tab), on macOS, Linux or Windows:
-
-> Install Control Room: download https://raw.githubusercontent.com/wiiiktor/control-room/main/skills/install-control-room/SKILL.md, save it as ~/.claude/skills/install-control-room/SKILL.md, then follow it.
-
-Claude saves the installer skill, then asks you once and does the rest. It downloads and installs
-the right build for your system, turns on **bypass permissions**, and reloads the window. The skill
-stays installed, so later *"update Control Room"* is all it takes. Then **Cmd/Ctrl+Shift+P →
-Control Room**.
-
-Control Room needs **bypass permissions**. Its sessions work in the background, where nobody can
-answer a *"may I run this?"* question, so without bypass a session stops at its first one. See
-[Permissions](#permissions-letting-claude-work-without-a-prompt-per-action).
 
 ## Every command, in one place
 
