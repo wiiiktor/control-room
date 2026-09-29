@@ -1,0 +1,8 @@
+Windows notes (backfilled 2026-09-30 from the diff; nothing here was tested on Windows)
+
+Files: extension/chat.html, extension/package.json
+make.py patches: chat.html: patch 9 (session list: leave out conversations open in a tab; "Start a new session" first); package.json: rewritten (name, version, Windows build number)
+  All make.py patches were verified to still apply at e6d64f7 (2026-09-30, csc step stubbed).
+Platform-sensitive ground in the added lines: none found by a keyword scan (spawn/claude CLI, python3, fcntl, tail, sh, paths, platform checks, settings files, terminals).
+Checked at the time (macOS): each language file checked: 183 entries, same order
+Windows: untested.
