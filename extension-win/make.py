@@ -34,7 +34,7 @@ What differs on Windows, all of it measured on a Windows 11 machine rather than 
 
   python make.py [--out build]
 """
-import argparse, json, os, re, shutil, sys
+import argparse, json, os, re, shutil, subprocess, sys
 from pathlib import Path
 
 HERE = Path(__file__).absolute().parent
@@ -432,6 +432,39 @@ def main():
     P.sub(h, "  const file = path.join(claude, 'settings.json');",
           "  const file = path.join(claude, SETTINGS(root));",
           why="install() writes the scoped file")
+
+    # ---- 8. the handoff wrapper, as a Windows program ---------------------------------------
+    # ⛔ IT WAS SWITCHED OFF HERE, and the Claude tab showed "Claude Code process exited with code 1"
+    # every time it opened a conversation the room held in the background. The posix wrapper is sh,
+    # which the Claude extension cannot start on Windows (it spawns with shell:false). This one is
+    # handoff/claude-handoff.cs, compiled by the csc.exe in every Windows' .NET Framework.
+    csc = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe"
+    if not csc.exists():
+        sys.exit(f"⛔ {csc} not found -- the Windows handoff wrapper is compiled with it")
+    exe = out / "handoff" / "claude-handoff.exe"
+    r = subprocess.run([str(csc), "-nologo", "-optimize", "-out:" + str(exe), str(HERE / "handoff" / "claude-handoff.cs")],
+                       capture_output=True, text=True)
+    if r.returncode != 0 or not exe.exists():
+        sys.exit("⛔ the handoff wrapper did not compile:\n" + r.stdout + r.stderr)
+    P.applied.append("claude-handoff.exe: compiled from extension-win/handoff/claude-handoff.cs")
+    ho = out / "src" / "handoff.js"
+    P.sub(ho, "const NAME = 'claude-handoff';",
+          "// \u26d4 on Windows the wrapper is a real program: the Claude extension starts it with shell:false\n"
+          "const NAME = process.platform === 'win32' ? 'claude-handoff.exe' : 'claude-handoff';",
+          why="the wrapper is claude-handoff.exe on Windows")
+    P.sub(ho, "  if (platform === 'win32') return { action: isOurs ? 'clear' : 'unsupported' };   // it is a sh script\n",
+          "", why="Windows is supported: the wrapper is an .exe")
+    P.sub(ho, "  if (enabled && process.platform !== 'win32') {", "  if (enabled) {",
+          why="install the wrapper on Windows too")
+    P.sub(ho, "    fs.renameSync(tmp, dest);                  // never a half-written wrapper for claude to exec",
+          "    // \u26d4 A RUNNING .EXE CANNOT BE REPLACED, only renamed. Every open Claude tab is running this\n"
+          "    // wrapper, so an update moves the old one aside first; the tabs keep it until they close.\n"
+          "    try { fs.renameSync(tmp, dest); }\n"
+          "    catch {\n"
+          "      try { fs.renameSync(dest, dest + '.old-' + Date.now()); fs.renameSync(tmp, dest); }\n"
+          "      catch (e) { try { fs.unlinkSync(tmp); } catch { /* gone */ } if (!fs.existsSync(dest)) throw e; }\n"
+          "    }",
+          why="an update replaces a wrapper that open tabs are running")
 
     P.sub(out / "src" / "diagnose.js", "for (const exe of ['python3', 'python'])",
           "for (const exe of ['python', 'py', 'python3'])", why="probe the names Windows has, first")
