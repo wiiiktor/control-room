@@ -320,6 +320,10 @@
     cursor: pointer; opacity: .6; transition: opacity .12s, background .12s;
   }
   #clear-detail:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
+  /* blocked while the timeline is up: it keeps its hover so the title still appears, but the
+     hover says "no" rather than "press me" -- the cursor and the flat grey do the telling. */
+  #clear-detail.blocked { opacity: .4; cursor: not-allowed; }
+  #clear-detail.blocked:hover { background: var(--grey); color: var(--ink); opacity: .6; }
   #clear-detail[hidden] { display: none; }
   #font-up:disabled, #font-dn:disabled { opacity: .25; cursor: default; }
 
@@ -2745,7 +2749,7 @@
     detail.scrollTop = 0;
     screenEl.querySelectorAll('.cards button.on').forEach(b => b.classList.remove('on'));
     sheet = detail;
-    if (clearBtn) clearBtn.hidden = false;
+    if (clearBtn) { clearBtn.hidden = false; syncClearBtn(); }
   }
 
   function stepNode(x) {
@@ -3553,7 +3557,20 @@
   // ⛔ closeSheet and NOTHING else. The left pane keeps its reply, the timeline keeps its
   // filter, the composer keeps its text; the only mark removed outside this pane is the
   // pressed state on the tile that opened it, which would otherwise claim something is open.
-  clearBtn.onclick = () => closeSheet();
+  /* ⛔ NOT `disabled`. A disabled button receives no pointer events, so its title never appears --
+     and the whole point here is that hovering EXPLAINS why it does nothing. It stays enabled,
+     wears aria-disabled for the screen reader, and refuses in the handler. */
+  function syncClearBtn() {
+    if (!clearBtn) return;
+    const blocked = document.documentElement.classList.contains('tl-open');
+    clearBtn.classList.toggle('blocked', blocked);
+    clearBtn.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+    clearBtn.title = blocked ? 'Not available when timeline is visible' : 'Clear this pane';
+  }
+  clearBtn.onclick = () => {
+    if (document.documentElement.classList.contains('tl-open')) return;
+    closeSheet();
+  };
 
   document.getElementById('font-up').onclick = () => stepZoom(ZOOM_STEP);
   document.getElementById('font-dn').onclick = () => stepZoom(-ZOOM_STEP);
@@ -3806,6 +3823,8 @@
 
   async function openTimeline() {
     tlOpen = true;
+    document.documentElement.classList.add('tl-open');
+    syncClearBtn();
     tlBar.classList.add('open');
     tlBtn.classList.add('on');
     tlHead.replaceChildren();
@@ -3936,6 +3955,8 @@
     restoreLive();
     closeSheet();                 // what the timeline opened on the right goes with it
     tlBar.classList.remove('open');
+    document.documentElement.classList.remove('tl-open');
+    syncClearBtn();
     tlEl.replaceChildren();
     tlHead.replaceChildren();
     tlBtn.classList.remove('on');
