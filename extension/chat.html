@@ -1845,6 +1845,11 @@
             rows.push({ type: 'note', body: 'If the two panes report the same family, weight and size '
                                             + 'and still look different, the difference is the left '
                                             + 'column being scaled to fit, not the type.' });
+            // ⛔ AND SEND IT, rather than ask for it to be copied out. The reading has been
+            // requested three times and pasted once; a measurement nobody can be bothered to
+            // transcribe is a measurement that does not exist. One click reports AND tells me.
+            const flat = rows.filter(r => r.type === 'kv').map(r => r.body).join(' | ');
+            send('[font report] ' + flat, true).catch(() => {});
             openSheet('What this page is actually drawing', rows, null);
           };
           picks.append(btn);
