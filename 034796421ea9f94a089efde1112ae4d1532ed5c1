@@ -1,0 +1,8 @@
+Windows notes (backfilled 2026-09-30 from the diff; nothing here was tested on Windows)
+
+Files: README.md, docs/SESSIONS.md, extension/package.json, extension/src/extension.js, extension/src/hook.js, tests/README.md, tests/sandbox/all.sh, tests/sandbox/room-roundtrip.sh
+make.py patches: package.json: rewritten (name, version, Windows build number); extension.js: patch 7 (no folder open: room under the home folder); hook.js: patches 5 and 7 (interpreter, quoting, stdin encoding, watch command, settings.local.json in the home folder)
+  All make.py patches were verified to still apply at e6d64f7 (2026-09-30, csc step stubbed).
+Platform-sensitive ground in the added lines: python3 by name, tail, file paths / separators, Claude settings files -- check these on Windows.
+Checked at the time (macOS): sandbox room-roundtrip.sh with PERMS=default; unit tests
+Windows: untested.
