@@ -604,6 +604,7 @@
   }
   #lamp.hidden { display: none; }
   #deaf.on { display: block; }
+  #deaf.calm { background: var(--yellow); color: var(--on-yellow); box-shadow: 0 0 0 4px var(--ring-yellow); }
   #deaf { cursor: pointer; font-family: inherit; box-shadow: var(--pop-sm); }
   #deaf:active { transform: translate(2px, 2px); box-shadow: none; }
 
@@ -2997,8 +2998,14 @@
       // session is asked to wake, and useless: the reader has just done the one thing that fixes
       // it and is being told it is broken. The alarm waits until the ask has had its chance.
       const waking = Object.keys(wakingNow).length > 0;
+      // \u26d4 NOT AN ALARM WHEN IT IS IN THE CLAUDE WINDOW. Nobody watches the room then, by design --
+      // the conversation is open in a Claude tab, its turns are mirrored here, and writing here brings
+      // it back. A red NOT WATCHING said "broken" about the normal state of using the Claude window.
+      const live = target && liveNow[target];
+      const inWindow = dead && !waking && !!live && live.kind === 'interactive';
       deaf.classList.toggle('on', dead && !waking);
-      deaf.textContent = waking ? 'waking…' : 'not watching';
+      deaf.classList.toggle('calm', inWindow);
+      deaf.textContent = waking ? 'waking…' : inWindow ? 'in the Claude window' : 'not watching';
       lamp.classList.toggle('hidden', dead && !waking);
       if (offline) { offline = false; since = 0; return; }  // redraw from history next tick
       // progress lines move while NO new message arrives, so they are their own redraw
@@ -3975,6 +3982,14 @@
      the log again. What it CAN do is rule out the two things that look identical from
      here — a stale page and a dead server — and say plainly what only you can fix. */
   deaf.onclick = () => {
+    if (deaf.classList.contains('calm')) {
+      return openSheet('In the Claude window', [
+        { type: 'say', body: 'This conversation is open in a Claude tab, so it runs there and nothing watches this room. '
+          + 'That is normal: what you write in the tab, and its answers, show up here.' },
+        { type: 'note', body: 'Write here to bring it back to the room: its Claude tab closes and it continues here, '
+          + 'same conversation. If it is busy in the tab, the room waits for you to write again when it is done.' },
+      ], null);
+    }
     const age = lastWatchAge;
     const blocks = [
       { type: 'say', body: 'Nothing is reading the log. Your messages are being stored — they are not lost — but nobody will answer until a session picks them up.' },
