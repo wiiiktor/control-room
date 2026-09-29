@@ -2960,6 +2960,7 @@
   }
 
   let lastMirrored = '';                 // the session whose Claude-tab turns were mirrored last
+  let lastMirroredAt = 0;                // ...and when: the mirror itself proves the Claude window is in use
   async function loadSessions() {
     try {
       const d = await (await fetch('/api/sessions', { cache: 'no-store' })).json();
@@ -3010,7 +3011,10 @@
       // the conversation being written to, or else the one whose Claude-tab turns were mirrored last
       const who = target || lastMirrored;
       const live = who && liveNow[who];
-      const inWindow = dead && !waking && !!live && live.kind === 'interactive';
+      // \u26d4 THE MIRROR IS THE PROOF. `claude agents` does not always list a session hosted by a
+      // Claude tab, so it cannot be the only witness: turns mirrored in the last half hour are.
+      const mirroredLately = Date.now() - lastMirroredAt < 30 * 60 * 1000;
+      const inWindow = dead && !waking && ((!!live && live.kind === 'interactive') || mirroredLately);
       deaf.classList.toggle('on', dead && !waking);
       deaf.classList.toggle('calm', inWindow);
       deaf.textContent = waking ? 'waking…' : inWindow ? 'in the Claude window' : 'not watching';
@@ -3036,7 +3040,11 @@
       // room itself -- "moved to the Claude window", "was let go" -- and is shown whoever is chosen
       const belongs = (m) => !tlChosen
         || (m.role === 'user' ? (m.to || '') === tlFilter : !m.session || m.session === tlFilter);
-      for (const m of data.messages) if (m.mirror) lastMirrored = m.session || m.to || lastMirrored;
+      for (const m of data.messages) if (m.mirror) {
+        lastMirrored = m.session || m.to || lastMirrored;
+        const t = Date.parse(m.ts || '');
+        if (t > lastMirroredAt) lastMirroredAt = t;
+      }
       const ours = data.messages.filter(belongs);
 
       // Walk the batch in order: questions pile up until a reply answers them all.
