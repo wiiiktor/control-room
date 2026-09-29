@@ -1,0 +1,8 @@
+Windows notes (backfilled 2026-09-30 from the diff; nothing here was tested on Windows)
+
+Files: README.md, docs/SESSIONS.md, extension/chat.html, extension/package.json, extension/src/extension.js, tests/README.md, tests/sandbox/all.sh, tests/sandbox/e2e-blocked.sh
+make.py patches: chat.html: patch 9 (session list: leave out conversations open in a tab; "Start a new session" first); package.json: rewritten (name, version, Windows build number); extension.js: patch 7 (no folder open: room under the home folder)
+  All make.py patches were verified to still apply at e6d64f7 (2026-09-30, csc step stubbed).
+Platform-sensitive ground in the added lines: spawns processes or runs claude, python3 by name, shell script, Claude settings files, terminal / pty -- check these on Windows.
+Checked at the time (macOS): sandbox e2e-blocked.sh 5/5; unit tests
+Windows: untested.
