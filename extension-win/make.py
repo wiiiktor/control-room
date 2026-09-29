@@ -13,14 +13,26 @@ miss would produce a Windows build that looks fine and is stale in one specific 
 ⛔ AND IT NEVER WRITES TO extension/. The posix extension is not touched, not imported, not
 re-exported. That is the zero-risk guarantee, and it is structural rather than a promise.
 
-What differs on Windows, all of it measured against the code rather than assumed:
+What differs on Windows, all of it measured on a Windows 11 machine rather than assumed:
 
   chatlog.py imports fcntl        no fcntl in Windows Python -> reply.py, status.py and the
                                   mirror hook all die on the import line
+  msvcrt locks are MANDATORY      locking byte 0 made the lock-holder's own read of chat.jsonl
+                                  fail with PermissionError; the lock now sits past EOF
+  stdio is cp1250/cp1252          a ⛔ or an emoji killed reply.py and watch.py; Polish text
+                                  piped in arrived as mojibake; hook stdin JSON likewise
   hooks say `python3 <script>`    Windows ships `python` and `py`, not `python3`
+  hook paths lose backslashes     Claude Code runs hooks through Git Bash: `python C:\\Users\\..`
+                                  became `python C:Users..`; paths are quoted, forward-slashed
   the watch is `tail -F | ...`    there is no tail in PowerShell or cmd
+  `claude` is claude.exe/.cmd     the extensionless `claude` beside claude.cmd is an sh script
+                                  Windows cannot start; spawn and shellPath need the real .exe
+  trust keys are `C:/Users/..`    VS Code says `c:\\Users\\..`; the preflight never matched and
+                                  grantTrust wrote a key Claude Code never reads
+  project slugs drop the colon    `C:\\Users\\HP` is `C--Users-HP`; `:` was kept, so session
+                                  labels and the watch's session fallback found nothing
 
-  python3 make.py [--out build]
+  python make.py [--out build]
 """
 import argparse, json, os, re, shutil, sys
 from pathlib import Path
@@ -30,19 +42,35 @@ SRC = HERE.parent / "extension"
 ROOM = HERE.parent
 
 
+# ⛔ EXPLICIT UTF-8, EXPLICIT \n. Path.read_text() on a Polish Windows is cp1250, and the first ⛔
+# in the source killed the generator before it built anything. newline="" keeps LF endings: the
+# default text mode would have rewritten every generated file as CRLF.
+#
+# ⛔ AND LF ON THE WAY IN. Git for Windows checks out with core.autocrlf=true, so the source arrives
+# CRLF, and every patch spanning a line break "found 0" and refused. The build is LF throughout.
+def rd(p):
+    with open(p, encoding="utf-8", newline="") as fh:
+        return fh.read().replace("\r\n", "\n")
+
+
+def wr(p, text):
+    with open(p, "w", encoding="utf-8", newline="") as fh:
+        fh.write(text)
+
+
 class Patch:
     def __init__(self):
         self.applied = []
 
     def sub(self, path, old, new, count=1, why=""):
         """Replace `old` with `new` exactly `count` times, or fail loudly."""
-        t = path.read_text()
+        t = rd(path)
         n = t.count(old)
         if n != count:
             sys.exit(f"⛔ PATCH MISSED in {path.name}: expected {count} occurrence(s) of\n"
                      f"    {old[:110]!r}\n  found {n}. The shared source has moved; update make.py.\n"
                      f"  (patch: {why})")
-        path.write_text(t.replace(old, new))
+        wr(path, t.replace(old, new))
         self.applied.append(f"{path.name}: {why}")
 
 
@@ -50,25 +78,33 @@ LOCK_SHIM = '''import os as _os
 
 # ⛔ WINDOWS HAS NO fcntl. This shim is the whole reason the Windows build exists: `import fcntl`
 # is the first line reply.py, status.py and the mirror hook all reach, and it raises before any of
-# them can do anything. msvcrt.locking is the Windows equivalent -- byte-range rather than
-# whole-file, so it locks one byte at offset 0, which is the conventional stand-in for flock.
+# them can do anything.
+#
+# ⛔ AND msvcrt LOCKS ARE MANDATORY, NOT ADVISORY. Locking byte 0 -- the conventional flock
+# stand-in -- stopped every OTHER handle from reading that byte, and append_message reads the log
+# through a second handle while it holds the lock: reply.py died with PermissionError on its own
+# lock. The lock is taken on one byte far past EOF instead, where no reader ever goes. Writes are
+# unaffected: the handle is in append mode, so the OS puts every write at the real end.
 if _os.name == "nt":
     import msvcrt
+    import time as _t
+
+    _LOCK_AT = 0x7FFFFFF0
 
     def _lock_ex(fh):
-        fh.seek(0)
+        fh.flush()
         while True:
+            _os.lseek(fh.fileno(), _LOCK_AT, 0)
             try:
-                msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
                 return
             except OSError:
-                # LK_LOCK already retries for ten seconds; past that, wait rather than lose a write
-                import time as _t
-                _t.sleep(0.1)
+                _t.sleep(0.05)              # another writer holds it; they are milliseconds
 
     def _unlock(fh):
-        fh.seek(0)
         try:
+            fh.flush()
+            _os.lseek(fh.fileno(), _LOCK_AT, 0)
             msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
         except OSError:
             pass
@@ -82,6 +118,18 @@ else:
         fcntl.flock(fh, fcntl.LOCK_UN)
 '''
 
+STDIO = '''from pathlib import Path
+
+# ⛔ WINDOWS STDIO IS THE ANSI CODE PAGE, NOT UTF-8. cp1250 on a Polish machine: the first ⛔ this
+# script printed, or the first emoji in a message it relayed, raised UnicodeEncodeError and killed
+# it -- and a reply piped in through a heredoc arrived as mojibake. Every stream is UTF-8 here.
+for _s in (sys.stdin, sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+'''
+
 FOLLOW = '''
 
 def _follow(path):
@@ -91,29 +139,118 @@ def _follow(path):
     from zero whenever it SHRINKS (truncated or replaced), and the SEEN high-water guard below is
     what stops that turning eleven old questions into eleven new ones. That guard already existed
     for exactly this case under `tail -F`; here it is load-bearing.
+
+    ⛔ BYTES, NOT TEXT. A text-mode read that ends inside a multi-byte character (ą, ł, an emoji)
+    decodes half of it as garbage. Only whole lines are decoded, and a line is whole at a newline byte.
+    The file is opened per poll and closed again, so a rename or delete by the extension is never
+    blocked by this process holding it open -- on Windows an open handle would have.
     """
-    import io
     p = Path(path)
-    off = p.stat().st_size if p.exists() else 0      # start at the END, like `tail -n0`
-    buf = ""
+    try:
+        off = p.stat().st_size                        # start at the END, like `tail -n0`
+    except OSError:
+        off = 0
+    buf = b""
     while True:
         try:
-            size = p.stat().st_size if p.exists() else 0
+            size = p.stat().st_size
         except OSError:
             size = 0
         if size < off:                                # rotated or truncated
-            off, buf = 0, ""
+            off, buf = 0, b""
         if size > off:
-            with io.open(p, "r", encoding="utf-8", errors="replace") as fh:
-                fh.seek(off)
-                chunk = fh.read()
-                off = fh.tell()
+            try:
+                with open(p, "rb") as fh:
+                    fh.seek(off)
+                    chunk = fh.read()
+                    off = fh.tell()
+            except OSError:
+                chunk = b""
             buf += chunk
-            while "\\n" in buf:
-                line, buf = buf.split("\\n", 1)
-                yield line
+            while b"\\n" in buf:
+                line, buf = buf.split(b"\\n", 1)
+                yield line.decode("utf-8", errors="replace")
         time.sleep(0.4)
 '''
+
+# resolved once in hook.js, and used by everything it writes into settings.json
+HOOK_HEAD = r"""const path = require('path');
+// ⛔ WINDOWS SHIPS `python` AND `py`, NOT `python3` -- and `python3` may be the Microsoft Store
+// alias, which exists and does nothing. Everything this module writes into settings.json -- hook
+// commands and permission rules alike -- has to name an interpreter that runs, or the hooks never
+// run and the rules never match.
+const PY = (() => {
+  const cp = require('child_process');
+  for (const exe of ['python', 'py', 'python3']) {
+    try { cp.execFileSync(exe, ['-c', 'pass'], { stdio: 'ignore', timeout: 5000 }); return exe; }
+    catch { /* next */ }
+  }
+  return 'python';
+})();
+// ⛔ CLAUDE CODE RUNS HOOK COMMANDS THROUGH GIT BASH ON WINDOWS. An unquoted C:\Users\... lost every
+// backslash to the shell and the hook ran `python C:Users...` -- which does not exist, silently.
+// Forward slashes and double quotes work in bash and in cmd alike.
+const fwd = p => String(p).replace(/\\/g, '/');
+const Q = p => JSON.stringify(fwd(p));
+/** Rewrite every command that runs one of OUR scripts into the form that works here -- including
+ *  entries an earlier build wrote, which the "already installed" checks would otherwise keep. */
+function fixCmds(settings) {
+  for (const list of Object.values(settings.hooks || {})) {
+    for (const g of (Array.isArray(list) ? list : [])) {
+      for (const h of (g.hooks || [])) {
+        const c = String(h.command || '');
+        if (!c.includes('control-room-watch.py') && !c.includes('control-room-mirror.py')) continue;
+        const script = c.replace(/^\s*\S+\s+/, '').trim().replace(/^["']|["']$/g, '');
+        h.command = `${PY} ${Q(script)}`;
+      }
+    }
+  }
+}"""
+
+BRIDGE_RULES_OLD = r"""  const rules = ['Bash(tail -n0 -F chat.jsonl)', 'Bash(python3 -u watch.py)', 'Bash(python3 watch.py)'];
+  for (const f of ['reply.py', 'status.py', 'request.py']) {
+    for (const u of ['', '-u ']) {
+      rules.push(`Bash(python3 ${u}${f}:*)`, `Bash(python3 ${u}${path.join(room, f)}:*)`);
+    }
+  }"""
+
+BRIDGE_RULES_NEW = r"""  // the watch as the SessionStart hook tells Claude to run it, and the scripts in every spelling a
+  // session types on Windows: bare, native backslashes, forward slashes, and either kind of quotes
+  const rules = [`Bash(${PY} -u watch.py:*)`, `Bash(${PY} watch.py:*)`];
+  for (const f of ['reply.py', 'status.py', 'request.py']) {
+    const p = path.join(room, f);
+    for (const u of ['', '-u ']) {
+      for (const s of [f, p, fwd(p), `'${fwd(p)}'`, `"${fwd(p)}"`]) {
+        rules.push(`Bash(${PY} ${u}${s}:*)`);
+      }
+    }
+  }"""
+
+FIND_CLAUDE_OLD = """    const p = path.join(d, 'claude');
+    try {
+      fs.accessSync(p, fs.constants.X_OK);
+      return p;
+    } catch { /* not here */ }"""
+
+FIND_CLAUDE_NEW = """    // ⛔ ON WINDOWS `claude` IS NOT THE PROGRAM. An npm install puts an extensionless sh script
+    // named `claude` beside claude.cmd; X_OK means nothing here, so that script was "found", and
+    // spawn() and shellPath both failed on it. The real binary is claude.exe -- on the PATH for the
+    // native installer, and behind the npm shim for an npm install. A .cmd is never returned:
+    // spawn() refuses to start one without a shell.
+    for (const p of [path.join(d, 'claude.exe'),
+                     path.join(d, 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe')]) {
+      try {
+        fs.accessSync(p, fs.constants.F_OK);
+        return p;
+      } catch { /* not here */ }
+    }"""
+
+TRUST_KEY = """// ⛔ CLAUDE CODE KEYS TRUST BY `C:/Users/HP`, and VS Code hands us `c:\\\\Users\\\\HP`. Compared as they
+// came, no folder was ever trusted, and grantTrust wrote a key Claude Code never reads -- so the
+// hidden terminal it had just cleared stopped on the trust question anyway.
+const tkey = p => String(p).replace(/\\\\/g, '/').replace(/^[a-z]:/, m => m.toUpperCase());
+
+function trusted(cwd) {"""
 
 
 def main():
@@ -124,18 +261,29 @@ def main():
 
     if not SRC.is_dir():
         sys.exit(f"⛔ {SRC} is not there — run this from the repo")
+    # ⛔ EMPTY IT, DO NOT DELETE IT. Windows refuses to remove a folder that is any process's
+    # working directory -- a terminal left in build/ failed the whole build with WinError 32.
     if out.exists():
-        shutil.rmtree(out)
-    shutil.copytree(SRC, out, ignore=shutil.ignore_patterns("*.vsix", "node_modules", "build"))
+        for p in out.iterdir():
+            shutil.rmtree(p) if p.is_dir() else p.unlink()
+    shutil.copytree(SRC, out, ignore=shutil.ignore_patterns("*.vsix", "node_modules", "build"),
+                    dirs_exist_ok=True)
     # the room's python, copied in exactly as extension/build.sh does it
     (out / "runtime").mkdir(exist_ok=True)
     for f in ("chatlog.py", "reply.py", "status.py", "watch.py", "request.py"):
         shutil.copy(ROOM / f, out / "runtime" / f)
+    for p in out.rglob("*"):
+        if p.is_file() and p.suffix in (".py", ".js", ".html", ".json", ".md", ".sh", ""):
+            try:
+                wr(p, rd(p))
+            except UnicodeDecodeError:
+                pass                                  # binary without an extension: leave it
 
     P = Patch()
+    rt = out / "runtime"
 
     # ---- 1. locking ------------------------------------------------------------------------
-    cl = out / "runtime" / "chatlog.py"
+    cl = rt / "chatlog.py"
     # ⛔ CALL SITES FIRST, SHIM LAST. The shim itself contains `fcntl.flock(fh, fcntl.LOCK_EX)` --
     # inserting it before the call-site patches made that patch find TWO occurrences and refuse,
     # which is the assertion doing its job on the generator rather than on the source.
@@ -143,12 +291,35 @@ def main():
           why="append_message takes the lock through the shim")
     P.sub(cl, "fcntl.flock(handle, fcntl.LOCK_UN)", "_unlock(handle)",
           why="append_message releases through the shim")
-    P.sub(cl, "fcntl.flock(fh, fcntl.LOCK_EX)", "_lock_ex(fh)",
-          why="add_status takes the lock through the shim")
-    P.sub(cl, "import fcntl\n", LOCK_SHIM, why="fcntl -> msvcrt on Windows")
+    P.sub(cl, "        fcntl.flock(fh, fcntl.LOCK_EX)\n        fh.write(line.strip() + \"\\n\")",
+          "        _lock_ex(fh)\n        fh.write(line.strip() + \"\\n\")\n        _unlock(fh)",
+          why="add_status locks through the shim, and lets go")
+    P.sub(cl, "import fcntl\n", LOCK_SHIM, why="fcntl -> msvcrt, locked past EOF")
 
-    # ---- 2. the watch follows the file itself -----------------------------------------------
-    w = out / "runtime" / "watch.py"
+    # ---- 2. utf-8 stdio in every script a session runs ---------------------------------------
+    for f in ("reply.py", "status.py", "watch.py", "request.py"):
+        P.sub(rt / f, "from pathlib import Path\n", STDIO, why="stdio is UTF-8, not the ANSI code page")
+    P.sub(rt / "request.py", "tmp.write_text(json.dumps(req))", "tmp.write_text(json.dumps(req), encoding=\"utf-8\")",
+          why="request file written as UTF-8")
+    P.sub(rt / "request.py", "print(done.read_text().strip())", "print(done.read_text(encoding=\"utf-8\").strip())",
+          why="answer read as UTF-8")
+
+    # ---- 3. project slugs: every non-alphanumeric is a dash, the drive colon included ----------
+    P.sub(rt / "watch.py", '    slug = str(ROOT.parent).replace("/", "-").replace("\\\\", "-")\n',
+          '    slug = "".join(c if c.isascii() and c.isalnum() else "-" for c in str(ROOT.parent))\n',
+          why="C:\\Users\\HP is C--Users-HP")
+    P.sub(rt / "reply.py", '    d = Path.home() / ".claude" / "projects" / "-home-wii-Projects-certain"\n',
+          '    d = Path.home() / ".claude" / "projects" / "".join(\n'
+          '        c if c.isascii() and c.isalnum() else "-" for c in str(_HERE.parent))\n',
+          why="session fallback looks in THIS workspace's transcripts, not the author's")
+    P.sub(out / "src" / "sessions.js", "  const slug = workspacePath.replace(/[/\\\\]/g, '-');",
+          "  // \u26d4 EVERY non-alphanumeric, not just separators: `C:\\\\Users\\\\HP` is `C--Users-HP`, and\n"
+          "  // keeping the colon found no folder -- the session picker had no labels at all\n"
+          "  const slug = workspacePath.replace(/[^a-zA-Z0-9]/g, '-');",
+          why="session labels: the drive colon is a dash too")
+
+    # ---- 4. the watch follows the file itself -----------------------------------------------
+    w = rt / "watch.py"
     P.sub(w, "catch_up()\n\nfor line in sys.stdin:",
           FOLLOW + "\n\ncatch_up()\n\n_src = None\nfor i, a in enumerate(sys.argv):\n"
                    "    if a == \"--follow\" and i + 1 < len(sys.argv):\n"
@@ -156,61 +327,58 @@ def main():
                    "for line in (_follow(_src) if _src else sys.stdin):",
           why="--follow <file> replaces the tail -F pipe")
 
-    # ---- 3. the interpreter ------------------------------------------------------------------
+    # ---- 5. hook.js: interpreter, quoting, stdin ---------------------------------------------
     h = out / "src" / "hook.js"
-    P.sub(h, "const rules = ['Bash(tail -n0 -F chat.jsonl)', 'Bash(python3 -u watch.py)', 'Bash(python3 watch.py)'];",
-          "const rules = [`Bash(${PY} -u watch.py:*)`, `Bash(${PY} watch.py:*)`];",
-          why="permission rules follow the resolved interpreter, and no tail")
+    P.sub(h, "const path = require('path');", HOOK_HEAD, why="PY resolved once; fwd/Q/fixCmds")
+    P.sub(h, BRIDGE_RULES_OLD, BRIDGE_RULES_NEW, why="permission rules: resolved interpreter, every path spelling, no tail")
     P.sub(h, 'f"  command: cd {mine} && tail -n0 -F chat.jsonl | python3 -u watch.py",',
-          'f"  command: cd {mine} && PYEXE -u watch.py --follow chat.jsonl",',
-          why="the watch command Claude is told to run")
-    for i, (old, new, why) in enumerate((
-        ("`python3 ${script}`", "`${PY} ${script}`", "SessionStart hook command"),
-        ("`python3 ${mirror}`", "`${PY} ${mirror}`", "mirror hook command"),
-        ("`Bash(python3 ${u}${f}:*)`, `Bash(python3 ${u}${path.join(room, f)}:*)`",
-         "`Bash(${PY} ${u}${f}:*)`, `Bash(${PY} ${u}${path.join(room, f)}:*)`",
-         "per-script permission rules"),
-    )):
-        P.sub(h, old, new, count=(2 if "${script}" in old else 1), why=why)
-    # PY is resolved once, at the top of the module
-    P.sub(h, "const path = require('path');",
-          "const path = require('path');\n"
-          "// ⛔ WINDOWS SHIPS `python` AND `py`, NOT `python3`. Everything this module writes into\n"
-          "// settings.json -- hook commands and permission rules alike -- has to name an\n"
-          "// interpreter that exists, or the hooks never run and the rules never match.\n"
-          "const PY = (() => {\n"
-          "  const cp = require('child_process');\n"
-          "  for (const exe of ['python', 'py', 'python3']) {\n"
-          "    try { cp.execFileSync(exe, ['-c', 'pass'], { stdio: 'ignore' }); return exe; }\n"
-          "    catch { /* next */ }\n"
-          "  }\n"
-          "  return 'python';\n"
-          "})();",
-          why="resolve the interpreter once")
-    # the python heredoc in hook.js prints the watch line; PYEXE is substituted there
-    P.sub(h, 'f"  command: cd {mine} && PYEXE -u watch.py --follow chat.jsonl",',
-          'f"  command: cd {mine} && " + PYEXE + " -u watch.py --follow chat.jsonl",',
-          why="PYEXE is a python name in the generated script, not an f-string field")
-    # ⚠️ AFTER the shebang, not before it. A shebang only counts on line 1, and putting the
-    # assignment first left every generated script with a decorative comment where its interpreter
-    # line used to be. sys.executable is the full path of the python actually running the hook,
-    # which is precisely the one Claude should be told to use.
-    P.sub(h, "return `#!/usr/bin/env python3\n",
-          "return `#!/usr/bin/env python3\nPYEXE = __import__('sys').executable\n",
-          count=2, why="the generated hook scripts learn their own interpreter")
+          "f\"  command: cd '{mine.as_posix()}' && ${PY} -u watch.py --follow chat.jsonl\",",
+          why="the watch command Claude is told to run: quoted, forward slashes, no tail")
+    P.sub(h, 'f"\\`python3 {mine}/reply.py\\` -- a reply in the editor chat never reaches them there.",',
+          "f\"\\`${PY} '{mine.as_posix()}/reply.py'\\` -- a reply in the editor chat never reaches them there.\",",
+          why="the reply command Claude is told to run")
+    P.sub(h, "command: `python3 ${script}`", "command: `${PY} ${Q(script)}`", count=2,
+          why="SessionStart hook command, quoted")
+    P.sub(h, "command: `python3 ${mirror}`", "command: `${PY} ${Q(mirror)}`",
+          why="mirror hook command, quoted")
+    P.sub(h, "  fs.writeFileSync(file, JSON.stringify(settings, null, 2) + '\\n');",
+          "  fixCmds(settings);\n  fs.writeFileSync(file, JSON.stringify(settings, null, 2) + '\\n');",
+          count=2, why="old hook entries are rewritten, not kept")
+    # the hooks read Claude Code's JSON from stdin, which is UTF-8 whatever the code page says
+    P.sub(h, "        data = json.load(sys.stdin) or {}",
+          "        data = json.loads(sys.stdin.buffer.read().decode(\"utf-8\", \"replace\") or \"{}\") or {}",
+          count=2, why="hook stdin decoded as UTF-8")
 
-    # ---- 4. identity -------------------------------------------------------------------------
-    pj = json.loads((out / "package.json").read_text())
+    # ---- 6. finding claude, and trusting a folder -------------------------------------------
+    pf = out / "src" / "preflight.js"
+    P.sub(pf, FIND_CLAUDE_OLD, FIND_CLAUDE_NEW, why="claude.exe, directly or behind the npm shim")
+    P.sub(pf, "function trusted(cwd) {", TRUST_KEY, why="trust keys in Claude Code's own spelling")
+    P.sub(pf, "    if (projects[dir] && projects[dir].hasTrustDialogAccepted === true) { accepted = true; break; }",
+          "    const e = projects[tkey(dir)];\n"
+          "    if (e && e.hasTrustDialogAccepted === true) { accepted = true; break; }",
+          why="trust lookup by normalised key")
+    P.sub(pf, "    return { ok: false, why: projects[cwd]", "    return { ok: false, why: projects[tkey(cwd)]",
+          why="trust message by normalised key")
+    P.sub(pf, "  const entry = d.projects[cwd] || {};", "  const entry = d.projects[tkey(cwd)] || {};",
+          why="grantTrust reads the normalised key")
+    P.sub(pf, "  d.projects[cwd] = Object.assign(", "  d.projects[tkey(cwd)] = Object.assign(",
+          why="grantTrust writes the normalised key")
+
+    P.sub(out / "src" / "diagnose.js", "for (const exe of ['python3', 'python'])",
+          "for (const exe of ['python', 'py', 'python3'])", why="probe the names Windows has, first")
+
+    # ---- 7. identity -------------------------------------------------------------------------
+    pj = json.loads(rd(out / "package.json"))
     pj["name"] = "control-room-win"
     pj["displayName"] = "Control Room (Windows)"
     pj["description"] = ((pj.get("description") or "") + " Windows build, generated from the "
                          "posix extension by extension-win/make.py.").strip()
-    (out / "package.json").write_text(json.dumps(pj, indent=2) + "\n")
+    wr(out / "package.json", json.dumps(pj, indent=2, ensure_ascii=False) + "\n")
 
     print(f"built {out}  ({len(P.applied)} patches)")
     for a in P.applied:
         print("  •", a)
-    print("\nnow:  cd", out, "&& vsce package --allow-missing-repository")
+    print("\nnow:  cd", out, "&& npx --yes @vscode/vsce package --allow-missing-repository")
 
 
 if __name__ == "__main__":
