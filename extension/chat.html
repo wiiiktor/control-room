@@ -1220,15 +1220,14 @@
      place, and now say it without shrinking. */
   #screen .crumb::before, #detail .crumb::before { font-size: var(--fs); }
 
-  /* CODE: the same height, only thinner. 1em is literally the reply's size --
-     mono at .92em was the old trick for "looks the same", and the ask here is
-     that it BE the same. Weight 400 against the body's 650-900 is the whole
-     difference in voice. */
+  /* ⛔ TWO RULES WERE DECIDING THE CODE SIZE, in two different blocks, and the later one won
+     silently. When "20% smaller" was asked for I edited the earlier one to .8em and this one kept
+     overriding it back — so a change was shipped, committed and reported that the page never
+     applied. Consolidated: the block above is the only place that sizes code now, and this one
+     carries the weight alone. */
   #screen code, #detail code,
   #screen kbd, #detail kbd,
-  #screen .md-pre, #detail .md-pre {
-    font-size: 1em; font-weight: 400; letter-spacing: 0;
-  }
+  #screen .md-pre, #detail .md-pre { font-weight: 400; letter-spacing: 0; }
 
   /* BUTTONS: the one other size. */
   #screen .picks button, #detail .picks button { font-size: var(--fs-btn); }
