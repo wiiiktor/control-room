@@ -392,7 +392,7 @@
      one glance. */
   #splash .build {
     margin: 0 auto 12px; max-width: 560px; text-align: left;
-    font: 600 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 600 12px/1.3 "Ubuntu Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     opacity: var(--dim-2); letter-spacing: .04em;
   }
 
@@ -413,7 +413,7 @@
   #splash .sess button:hover { border-color: var(--ink); background: var(--yellow-soft); }
   #splash .sess button span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #splash .sess button em {
-    font-style: normal; font-size: 11px; font-family: ui-monospace, monospace; opacity: var(--dim-2);
+    font-style: normal; font-size: 11px; font-family: "Ubuntu Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; opacity: var(--dim-2);
   }
   /* the two doing rows, marked apart from the remembering ones */
   #splash .sess button.new { border-style: dashed; }
@@ -500,7 +500,7 @@
   }
   .tl-sep b { font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; opacity: var(--dim-1); }
   .tl-sep i { font-style: normal; font-size: 11px; font-weight: 700; line-height: 1.25; opacity: var(--dim-2); }
-  .tl-sep span { font-size: 10px; font-weight: 700; opacity: var(--dim-3); font-family: ui-monospace, monospace; }
+  .tl-sep span { font-size: 10px; font-weight: 700; opacity: var(--dim-3); font-family: "Ubuntu Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   .tl-sep.on b { opacity: 1; }
   .tl-sep.on { background: var(--yellow-soft); border-color: var(--ink); }
   .tl-sep.first { border-left: none; }
@@ -537,7 +537,7 @@
   .tl-list button:hover { background: var(--yellow-soft); }
   .tl-list button.on { background: var(--green-soft); }
   .tl-list button.empty { opacity: var(--dim-2); }
-  .tl-list button em { font-style: normal; font-size: 11px; opacity: var(--dim-2); font-family: ui-monospace, monospace; }
+  .tl-list button em { font-style: normal; font-size: 11px; opacity: var(--dim-2); font-family: "Ubuntu Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   .tl-list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 
 
@@ -550,7 +550,7 @@
   .tl-empty b { font-size: 14px; font-weight: 800; }
   .tl-empty span { font-size: 13px; opacity: var(--dim-2); }
   .tl-empty code {
-    font-family: ui-monospace, monospace; font-size: 13px; padding: 4px 8px;
+    font-family: "Ubuntu Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; padding: 4px 8px;
     background: var(--yellow-soft); border: 2px solid var(--ink); border-radius: 8px;
     user-select: all;
   }
@@ -757,7 +757,7 @@
   .step.has-more { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
   .step.has-more:hover { opacity: 1; text-decoration-style: solid; }
   .detail-pre {
-    margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+    margin: 0; font-family: "Ubuntu Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px;
     line-height: 1.45; white-space: pre-wrap; word-break: break-word;
   }
 
@@ -826,7 +826,7 @@
   .md-hr { border: 0; border-top: 2px solid currentColor; opacity: .25; margin: 4px 0; width: 100%; }
   .md-pre {
     margin: 0; padding: 12px 14px; background: var(--panel); border-radius: 10px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: "Ubuntu Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 15px; line-height: 1.4; white-space: pre; overflow-x: auto; color: inherit;
   }
   /* a wide table scrolls ITSELF; the page never scrolls sideways */
@@ -888,7 +888,7 @@
   code, kbd, pre {
     color: inherit; background: none; padding: 0; border: 0; border-radius: 0;
   }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  code { font-family: "Ubuntu Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: .92em; letter-spacing: -.01em; }
   strong { font-weight: 900; }
   em { font-style: italic; }
@@ -986,7 +986,7 @@
   .fixit h1 { margin: 0; font-size: 34px; font-weight: 900; letter-spacing: -.02em; }
   .fixit p { margin: 0; font-size: 19px; font-weight: 650; }
   .fixit code {
-    display: block; font: 700 18px/1.5 ui-monospace, Menlo, Consolas, monospace;
+    display: block; font: 700 18px/1.5 "Ubuntu Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     background: var(--panel); border: 3px solid var(--ink); border-radius: 14px;
     padding: 13px 16px; word-break: break-all;
   }
@@ -1099,7 +1099,7 @@
      the same height wherever it appears; the rules below finish the right pane.
      ───────────────────────────────────────────────────────────────────────── */
   #screen pre, #detail pre {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: "Ubuntu Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-weight: 400; letter-spacing: 0; margin: 0;
     white-space: pre-wrap; overflow-x: auto;
   }
@@ -1164,6 +1164,17 @@
      looked unchanged after the stack was rewritten, this is why. */
   html body { font-family: "Ubuntu", ui-rounded, "Nunito", "Segoe UI Variable", system-ui,
               -apple-system, sans-serif; }
+
+  /* ⛔ AND THE SAME TRAP ON THE MONOSPACE SIDE, which is what the screenshot actually showed.
+     The old stack led with `ui-monospace`, which on this machine resolves to DejaVu Sans Mono --
+     a face with a far larger x-height than Ubuntu. At 0.8em its letters still stood TALLER than
+     the prose around them, so "code is smaller by 20%" was true of the font-size and false of
+     everything on screen. Ubuntu Sans Mono is drawn to sit beside Ubuntu and shares its
+     proportions, so 0.8em now reads as 0.8em. Forced at `html body` for the same reason as the
+     text face: a bare selector in the webview's own stylesheet ties ours. */
+  html body code, html body kbd, html body pre, html body .md-pre, html body .num {
+    font-family: "Ubuntu Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
 
   #screen, #detail { font-size: calc(var(--fs) * var(--fs-plain)); }
   #screen strong, #detail strong,
