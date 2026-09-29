@@ -2959,9 +2959,15 @@
     }
   }
 
+  let lastMirrored = '';                 // the session whose Claude-tab turns were mirrored last
   async function loadSessions() {
     try {
-      tlNames = (await (await fetch('/api/sessions', { cache: 'no-store' })).json()).sessions || {};
+      const d = await (await fetch('/api/sessions', { cache: 'no-store' })).json();
+      tlNames = d.sessions || {};
+      // \u26d4 AND WHAT IS LIVE WHERE. This minute-by-minute refresh dropped `live`, so the page kept
+      // whatever the session picker last saw -- often nothing -- and could not tell that the chosen
+      // conversation was open in the Claude window.
+      if (d.live) liveNow = d.live;
       // the corner lamp's list is built from these, so it is rebuilt with them. \u26d4 Nothing else
       // calls sessionMenu() any more: it used to be rebuilt by every timeline redraw, and the
       // timeline no longer holds it.
@@ -3001,7 +3007,9 @@
       // \u26d4 NOT AN ALARM WHEN IT IS IN THE CLAUDE WINDOW. Nobody watches the room then, by design --
       // the conversation is open in a Claude tab, its turns are mirrored here, and writing here brings
       // it back. A red NOT WATCHING said "broken" about the normal state of using the Claude window.
-      const live = target && liveNow[target];
+      // the conversation being written to, or else the one whose Claude-tab turns were mirrored last
+      const who = target || lastMirrored;
+      const live = who && liveNow[who];
       const inWindow = dead && !waking && !!live && live.kind === 'interactive';
       deaf.classList.toggle('on', dead && !waking);
       deaf.classList.toggle('calm', inWindow);
@@ -3028,6 +3036,7 @@
       // room itself -- "moved to the Claude window", "was let go" -- and is shown whoever is chosen
       const belongs = (m) => !tlChosen
         || (m.role === 'user' ? (m.to || '') === tlFilter : !m.session || m.session === tlFilter);
+      for (const m of data.messages) if (m.mirror) lastMirrored = m.session || m.to || lastMirrored;
       const ours = data.messages.filter(belongs);
 
       // Walk the batch in order: questions pile up until a reply answers them all.
