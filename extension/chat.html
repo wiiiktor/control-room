@@ -322,8 +322,10 @@
   #clear-detail:hover { opacity: 1; background: var(--yellow); color: var(--on-yellow); }
   /* blocked while the timeline is up: it keeps its hover so the title still appears, but the
      hover says "no" rather than "press me" -- the cursor and the flat grey do the telling. */
-  #clear-detail.blocked { opacity: .4; cursor: not-allowed; }
-  #clear-detail.blocked:hover { background: var(--grey); color: var(--ink); opacity: .6; }
+  #clear-detail.blocked, #wipe.blocked { opacity: .4; cursor: not-allowed; }
+  #clear-detail.blocked:hover, #wipe.blocked:hover {
+    background: var(--grey); color: var(--ink); opacity: .6;
+  }
   #clear-detail[hidden] { display: none; }
   #font-up:disabled, #font-dn:disabled { opacity: .25; cursor: default; }
 
@@ -3561,11 +3563,15 @@
      and the whole point here is that hovering EXPLAINS why it does nothing. It stays enabled,
      wears aria-disabled for the screen reader, and refuses in the handler. */
   function syncClearBtn() {
-    if (!clearBtn) return;
     const blocked = document.documentElement.classList.contains('tl-open');
-    clearBtn.classList.toggle('blocked', blocked);
-    clearBtn.setAttribute('aria-disabled', blocked ? 'true' : 'false');
-    clearBtn.title = blocked ? 'Not available when timeline is visible' : 'Clear this pane';
+    const mark = (b, normal) => {
+      if (!b) return;
+      b.classList.toggle('blocked', blocked);
+      b.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+      b.title = blocked ? 'Not available when timeline is visible' : normal;
+    };
+    mark(clearBtn, 'Clear this pane');
+    mark(document.getElementById('wipe'), 'Clear the screen');
   }
   clearBtn.onclick = () => {
     if (document.documentElement.classList.contains('tl-open')) return;
@@ -3992,7 +3998,13 @@
     openSheet('Nobody is watching', blocks, null);
   };
 
-  document.getElementById('wipe').onclick = () => {
+  /* ⛔ THIS is the X that was meant -- "Clear the screen", the one up with the lamps. The first
+     attempt blocked #clear-detail, the OTHER ✕, which lives in the bottom corner and says "Clear
+     this pane". Two buttons, same glyph, and I picked the one I had been editing next to. Both are
+     blocked now: with the timeline up, neither the screen nor the pane is yours to clear. */
+  const wipeBtn = document.getElementById('wipe');
+  wipeBtn.onclick = () => {
+    if (document.documentElement.classList.contains('tl-open')) return;
     lastCommand = '';
     show([], false);      // nothing new arrives until the next reply, so it stays blank
     input.focus();
