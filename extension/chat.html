@@ -1079,7 +1079,29 @@
   :root, :root[data-theme] { --dim-1: 1; --dim-2: 1; --dim-3: 1; }
   #screen code, #detail code,
   #screen kbd, #detail kbd,
+  #screen pre, #detail pre,
   #screen .md-pre, #detail .md-pre { font-size: .8em; }
+
+  /* ── asked 2026-09-29, third pass: THE RIGHT PANE IS THE SAME PANE ─────────
+     "use code style for code used on the right panel, and use there the same
+      font sizes, as in the left panel, and just use bold style for the title"
+     A bare <pre> inside an ::html fragment had no class, so it missed the code
+     rules and rendered at the browser's own size next to text that had been
+     brought to one. The rules above now name `pre` itself, so code is code and
+     the same height wherever it appears; the rules below finish the right pane.
+     ───────────────────────────────────────────────────────────────────────── */
+  #screen pre, #detail pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-weight: 400; letter-spacing: 0; margin: 0;
+    white-space: pre-wrap; overflow-x: auto;
+  }
+  /* the card's title was 25px/900 with tight tracking -- the last surviving size
+     step. Bold, at the one size, like everything else. */
+  #detail h2 { font-size: var(--fs); letter-spacing: 0; line-height: 1.35; }
+  /* and the pane's own placeholder: it was 15px at opacity .32, which is the
+     faded tier the contrast pass removed everywhere else. Same size, full ink;
+     uppercase and the letter-spacing still say it is scaffolding. */
+  #detail .placeholder { font-size: var(--fs); opacity: 1; }
   #zoomers { position: fixed; right: 18px; bottom: 16px; }
 
   /* ==========================================================================
