@@ -1034,6 +1034,54 @@
   }
   form button:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
 
+  /* ── asked 2026-09-29, second pass ─────────────────────────────────────────
+     (a) "the you said field can have the same background, as it gets when i move
+         mouse cursor over it" — so the hover state IS the state.
+     (b) "make code font smaller by 20%" — 1em -> .8em, after the earlier pass put
+         it at 1em. Weight 400 still carries the change of voice.
+     (c) "the + - button in the corner -> can they be aligned with the buttons
+         above?" — they were `position: absolute` inside #stage, which has its own
+         22px padding, while the lamps above are `position: fixed`. Two coordinate
+         spaces, one shared `right: 18px`, and they never had to land in the same
+         column. Fixed, so both resolve against the viewport. body is
+         overflow:hidden, so nothing scrolls away from it.
+     ────────────────────────────────────────────────────────────────────────── */
+  .crumb { background: var(--yellow-soft); }
+
+  /* ── ONE INK IN EVERY THEME, not only in peas ──────────────────────────────
+     "improve all color themes apart from peas and corn, that i consider good
+     already". Measured rather than guessed: tools/contrast.py reads every theme
+     out of this file and reports the WCAG ratio for each piece of text against
+     the surface behind it, compositing the dimmed tiers over their ground first,
+     because an opacity is a colour change.
+
+     The result named the problem exactly. peas passes everything. Every other
+     theme fails, and EVERY failure is a dim tier -- not one hue, fill or border
+     is wrong anywhere:
+
+       dark        ink @.6 on panel 3.48:1   ink @.45 on panel 3.27:1
+       light       ink @.6 on panel 3.59:1   ink @.45 on panel 2.75:1
+       cobalt      ink @.6 on panel 3.63:1   ink @.45 on panel 3.47:1
+       plum        ink @.6 on panel 3.61:1   ink @.45 on panel 3.45:1
+       terracotta  ink @.6 on panel 3.69:1   ink @.45 on panel 2.46:1
+       moss        ink @.6 on panel 3.64:1   ink @.45 on panel 3.48:1
+       porcelain   ink @.6 on panel 3.62:1   ink @.45 on panel 2.47:1
+
+     4.5:1 is the body-text threshold. So the seven themes were not badly
+     coloured; they were carrying a faded hierarchy that peas had already been
+     told to switch off -- twice, here and in the editor's own font settings.
+     Switching it off everywhere costs one rule and clears all 20 failures.
+
+     `:root[data-theme]` matches at the same specificity as the per-theme blocks
+     above and comes later, so it wins; the bare `:root` covers the no-attribute
+     case before the theme is stamped. Hierarchy is weight, capitals and the
+     boxes -- the same answer as the one type size. */
+  :root, :root[data-theme] { --dim-1: 1; --dim-2: 1; --dim-3: 1; }
+  #screen code, #detail code,
+  #screen kbd, #detail kbd,
+  #screen .md-pre, #detail .md-pre { font-size: .8em; }
+  #zoomers { position: fixed; right: 18px; bottom: 16px; }
+
   /* ==========================================================================
      ONE TYPE SIZE FOR A REPLY  (asked 2026-09-29)
      "for your answers use only one standard font size and one maybe other for
