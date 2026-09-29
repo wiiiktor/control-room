@@ -1,0 +1,8 @@
+Windows notes (backfilled 2026-09-30 from the diff; nothing here was tested on Windows)
+
+Files: docs/SESSIONS.md, extension/chat.html, extension/package.json, extension/src/extension.js, extension/src/sessions.js, tests/README.md, tests/unit/activity.test.js
+make.py patches: chat.html: patch 9 (session list: leave out conversations open in a tab; "Start a new session" first); package.json: rewritten (name, version, Windows build number); extension.js: patch 7 (no folder open: room under the home folder); sessions.js: patch 3 (project slug: every non-alphanumeric a dash)
+  All make.py patches were verified to still apply at e6d64f7 (2026-09-30, csc step stubbed).
+Platform-sensitive ground in the added lines: file paths / separators -- check these on Windows.
+Checked at the time (macOS): activity reader run on a live transcript; 2 new unit tests
+Windows: untested.
