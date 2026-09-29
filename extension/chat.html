@@ -1764,25 +1764,39 @@
           // webview actually drew. actualBoundingBoxAscent is the cap height of the letter, not
           // the line box, so it is the thing being compared.
           btn.onclick = () => {
-            const cs = getComputedStyle(document.body);
-            const cv = document.createElement('canvas').getContext('2d');
-            const fam = cs.fontFamily, size = cs.fontSize;
-            const cap = (w) => {
-              cv.font = w + ' ' + size + ' ' + fam;
-              const m = cv.measureText('M');
-              return m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+            // ⛔ THE FIRST VERSION OF THIS MEASURED THE WRONG THING. It asked canvas for the cap
+            // height of an M at two weights and got 13.00px both times -- correct, and useless,
+            // because cap height is a FONT-WIDE metric that barely moves with weight. It could
+            // never have seen what was being reported. Measure the real nodes instead: two spans
+            // put into the live reply column, read back with getBoundingClientRect and
+            // getComputedStyle, which catches a size difference, a family difference, a synthesis
+            // difference -- anything that makes one of them look bigger.
+            const host = document.getElementById('screen') || document.body;
+            const probe = document.createElement('div');
+            probe.style.cssText = 'position:absolute;left:-9999px;top:0;white-space:nowrap';
+            probe.innerHTML = '<p class="note"><span id="_pM">M</span><strong id="_bM">M</strong></p>';
+            host.append(probe);
+            const read = (id) => {
+              const n = probe.querySelector('#' + id), c = getComputedStyle(n);
+              const r = n.getBoundingClientRect();
+              return { size: c.fontSize, weight: c.fontWeight,
+                       fam: c.fontFamily.split(',')[0].replace(/["']/g, ''),
+                       w: r.width, h: r.height };
             };
-            const plain = cap(cs.fontWeight), bold = cap('900');
+            const P = read('_pM'), B = read('_bM');
+            probe.remove();
+            const pct = (a, b) => (a ? (100 * (b / a - 1)).toFixed(1) + '%' : '?');
             const rows = [
-              { type: 'kv', body: 'resolved family = ' + fam.split(',')[0].replace(/["']/g, '') },
-              { type: 'kv', body: 'full stack = ' + fam },
-              { type: 'kv', body: 'body weight = ' + cs.fontWeight + ' at ' + size },
-              { type: 'kv', body: 'M at body weight = ' + plain.toFixed(2) + 'px' },
-              { type: 'kv', body: 'M at weight 900 = ' + bold.toFixed(2) + 'px' },
-              { type: 'kv', body: 'bold is taller by = ' + (plain ? (100 * (bold / plain - 1)).toFixed(1) : '?') + '%' },
-              { type: 'note', body: 'If the family is not Ubuntu, the stylesheet is being overridden. '
-                                    + 'If it IS Ubuntu and the two heights still differ, the face is '
-                                    + 'not the problem and --fs-plain is the answer.' },
+              { type: 'kv', body: 'page build = ' + (BUILD === '__BUILD__' ? 'unstamped' : BUILD) },
+              { type: 'kv', body: 'plain M = ' + P.fam + ' ' + P.weight + ' ' + P.size
+                                  + ', box ' + P.w.toFixed(2) + ' x ' + P.h.toFixed(2) },
+              { type: 'kv', body: 'bold M = ' + B.fam + ' ' + B.weight + ' ' + B.size
+                                  + ', box ' + B.w.toFixed(2) + ' x ' + B.h.toFixed(2) },
+              { type: 'kv', body: 'bold is wider by = ' + pct(P.w, B.w) },
+              { type: 'kv', body: 'bold is taller by = ' + pct(P.h, B.h) },
+              { type: 'note', body: 'These are two real nodes in the reply column, measured where you '
+                                    + 'read them. If the two font-sizes differ, that is the bug and it '
+                                    + 'is CSS. If they match and the boxes still differ, it is the face.' },
             ];
             openSheet('What this page is actually drawing', rows, null);
           };
