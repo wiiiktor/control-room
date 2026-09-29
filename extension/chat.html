@@ -1115,7 +1115,10 @@
      to the same pixel as a fixed `right: 18px` -- the geometry says these were
      already aligned. Reading the CSS has now produced two wrong answers; the next
      attempt needs a screenshot, not another theory. */
-  #zoomers { position: absolute; right: 18px; bottom: 16px; align-items: flex-end; }
+  /* 11px, not 18: measured by the only instrument that was ever going to settle it --
+     "+ - is in the right corner, BUT should be moved about 7px to the right". Two
+     theories read off the CSS were both wrong; one look was worth more than both. */
+  #zoomers { position: absolute; right: 11px; bottom: 16px; align-items: flex-end; }
 
   /* "the bottom input text scroll bar is 4 px too far to the right": the thumb is
      drawn inside transparent borders, 5px on the left against 8px on the right, so
