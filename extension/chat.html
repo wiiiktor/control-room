@@ -1157,6 +1157,14 @@
        keeps its height and plain rises to meet it. */
     --fs-plain: 1; }
 
+  /* ⛔ `body { font: ... }` MAY NOT BE THE RULE THAT WINS. A VS Code webview injects its own
+     stylesheet -- the same one that paints <code> orange and boxes it, which this file already
+     fights in two places -- and a plain `body` selector there ties ours on specificity, so whichever
+     lands later takes it. `html body` is (0,0,2) and beats any bare `body`. If the panel's typeface
+     looked unchanged after the stack was rewritten, this is why. */
+  html body { font-family: "Ubuntu", ui-rounded, "Nunito", "Segoe UI Variable", system-ui,
+              -apple-system, sans-serif; }
+
   #screen, #detail { font-size: calc(var(--fs) * var(--fs-plain)); }
   #screen strong, #detail strong,
   #screen b, #detail b { font-size: calc(1em / var(--fs-plain)); }
@@ -1750,6 +1758,37 @@
         btn.append(rich('span', '', label));
         // a prefill is the START of a sentence, so it ends with a space and the caret
         // sits after it -- the point is to keep typing, not to edit what landed
+        if (btn.dataset.cmd === '__fontreport') {
+          // ⛔ THE PAGE IS THE ONLY INSTRUMENT THAT CAN ANSWER THIS. Three guesses at why bold
+          // sits taller than plain were all made from the outside; this measures the glyphs the
+          // webview actually drew. actualBoundingBoxAscent is the cap height of the letter, not
+          // the line box, so it is the thing being compared.
+          btn.onclick = () => {
+            const cs = getComputedStyle(document.body);
+            const cv = document.createElement('canvas').getContext('2d');
+            const fam = cs.fontFamily, size = cs.fontSize;
+            const cap = (w) => {
+              cv.font = w + ' ' + size + ' ' + fam;
+              const m = cv.measureText('M');
+              return m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+            };
+            const plain = cap(cs.fontWeight), bold = cap('900');
+            const rows = [
+              { type: 'kv', body: 'resolved family = ' + fam.split(',')[0].replace(/["']/g, '') },
+              { type: 'kv', body: 'full stack = ' + fam },
+              { type: 'kv', body: 'body weight = ' + cs.fontWeight + ' at ' + size },
+              { type: 'kv', body: 'M at body weight = ' + plain.toFixed(2) + 'px' },
+              { type: 'kv', body: 'M at weight 900 = ' + bold.toFixed(2) + 'px' },
+              { type: 'kv', body: 'bold is taller by = ' + (plain ? (100 * (bold / plain - 1)).toFixed(1) : '?') + '%' },
+              { type: 'note', body: 'If the family is not Ubuntu, the stylesheet is being overridden. '
+                                    + 'If it IS Ubuntu and the two heights still differ, the face is '
+                                    + 'not the problem and --fs-plain is the answer.' },
+            ];
+            openSheet('What this page is actually drawing', rows, null);
+          };
+          picks.append(btn);
+          continue;
+        }
         if (btn.dataset.cmd === '__reload') {
           btn.onclick = () => location.reload();
           picks.append(btn);
