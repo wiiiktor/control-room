@@ -176,7 +176,15 @@
       radial-gradient(circle at 12% 8%, var(--wash-a) 0, transparent 42%),
       radial-gradient(circle at 88% 92%, var(--wash-b) 0, transparent 45%);
     color: var(--ink);
-    font: 600 18px/1.45 ui-rounded, "Nunito", "Segoe UI Variable", system-ui, -apple-system, sans-serif;
+    /* ⛔ THE OLD STACK NAMED THREE FAMILIES THIS MACHINE DOES NOT HAVE — ui-rounded, Nunito
+       and Segoe UI Variable — so every weight fell through to system-ui, and the browser
+       resolved 600 and 900 to faces with DIFFERENT CAP HEIGHTS. That is why bold M and plain
+       M were not the same height at the same font-size: they were not the same typeface.
+       Ubuntu is installed here with 26 real faces (Thin, Light, Regular, Medium, Bold, Extra
+       Bold, and italics for each), so both weights now come from ONE family with one set of
+       metrics. Body sits at Medium and bold resolves to Extra Bold: a real two-step, not a
+       synthesised one. The old names stay behind it for any machine that does have them. */
+    font: 500 18px/1.45 "Ubuntu", ui-rounded, "Nunito", "Segoe UI Variable", system-ui, -apple-system, sans-serif;
     display: flex; flex-direction: column;
   }
 
@@ -1135,9 +1143,24 @@
      This block sits last on purpose: it overrides the sizes set above rather
      than editing forty rules, so the original design stays readable as history.
      ========================================================================== */
-  :root { --fs: 18px; --fs-btn: 20px; }
+  :root { --fs: 18px; --fs-btn: 20px;
+    /* ── "make normal M taller about 22%" (2026-09-29) ───────────────────────
+       Bold and plain text are not coming from the same face. The stack is
+       ui-rounded, Nunito, Segoe UI Variable, system-ui — on this machine the
+       first three are absent, and the browser resolves weight 600 and weight 900
+       to faces with different cap heights. Same font-size, different letters.
+       ✅ FIXED AT THE ROOT instead: the stack now names Ubuntu, which is
+       installed here with real faces at every weight, so both come from one
+       family with one set of metrics. This knob stays at 1 and is here only for
+       a machine without it — set it to the ratio you measure and plain text is
+       scaled up by it while bold is scaled back down by the same factor, so bold
+       keeps its height and plain rises to meet it. */
+    --fs-plain: 1; }
 
-  #screen, #detail { font-size: var(--fs); }
+  #screen, #detail { font-size: calc(var(--fs) * var(--fs-plain)); }
+  #screen strong, #detail strong,
+  #screen b, #detail b { font-size: calc(1em / var(--fs-plain)); }
+
 
   #screen .ask, #detail .ask,
   #screen .say, #detail .say,
