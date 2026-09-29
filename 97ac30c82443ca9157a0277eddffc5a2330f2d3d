@@ -1,0 +1,6 @@
+Windows notes (backfilled 2026-09-30 from the diff; nothing here was tested on Windows)
+
+Files: (package only)
+make.py patches: none of these files
+Platform-sensitive ground in the added lines: none found by a keyword scan (spawn/claude CLI, python3, fcntl, tail, sh, paths, platform checks, settings files, terminals).
+Windows: untested.
