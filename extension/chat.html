@@ -1102,7 +1102,25 @@
      faded tier the contrast pass removed everywhere else. Same size, full ink;
      uppercase and the letter-spacing still say it is scaffolding. */
   #detail .placeholder { font-size: var(--fs); opacity: 1; }
-  #zoomers { position: fixed; right: 18px; bottom: 16px; }
+  /* ⛔ REVERTED, and this is the second wrong guess about the same three buttons.
+     `position: fixed` DID put them in the lamps' coordinate space -- and straight
+     onto the SEND button, because fixed measures from the viewport's bottom while
+     these belong above the composer. Back inside #stage, which ends where the
+     footer begins. `align-items: flex-end` is the one part worth keeping: the
+     column stretches to its widest child, so a child narrower than the column
+     would sit at its LEFT edge rather than under the lamps. All three are 20px
+     today, so it changes nothing now and stops it changing later.
+     ⚠️ The ORIGINAL misalignment is still unexplained. #stage spans the full
+     width and carries no border, so an absolute `right: 18px` inside it resolves
+     to the same pixel as a fixed `right: 18px` -- the geometry says these were
+     already aligned. Reading the CSS has now produced two wrong answers; the next
+     attempt needs a screenshot, not another theory. */
+  #zoomers { position: absolute; right: 18px; bottom: 16px; align-items: flex-end; }
+
+  /* "the bottom input text scroll bar is 4 px too far to the right": the thumb is
+     drawn inside transparent borders, 5px on the left against 8px on the right, so
+     it sat left of centre in its 18px track by exactly 3-4px. Even it up. */
+  textarea::-webkit-scrollbar-thumb { border-right-width: 5px; }
 
   /* ==========================================================================
      ONE TYPE SIZE FOR A REPLY  (asked 2026-09-29)

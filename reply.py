@@ -87,6 +87,50 @@ def check_markup(text):
                          % (len(md), md[0].strip()[:70]))
     sys.exit(3)
 
+
+def check_html_blocks(text):
+    """⛔ A ONE-LINE `::html` THAT IS NOT ONE LINE renders half of itself and drops the rest.
+
+    `::html <fragment>` injects THAT LINE. A fragment written across several lines puts the first
+    line through the renderer and lets the rest fall out as plain text -- which is how a code block
+    sent to the right pane came back as `# a BARE &lt;pre&gt; ... &lt;/pre&gt;` on screen, escaped and
+    literal. Nothing errored; it just quietly rendered wrong, which is the worst way for it to fail.
+
+    The multi-line form is `::html` alone, then the fragment, then `::endhtml`.
+    """
+    lines = text.splitlines()
+    inblock = False
+    bad = []
+    for i, l in enumerate(lines):
+        t = l.lstrip()
+        if t.startswith("::endhtml"):
+            inblock = False
+            continue
+        if t.rstrip() == "::html":
+            inblock = True
+            continue
+        if inblock or not t.startswith("::html "):
+            continue
+        frag = t[len("::html "):]
+        # every element opened on this line has to close on it. Void elements never close.
+        VOID = {"br", "hr", "img", "input", "meta", "link", "source", "col", "wbr"}
+        opens = [m.lower() for m in re.findall(r"<([a-zA-Z][a-zA-Z0-9]*)(?=[\s/>])", frag)
+                 if m.lower() not in VOID]
+        closes = [m.lower() for m in re.findall(r"</([a-zA-Z][a-zA-Z0-9]*)\s*>", frag)]
+        selfc = len(re.findall(r"/>", frag))
+        if len(opens) - selfc > len(closes):
+            bad.append((i + 1, frag[:70]))
+    if not bad:
+        return
+    sys.stderr.write(
+        "\033[1;31m⛔ REFUSED: a one-line ::html fragment is left open.\033[0m\n\n"
+        "`::html <fragment>` injects THAT LINE ONLY. Anything after it renders as plain text --\n"
+        "escaped and literal, with no error. Use the multi-line form instead:\n\n"
+        "  ::html\n  <pre>line one\n  line two</pre>\n  ::endhtml\n\n")
+    for n, frag in bad:
+        sys.stderr.write("  line %d: %s\n" % (n, frag))
+    sys.exit(4)
+
 argv = [a for a in sys.argv[1:] if a not in ("--plain", "-p")]
 plain = len(argv) != len(sys.argv[1:]) or os.environ.get("CTRL_PLAIN") == "1"
 
@@ -95,5 +139,6 @@ if not text:
     sys.exit("nothing to send")
 if not plain:
     check_markup(text)
+    check_html_blocks(text)
 msg = append_message("assistant", text, session=session_id())
 print(f"sent #{msg['id']}")
