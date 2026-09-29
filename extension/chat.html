@@ -1789,36 +1789,49 @@
             // put into the live reply column, read back with getBoundingClientRect and
             // getComputedStyle, which catches a size difference, a family difference, a synthesis
             // difference -- anything that makes one of them look bigger.
-            const host = document.getElementById('screen') || document.body;
-            const probe = document.createElement('div');
-            probe.style.cssText = 'position:absolute;left:-9999px;top:0;white-space:nowrap';
-            probe.innerHTML = '<p class="note"><span id="_pM">M</span><strong id="_bM">M</strong>'
-                             + '<code id="_cM">M</code></p>';
-            host.append(probe);
-            const read = (id) => {
-              const n = probe.querySelector('#' + id), c = getComputedStyle(n);
-              const r = n.getBoundingClientRect();
-              return { size: c.fontSize, weight: c.fontWeight,
-                       fam: c.fontFamily.split(',')[0].replace(/["']/g, ''),
-                       w: r.width, h: r.height };
+            // ⛔ MEASURE IN BOTH PANES. "left panel is ok already, only the right panel has
+            // taller code M" -- identical CSS, two different results, so the probe has to run
+            // where each of them lives instead of assuming they are the same column.
+            const probeIn = (hostId) => {
+              const host = document.getElementById(hostId);
+              if (!host) return null;
+              const probe = document.createElement('div');
+              probe.style.cssText = 'position:absolute;left:-9999px;top:0;white-space:nowrap';
+              probe.innerHTML = '<p class="note"><span id="_p">M</span><strong id="_b">M</strong>'
+                              + '<code id="_c">M</code></p>';
+              host.append(probe);
+              const read = (id) => {
+                const n = probe.querySelector('#' + id), c = getComputedStyle(n);
+                const r = n.getBoundingClientRect();
+                return { size: c.fontSize, weight: c.fontWeight,
+                         fam: c.fontFamily.split(',')[0].replace(/["']/g, ''),
+                         w: r.width, h: r.height };
+              };
+              const out = { P: read('_p'), B: read('_b'), C: read('_c') };
+              probe.remove();
+              return out;
             };
-            const P = read('_pM'), B = read('_bM'), C = read('_cM');
-            probe.remove();
+            const L = probeIn('screen'), R = probeIn('detail');
             const pct = (a, b) => (a ? (100 * (b / a - 1)).toFixed(1) + '%' : '?');
-            const rows = [
-              { type: 'kv', body: 'page build = ' + (BUILD === '__BUILD__' ? 'unstamped' : BUILD) },
-              { type: 'kv', body: 'plain M = ' + P.fam + ' ' + P.weight + ' ' + P.size
-                                  + ', box ' + P.w.toFixed(2) + ' x ' + P.h.toFixed(2) },
-              { type: 'kv', body: 'bold M = ' + B.fam + ' ' + B.weight + ' ' + B.size
-                                  + ', box ' + B.w.toFixed(2) + ' x ' + B.h.toFixed(2) },
-              { type: 'kv', body: 'code M = ' + C.fam + ' ' + C.weight + ' ' + C.size
-                                  + ', box ' + C.w.toFixed(2) + ' x ' + C.h.toFixed(2) },
-              { type: 'kv', body: 'bold vs plain, width = ' + pct(P.w, B.w) },
-              { type: 'kv', body: 'code vs plain, width = ' + pct(P.w, C.w) },
-              { type: 'note', body: 'These are two real nodes in the reply column, measured where you '
-                                    + 'read them. If the two font-sizes differ, that is the bug and it '
-                                    + 'is CSS. If they match and the boxes still differ, it is the face.' },
-            ];
+            const rows = [{ type: 'kv', body: 'page build = ' + (BUILD === '__BUILD__' ? 'unstamped' : BUILD) }];
+            for (const [name, m] of [['left', L], ['right', R]]) {
+              if (!m) { rows.push({ type: 'note', body: name + ' pane: not present' }); continue; }
+              rows.push({ type: 'kv', body: name + ' plain = ' + m.P.fam + ' ' + m.P.weight + ' '
+                                            + m.P.size + ', box ' + m.P.w.toFixed(2) + ' x ' + m.P.h.toFixed(2) });
+              rows.push({ type: 'kv', body: name + ' bold = ' + m.B.fam + ' ' + m.B.weight + ' '
+                                            + m.B.size + ', box ' + m.B.w.toFixed(2) + ' x ' + m.B.h.toFixed(2) });
+              rows.push({ type: 'kv', body: name + ' code = ' + m.C.fam + ' ' + m.C.weight + ' '
+                                            + m.C.size + ', box ' + m.C.w.toFixed(2) + ' x ' + m.C.h.toFixed(2) });
+              rows.push({ type: 'kv', body: name + ' code vs plain, width = ' + pct(m.P.w, m.C.w) });
+            }
+            // the left column is SCALED to fit; the right is not. If the two panes disagree, the
+            // transform is the first thing to rule out, so it goes in the report.
+            const sc = getComputedStyle(document.getElementById('screen'));
+            rows.push({ type: 'kv', body: 'left pane transform = ' + (sc.transform || 'none')
+                                          + ' zoom ' + (sc.zoom || '1') });
+            rows.push({ type: 'note', body: 'If the two panes report the same family, weight and size '
+                                            + 'and still look different, the difference is the left '
+                                            + 'column being scaled to fit, not the type.' });
             openSheet('What this page is actually drawing', rows, null);
           };
           picks.append(btn);
