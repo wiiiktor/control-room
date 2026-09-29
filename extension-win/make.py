@@ -466,6 +466,39 @@ def main():
           "    }",
           why="an update replaces a wrapper that open tabs are running")
 
+    # ---- 9. the room never takes a conversation away from the Claude tab ---------------------
+    # ⛔ PICKING THE CONVERSATION YOU WERE TYPING IN CLOSED IT. The splash lists recent sessions, and
+    # the newest is nearly always the one open in the Claude tab -- so it was the first row, a
+    # click addressed it, and writing to it made the room close that tab and run the conversation in
+    # the background ("close-tab-then-wake"). Measured: the reader lost the tab they were working in.
+    # Now a conversation that is open in a tab or a terminal is not offered, "Start a new session" is
+    # the first row, and a message that still reaches one is refused with the reason.
+    ch = out / "chat.html"
+    P.sub(ch, "    const ids = Object.keys(names).slice(0, 6);",
+          "    // ⛔ not a conversation that is open in the Claude tab or a terminal: writing to it would\n"
+          "    // take it away from there. The room starts its own session instead (the first row).\n"
+          "    const ids = Object.keys(names).filter((id) => {\n"
+          "      const l = (d.live || {})[id];\n"
+          "      return !(l && l.kind === 'interactive');\n"
+          "    }).slice(0, 6);",
+          why="the session list leaves out conversations open in a tab")
+    P.sub(ch, "    built.push(fresh);\n    sessBox.replaceChildren",
+          "    built.splice(1, 0, fresh);             // first: the room's own session is the safe choice\n"
+          "    sessBox.replaceChildren",
+          why="'Start a new session' is the first row")
+    wk = out / "src" / "wake.js"
+    P.sub(wk, "  if (tabFound) return { do: 'close-tab-then-wake', how: 'taken-from-window' };\n"
+              "  return { do: 'refuse', why: 'open-elsewhere' };",
+          "  // ⛔ never close the reader's Claude tab to take its conversation: refuse, and say why\n"
+          "  return { do: 'refuse', why: tabFound ? 'open-in-window' : 'open-elsewhere' };",
+          why="a conversation open in the Claude tab is refused, not taken")
+    P.sub(wk, "  }[why] || [",
+          "    'open-in-window': ['::warn ' + n + ' is open in your Claude tab',\n"
+          "      '::say The room will not take it from there. Keep talking to it in the tab, or choose '\n"
+          "        + '\"Start a new session\" and this room gets its own. Your message is written down.'],\n"
+          "  }[why] || [",
+          why="the refusal says what to do instead")
+
     P.sub(out / "src" / "diagnose.js", "for (const exe of ['python3', 'python'])",
           "for (const exe of ['python', 'py', 'python3'])", why="probe the names Windows has, first")
 
