@@ -3,9 +3,30 @@
 **Generated, not forked.** `extension/` is the one source of truth; `make.py` copies it, applies the
 Windows patches and packages that. Change the panel once and both builds get it.
 
+## Install (Windows, in Git Bash)
+
 ```bash
-./build.sh          # -> build/control-room-win-<version>.vsix
+gh api repos/wiiiktor/control-room/contents/extension-win/get.sh \
+  -H 'Accept: application/vnd.github.raw' | bash
 ```
+
+Needs VS Code, Python, Git for Windows, and the GitHub CLI logged in (`winget install GitHub.cli`,
+then `gh auth login`). Reload a running window with
+`code --open-url "vscode://wiiiktor.control-room-win/reload"`.
+
+## Build
+
+```bash
+./build.sh          # -> extension-win/control-room-win-<version>.vsix, the only one kept
+```
+
+Commit `version.json` and the new `.vsix` together.
+
+**Versions never collide with the posix extension.** posix `X.Y.Z` builds as Windows
+`X.Y.(Z*1000 + n)`: 0.34.6 gives 0.34.6001, 0.34.6002, … and 0.34.7 starts again at 0.34.7001. The
+posix version stays readable inside the number, and a posix patch number would have to reach 1000
+to meet a Windows one (make.py refuses that). The extension IDs differ too: `control-room` and
+`control-room-win`.
 
 ⛔ **Every patch asserts that it applied.** If the shared source moves under one, the build fails and
 names the patch. A fork would have gone stale silently — fourteen builds of `chat.html` shipped in a

@@ -255,9 +255,40 @@ const tkey = p => String(p).replace(/\\\\/g, '/').replace(/^[a-z]:/, m => m.toUp
 function trusted(cwd) {"""
 
 
+VERSION_FILE = HERE / "version.json"
+
+
+def win_version(base, bump=False):
+    """The Windows build's own version: posix X.Y.Z becomes X.Y.(Z*1000 + n).
+
+    ⛔ IT USED TO BE THE POSIX NUMBER, UNCHANGED. Every Windows build shipped as 0.34.6 -- the fixed
+    one and the broken one alike -- so nobody could tell from VS Code which of them was running.
+    Now the posix version stays readable in it (0.34.6001 is "built from 0.34.6"), n counts the
+    Windows builds of that posix version, and the two can never be equal: a Windows patch number
+    is always >= 1000, and the posix one would have to reach 1000 to meet it -- refused below.
+
+    n lives in version.json beside this file, committed with the .vsix it produced. --bump (which
+    build.sh passes) moves it on; a plain make.py run rebuilds the current number. A new posix
+    version starts n again at 1.
+    """
+    x, y, z = (int(v) for v in base.split("."))
+    if z >= 1000:
+        sys.exit(f"⛔ posix version {base}: patch >= 1000 would collide with the Windows numbering")
+    try:
+        st = json.loads(rd(VERSION_FILE))
+    except (OSError, ValueError):
+        st = {}
+    n = int(st.get("build", 0)) if st.get("base") == base else 0
+    if bump or n == 0:
+        n += 1
+    wr(VERSION_FILE, json.dumps({"base": base, "build": n}, indent=2) + "\n")
+    return f"{x}.{y}.{z * 1000 + n}"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(HERE / "build"))
+    ap.add_argument("--bump", action="store_true", help="next Windows build number")
     A = ap.parse_args()
     out = Path(A.out)
 
@@ -411,9 +442,10 @@ def main():
     pj["displayName"] = "Control Room (Windows)"
     pj["description"] = ((pj.get("description") or "") + " Windows build, generated from the "
                          "posix extension by extension-win/make.py.").strip()
+    pj["version"] = win_version(pj["version"], bump=A.bump)
     wr(out / "package.json", json.dumps(pj, indent=2, ensure_ascii=False) + "\n")
 
-    print(f"built {out}  ({len(P.applied)} patches)")
+    print(f"built {out}  ({len(P.applied)} patches)  version {pj['version']}")
     for a in P.applied:
         print("  •", a)
     print("\nnow:  cd", out, "&& npx --yes @vscode/vsce package --allow-missing-repository")
