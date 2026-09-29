@@ -1197,7 +1197,10 @@
     font-weight: 400;
   }
 
-  #screen, #detail { font-size: calc(var(--fs) * var(--fs-plain)); }
+  #screen { font-size: calc(var(--fs) * var(--fs-plain)); }
+  /* the left column is scaled by fit(); --fit carries that factor here so both panes READ at the
+     same size. Defaults to 1, so the pane is right before the first measurement lands. */
+  #detail { font-size: calc(var(--fs) * var(--fs-plain) * var(--fit, 1)); }
   #screen strong, #detail strong,
   #screen b, #detail b { font-size: calc(1em / var(--fs-plain)); }
 
@@ -1413,6 +1416,12 @@
       screenEl.style.transform = 'scale(' + k + ')';
     }
     fitBox.style.height = Math.ceil(screenEl.scrollHeight * k) + 'px';
+    // ⭐ THE RIGHT PANE FOLLOWS THE LEFT. Measured 2026-09-29: both panes draw Ubuntu at 18px and
+    // every box is the same height WITHIN a pane -- and the two panes differ by exactly this
+    // factor, 16.68px against 20.00px, because only #screen carries the scale. So the type was
+    // never wrong; one column was simply being drawn smaller than the other. Publishing k lets
+    // #detail match it in FONT-SIZE rather than in transform, which keeps the pane its full width.
+    document.documentElement.style.setProperty('--fit', String(k));
   }
 
   /** Swap the whole screen — this console never keeps history. */

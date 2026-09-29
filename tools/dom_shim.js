@@ -1,7 +1,7 @@
 
 const IDS = ['clear-detail', 'compose', 'deaf', 'detail', 'fit', 'font-dn', 'font-up', 'form', 'input', 'lamp', 'left', 'pal-btn', 'palette', 'perm-prompt', 'screen', 'splash', 'splash-sess', 'splash-status', 'stage', 'timeline', 'tl-bar', 'tl-btn', 'tl-head', 'to-hint', 'wipe', 'zoomers'], CLASSES = ['empty', 'hint', 'info', 'prompt', 'sess', 'status', 'wrap', 'x'];
 class N {
-  constructor(tag){ this.tag=tag; this.className=''; this.children=[]; this._t=''; this.style={}; this.dataset={};
+  constructor(tag){ this.tag=tag; this.className=''; this.children=[]; this._t=''; this.style={setProperty(k,v){this['_'+k]=v;},getPropertyValue(k){return this['_'+k]||'';},removeProperty(k){delete this['_'+k];}}; this.dataset={};
     this.hidden=false; this.disabled=false; this.classList={ _s:new Set(),
       add(...c){c.forEach(x=>this._s.add(x))}, remove(...c){c.forEach(x=>this._s.delete(x))},
       toggle(c,f){ f===undefined ? (this._s.has(c)?this._s.delete(c):this._s.add(c)) : (f?this._s.add(c):this._s.delete(c)); return !!f },
