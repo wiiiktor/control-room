@@ -3,6 +3,6 @@ Windows notes (backfilled 2026-09-30 from the diff; nothing here was tested on W
 Files: extension/chat.html, extension/package.json
 make.py patches: chat.html: patch 9 (session list: leave out conversations open in a tab; "Start a new session" first); package.json: rewritten (name, version, Windows build number)
   All make.py patches were verified to still apply at e6d64f7 (2026-09-30, csc step stubbed).
-Platform-sensitive ground in the added lines: spawns processes or runs claude -- check these on Windows.
+Platform-sensitive ground in the added lines: none. (A keyword scan flagged "claude agents", but it is only in a comment; the change is page logic in chat.html.)
 Checked at the time (macOS): user confirmed live on macOS (yellow "in the Claude window" shown)
 Windows: untested.
