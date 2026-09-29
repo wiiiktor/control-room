@@ -1180,8 +1180,21 @@
      everything on screen. Ubuntu Sans Mono is drawn to sit beside Ubuntu and shares its
      proportions, so 0.8em now reads as 0.8em. Forced at `html body` for the same reason as the
      text face: a bare selector in the webview's own stylesheet ties ours. */
-  html body code, html body kbd, html body pre, html body .md-pre, html body .num {
+  html body pre, html body .md-pre, html body .num {
     font-family: "Ubuntu Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  /* ⛔ INLINE CODE COMES FROM THE TEXT FAMILY NOW — asked for directly: "can you take it from the
+     same family?". Three monospace faces were tried and every one of them sat at a different
+     height from the prose beside it, whatever the published metrics said. A different family can
+     always disagree; the SAME family cannot. Inline code is Ubuntu at weight 400 against the body's
+     600, which is what was asked for at the very start: the same size, only thinner.
+     ⚠️ A code BLOCK keeps a real monospace, because columns lining up is the entire point of one
+     and a proportional face would break every table and every aligned dump. A block sits on its own
+     lines, so it is never measured against text beside it. */
+  html body code, html body kbd {
+    font-family: "Ubuntu", ui-rounded, system-ui, -apple-system, sans-serif;
+    font-weight: 400;
   }
 
   #screen, #detail { font-size: calc(var(--fs) * var(--fs-plain)); }
