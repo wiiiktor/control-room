@@ -1,6 +1,8 @@
 # the conversation and its runtime state: per machine, never shared
 chat.jsonl
-chat.jsonl.*          # backups of it are the same secret, under another name
+# ⛔ A COMMENT ONLY COUNTS AT THE START OF A LINE. Written as `chat.jsonl.*   # why`, the
+# comment became part of the PATTERN and the rule matched nothing at all.
+chat.jsonl.*
 .seq
 .status
 .watch
