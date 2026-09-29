@@ -1134,12 +1134,18 @@
   /* 11px, not 18: measured by the only instrument that was ever going to settle it --
      "+ - is in the right corner, BUT should be moved about 7px to the right". Two
      theories read off the CSS were both wrong; one look was worth more than both. */
-  #zoomers { position: absolute; right: 11px; bottom: 16px; align-items: flex-end; }
+  /* 4px: as far right as they go. The buttons are 20px with a 4px ring, so the ring's outer
+     edge now sits on the pane's edge. 18 -> 11 -> 4; if it still is not far enough, the
+     thing they are being lined up against is not what I think it is, and a screenshot with
+     both in frame will settle it faster than a fourth guess. */
+  #zoomers { position: absolute; right: 4px; bottom: 16px; align-items: flex-end; }
 
   /* "the bottom input text scroll bar is 4 px too far to the right": the thumb is
      drawn inside transparent borders, 5px on the left against 8px on the right, so
      it sat left of centre in its 18px track by exactly 3-4px. Even it up. */
-  textarea::-webkit-scrollbar-thumb { border-right-width: 5px; }
+  /* 4px to the left, keeping the thumb's width: the transparent borders that position it in
+     the 18px track go from 5/5 to 1/9. Visible width stays 8px, centre moves 4px left. */
+  textarea::-webkit-scrollbar-thumb { border-left-width: 1px; border-right-width: 9px; }
 
   /* ==========================================================================
      ONE TYPE SIZE FOR A REPLY  (asked 2026-09-29)
