@@ -123,9 +123,11 @@ STDIO = '''from pathlib import Path
 # ⛔ WINDOWS STDIO IS THE ANSI CODE PAGE, NOT UTF-8. cp1250 on a Polish machine: the first ⛔ this
 # script printed, or the first emoji in a message it relayed, raised UnicodeEncodeError and killed
 # it -- and a reply piped in through a heredoc arrived as mojibake. Every stream is UTF-8 here.
-for _s in (sys.stdin, sys.stdout, sys.stderr):
+# stdin as utf-8-SIG: PowerShell pipes open with a byte-order mark, and a reply sent that way
+# reached the panel starting with an invisible U+FEFF.
+for _s, _enc in ((sys.stdin, "utf-8-sig"), (sys.stdout, "utf-8"), (sys.stderr, "utf-8")):
     try:
-        _s.reconfigure(encoding="utf-8", errors="replace")
+        _s.reconfigure(encoding=_enc, errors="replace")
     except (AttributeError, ValueError):
         pass
 '''
@@ -363,6 +365,42 @@ def main():
           why="grantTrust reads the normalised key")
     P.sub(pf, "  d.projects[cwd] = Object.assign(", "  d.projects[tkey(cwd)] = Object.assign(",
           why="grantTrust writes the normalised key")
+
+    # ---- 7. a window with no folder is the home folder --------------------------------------
+    # ⛔ A WINDOW WITH NO FOLDER PUT THE ROOM IN VS CODE'S OWN INSTALL DIRECTORY. process.cwd() of
+    # the extension host is wherever Code.exe lives, so chat.jsonl, the .py files and a .claude/
+    # landed in Program Files -- while the Claude tab of that same window runs in the HOME folder,
+    # never read those hooks, and the hooks could not find a control-room* folder under their own
+    # root anyway. Measured: the woken session was never told to watch and went looking for a
+    # claude.ai artifact instead. The home folder is what Claude Code itself uses, so the room goes
+    # there.
+    ex = out / "src" / "extension.js"
+    P.sub(ex, "  if (!folders.length) return [{ dir: process.cwd(), name: 'Control Room' }];\n"
+              "  const root = folders[0].uri.fsPath;",
+          "  // ⛔ no folder open: the HOME folder, where the Claude tab of this window runs --\n"
+          "  // not process.cwd(), which is VS Code's own install directory\n"
+          "  const root = folders.length ? folders[0].uri.fsPath : require('os').homedir();",
+          why="no folder open: the room lives under the home folder")
+    P.sub(ex, "  return (vscode.workspace.workspaceFolders || [])[0]?.uri.fsPath || fallback;",
+          "  return (vscode.workspace.workspaceFolders || [])[0]?.uri.fsPath || require('os').homedir();",
+          why="no folder open: the workspace root is the home folder")
+
+    # ⛔ AND IN THE HOME FOLDER, .claude/settings.json IS THE USER'S GLOBAL SETTINGS. Hooks written
+    # there run for every session on the machine, in every folder: the mirror would copy all of
+    # them into this panel, and the allow rules would widen permissions everywhere. Measured on
+    # Windows: hooks in ~/.claude/settings.local.json fire for a session started in the home folder
+    # and NOT for one started in Documents -- the scope a room needs, so that is where they go.
+    P.sub(h, "function fixCmds(settings) {",
+          "const SETTINGS = root => (path.resolve(root).toLowerCase() === path.resolve(require('os').homedir()).toLowerCase()\n"
+          "  ? 'settings.local.json' : 'settings.json');\n"
+          "function fixCmds(settings) {",
+          why="home folder: hooks go into settings.local.json, not the global settings")
+    P.sub(h, "readFileSync(path.join(root, '.claude', 'settings.json'), 'utf8')",
+          "readFileSync(path.join(root, '.claude', SETTINGS(root)), 'utf8')",
+          why="installed() reads the file install() writes")
+    P.sub(h, "  const file = path.join(claude, 'settings.json');",
+          "  const file = path.join(claude, SETTINGS(root));",
+          why="install() writes the scoped file")
 
     P.sub(out / "src" / "diagnose.js", "for (const exe of ['python3', 'python'])",
           "for (const exe of ['python', 'py', 'python3'])", why="probe the names Windows has, first")
