@@ -1,5 +1,6 @@
 # the conversation and its runtime state: per machine, never shared
 chat.jsonl
+chat.jsonl.*          # backups of it are the same secret, under another name
 .seq
 .status
 .watch

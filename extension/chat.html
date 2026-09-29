@@ -1033,6 +1033,99 @@
     box-shadow: var(--pop-sm); transition: transform .08s, box-shadow .08s;
   }
   form button:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
+
+  /* ==========================================================================
+     ONE TYPE SIZE FOR A REPLY  (asked 2026-09-29)
+     "for your answers use only one standard font size and one maybe other for
+      buttons; font may use bold, italics, etc; for code style use the same font
+      size (really, so the same height on the screen), only thinner font"
+     So: every piece of reply content is --fs. Hierarchy is WEIGHT, CASE, COLOUR
+     and the boxes -- never size. Buttons are the one exception, at --fs-btn.
+     This block sits last on purpose: it overrides the sizes set above rather
+     than editing forty rules, so the original design stays readable as history.
+     ========================================================================== */
+  :root { --fs: 18px; --fs-btn: 20px; }
+
+  #screen, #detail { font-size: var(--fs); }
+
+  #screen .ask, #detail .ask,
+  #screen .say, #detail .say,
+  #screen .note, #detail .note,
+  #screen .plain, #detail .plain,
+  #screen .md-p, #detail .md-p,
+  #screen .md-list, #detail .md-list,
+  #screen .md-table, #detail .md-table,
+  #screen .md-pre, #detail .md-pre,
+  #screen .raw, #detail .raw,
+  #screen .raw th, #detail .raw th,
+  #screen .badge, #detail .badge,
+  #screen .crumb, #detail .crumb,
+  #screen .stat b, #detail .stat b,
+  #screen .stat span, #detail .stat span,
+  #screen .chart b, #detail .chart b,
+  #screen .chart .foot, #detail .chart .foot,
+  #screen .cards button b, #detail .cards button b,
+  #screen .cards button .more, #detail .cards button .more {
+    font-size: var(--fs);
+  }
+  /* the headline was 46px and carried the screen by size alone; at one size it
+     has to carry it by weight, so it keeps 900 and loses the tight tracking that
+     only reads well large. */
+  #screen .ask, #detail .ask { line-height: 1.35; letter-spacing: 0; }
+  #screen .say, #detail .say { line-height: 1.45; }
+  #screen .stat span, #detail .stat span { letter-spacing: 0; }
+  /* .crumb's "YOU SAID:" label and the card's "MORE" are structure, not voice:
+     they keep uppercase and tracking, which is what made them small in the first
+     place, and now say it without shrinking. */
+  #screen .crumb::before, #detail .crumb::before { font-size: var(--fs); }
+
+  /* CODE: the same height, only thinner. 1em is literally the reply's size --
+     mono at .92em was the old trick for "looks the same", and the ask here is
+     that it BE the same. Weight 400 against the body's 650-900 is the whole
+     difference in voice. */
+  #screen code, #detail code,
+  #screen kbd, #detail kbd,
+  #screen .md-pre, #detail .md-pre {
+    font-size: 1em; font-weight: 400; letter-spacing: 0;
+  }
+
+  /* BUTTONS: the one other size. */
+  #screen .picks button, #detail .picks button { font-size: var(--fs-btn); }
+
+  /* EVERY link, not only the ones the Markdown renderer marks. A link written
+     inside a ::html fragment is a bare <a>, and the webview's own stylesheet
+     paints that its link blue -- which is what showed up in the replies carrying
+     an artifact URL. Black ink, dashed underline, everywhere. */
+  #screen a, #detail a, #screen a:visited, #detail a:visited {
+    color: inherit; text-decoration: underline; text-decoration-style: dashed;
+    text-underline-offset: 3px; text-decoration-thickness: 1.5px;
+    font-size: inherit; font-weight: inherit; cursor: pointer;
+  }
+  #screen a:hover, #detail a:hover {
+    text-decoration-style: solid; background: var(--yellow-soft);
+  }
+
+  /* EVERY bullet is the same ring. An item WITHOUT a tone used to fall through to
+     the browser's default disc -- small, black and nothing like the dotted items
+     beside it, which is the "small and black instead of coloured" in the report.
+     The ring is the shape; a tone FILLS it. Same rule as the colour policy: the
+     mark says an item is an item, the fill says how it stands. */
+  #screen .md-list, #detail .md-list { padding-left: 1.4em; }
+  #screen .md-list > li, #detail .md-list > li {
+    list-style: none; position: relative;
+  }
+  #screen .md-list > li::before, #detail .md-list > li::before {
+    content: ""; position: absolute; left: -1.05em; box-sizing: border-box;
+    width: .65em; height: .65em; top: calc((1.45em - .65em) / 2);
+    border-radius: 50%; border: 2px solid var(--ink); background: transparent;
+  }
+  #screen .md-list > li.tone.ok::before,    #detail .md-list > li.tone.ok::before    { background: var(--green); }
+  #screen .md-list > li.tone.warn::before,  #detail .md-list > li.tone.warn::before  { background: var(--yellow); }
+  #screen .md-list > li.tone.err::before,   #detail .md-list > li.tone.err::before   { background: var(--red); }
+  /* an ORDERED list keeps its numbers: the order is the information there */
+  #screen ol.md-list > li, #detail ol.md-list > li { list-style: decimal; }
+  #screen ol.md-list > li::before, #detail ol.md-list > li::before { content: none; }
+
 </style>
 </head>
 <body>
