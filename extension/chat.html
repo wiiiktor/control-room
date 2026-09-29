@@ -1113,11 +1113,11 @@
   }
   /* the card's title was 25px/900 with tight tracking -- the last surviving size
      step. Bold, at the one size, like everything else. */
-  #detail h2 { font-size: var(--fs); letter-spacing: 0; line-height: 1.35; }
+  #detail h2 { font-size: inherit; letter-spacing: 0; line-height: 1.35; }
   /* and the pane's own placeholder: it was 15px at opacity .32, which is the
      faded tier the contrast pass removed everywhere else. Same size, full ink;
      uppercase and the letter-spacing still say it is scaffolding. */
-  #detail .placeholder { font-size: var(--fs); opacity: 1; }
+  #detail .placeholder { font-size: inherit; opacity: 1; }
   /* ⛔ REVERTED, and this is the second wrong guess about the same three buttons.
      `position: fixed` DID put them in the lamps' coordinate space -- and straight
      onto the SEND button, because fixed measures from the viewport's bottom while
@@ -1223,7 +1223,11 @@
   #screen .chart .foot, #detail .chart .foot,
   #screen .cards button b, #detail .cards button b,
   #screen .cards button .more, #detail .cards button .more {
-    font-size: var(--fs);
+    /* ⛔ `inherit`, NOT var(--fs). Pinned absolutely, every one of these ignored its container --
+       so setting a smaller font-size on #detail did nothing at all, because each child restated
+       the full size for itself. Inheriting is what makes "one size" a property of the COLUMN,
+       which is what lets the right pane follow the left's scale. */
+    font-size: inherit;
   }
   /* the headline was 46px and carried the screen by size alone; at one size it
      has to carry it by weight, so it keeps 900 and loses the tight tracking that
@@ -1234,7 +1238,7 @@
   /* .crumb's "YOU SAID:" label and the card's "MORE" are structure, not voice:
      they keep uppercase and tracking, which is what made them small in the first
      place, and now say it without shrinking. */
-  #screen .crumb::before, #detail .crumb::before { font-size: var(--fs); }
+  #screen .crumb::before, #detail .crumb::before { font-size: inherit; }
 
   /* ⛔ TWO RULES WERE DECIDING THE CODE SIZE, in two different blocks, and the later one won
      silently. When "20% smaller" was asked for I edited the earlier one to .8em and this one kept
@@ -1246,7 +1250,8 @@
   #screen .md-pre, #detail .md-pre { font-weight: 400; letter-spacing: 0; }
 
   /* BUTTONS: the one other size. */
-  #screen .picks button, #detail .picks button { font-size: var(--fs-btn); }
+  #screen .picks button { font-size: var(--fs-btn); }
+  #detail .picks button { font-size: calc(var(--fs-btn) * var(--fit, 1)); }
 
   /* EVERY link, not only the ones the Markdown renderer marks. A link written
      inside a ::html fragment is a bare <a>, and the webview's own stylesheet
