@@ -6,12 +6,11 @@ Windows patches and packages that. Change the panel once and both builds get it.
 ## Install (Windows, in Git Bash)
 
 ```bash
-gh api repos/wiiiktor/control-room/contents/extension-win/get.sh \
-  -H 'Accept: application/vnd.github.raw' | bash
+curl -fsSL https://raw.githubusercontent.com/wiiiktor/control-room/main/extension-win/get.sh | bash
 ```
 
-Needs VS Code, Python, Git for Windows, and the GitHub CLI logged in (`winget install GitHub.cli`,
-then `gh auth login`). Reload a running window with
+Needs VS Code, Python and Git for Windows; no login (the repository is public). Or give Claude the
+one-prompt install from the [main README](../README.md#install-one-prompt). Reload a running window with
 `code --open-url "vscode://wiiiktor.control-room-win/reload"`.
 
 ## Build

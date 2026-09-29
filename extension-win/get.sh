@@ -1,27 +1,32 @@
 #!/usr/bin/env bash
 # Download the newest Control Room (Windows) from GitHub and install it. Run in Git Bash:
 #
-#   gh api repos/wiiiktor/control-room/contents/extension-win/get.sh \
-#     -H 'Accept: application/vnd.github.raw' | bash
+#   curl -fsSL https://raw.githubusercontent.com/wiiiktor/control-room/main/extension-win/get.sh | bash
 #
-# The repository is PRIVATE, so everything goes through `gh` (logged in with `gh auth login`):
-# a plain URL answers 404 for a private repo, which reads like a missing file, not a missing login.
+# The repository is public, so no login is needed; `gh` is used when it is installed and logged in.
 set -euo pipefail
 REPO=${CONTROL_ROOM_REPO:-wiiiktor/control-room}
 
-command -v gh >/dev/null || { echo "gh is not installed: winget install GitHub.cli" >&2; exit 1; }
-gh auth status >/dev/null 2>&1 || { echo "gh is installed but not logged in: run 'gh auth login'" >&2; exit 1; }
+if command -v gh >/dev/null && gh auth status >/dev/null 2>&1; then
+  list() { gh api "repos/$REPO/contents/$1" --jq '.[] | select(.name|endswith(".vsix")) | .name'; }
+  fetch() { gh api "repos/$REPO/contents/$1" -H "Accept: application/vnd.github.raw"; }
+else
+  PY=$(command -v python || command -v py || command -v python3 || true)
+  [ -n "$PY" ] || { echo "Python is needed: winget install Python.Python.3.12 (it also answers the panel)" >&2; exit 1; }
+  list() { curl -fsSL "https://api.github.com/repos/$REPO/contents/$1" \
+             | "$PY" -c 'import json,sys; [print(x["name"]) for x in json.load(sys.stdin) if x["name"].endswith(".vsix")]'; }
+  fetch() { curl -fsSL "https://raw.githubusercontent.com/$REPO/main/$1"; }
+fi
 command -v code >/dev/null || { echo "no 'code' on the PATH -- reinstall VS Code with 'Add to PATH'" >&2; exit 1; }
 
 # the newest by its version NUMBERS, so 0.34.10001 beats 0.34.9001
-NAME=$(gh api "repos/$REPO/contents/extension-win" \
-         --jq '.[] | select(.name|endswith(".vsix")) | .name' \
+NAME=$(list extension-win \
        | awk -F'[-.]' '{printf "%d %d %d %s\n", $4, $5, $6, $0}' \
        | sort -n -k1,1 -k2,2 -k3,3 | tail -1 | cut -d' ' -f4)
 [ -n "$NAME" ] || { echo "no .vsix published in $REPO/extension-win" >&2; exit 1; }
 
 OUT="${TEMP:-/tmp}/$NAME"
-gh api "repos/$REPO/contents/extension-win/$NAME" -H "Accept: application/vnd.github.raw" > "$OUT"
+fetch "extension-win/$NAME" > "$OUT"
 code --install-extension "$OUT" --force
 # a running window keeps the extension it started with: ask it to reload, then open the panel
 code --open-url "vscode://wiiiktor.control-room-win/reload" >/dev/null 2>&1 || true

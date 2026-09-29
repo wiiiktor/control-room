@@ -19,14 +19,28 @@ panel  ────────►  chat.jsonl  ──►  Claude Code session
 The panel needs no server and no dependencies. Answering needs Python 3 (standard library
 only) on the same machine as the session.
 
+## Install: one prompt
+
+Give this to Claude in VS Code (the Claude tab), on macOS, Linux or Windows:
+
+> Install Control Room: download https://raw.githubusercontent.com/wiiiktor/control-room/main/skills/install-control-room/SKILL.md, save it as ~/.claude/skills/install-control-room/SKILL.md, then follow it.
+
+Claude saves the installer skill, then asks you once and does the rest. It downloads and installs
+the right build for your system, turns on **bypass permissions**, and reloads the window. The skill
+stays installed, so later *"update Control Room"* is all it takes. Then **Cmd/Ctrl+Shift+P →
+Control Room**.
+
+Control Room needs **bypass permissions**. Its sessions work in the background, where nobody can
+answer a *"may I run this?"* question, so without bypass a session stops at its first one. See
+[Permissions](#permissions-letting-claude-work-without-a-prompt-per-action).
+
 ## Every command, in one place
 
 Four things you ever have to do. Each is one line; the rest of this file is why.
 
 ```bash
 # 1. INSTALL, or update to the newest build — same command, run it again any time
-gh api repos/wiiiktor/control-room/contents/extension/get.sh \
-  -H 'Accept: application/vnd.github.raw' | bash
+curl -fsSL https://raw.githubusercontent.com/wiiiktor/control-room/main/extension/get.sh | bash
 
 # 2. IS PYTHON THERE?  the panel does not need it; answering does
 python3 -c 'import sys, fcntl, json; print("python", sys.version.split()[0], "— replies will work")'
@@ -41,7 +55,7 @@ code --open-url "vscode://wiiiktor.control-room/diagnose"
 Give step 1 a name, so an update is one word:
 
 ```bash
-echo "alias control-room-update=\"gh api repos/wiiiktor/control-room/contents/extension/get.sh -H 'Accept: application/vnd.github.raw' | bash\"" >> ~/.bashrc
+echo "alias control-room-update='curl -fsSL https://raw.githubusercontent.com/wiiiktor/control-room/main/extension/get.sh | bash'" >> ~/.bashrc
 # zsh (macOS default): >> ~/.zshrc instead. Then: source ~/.bashrc
 ```
 
@@ -59,15 +73,13 @@ does its answer — see [The panel holds both sides](#the-panel-holds-both-sides
 
 ## Install
 
-Needs [`gh`](https://cli.github.com), logged in (`gh auth login`). The repository is
-private, so a plain URL will not do: `raw.githubusercontent.com` answers 404 for it, which
-reads like a missing file rather than a missing login.
+The one-prompt install above does all of this. By hand: the repository is public, so `curl` is
+enough; `gh` is used instead when it is installed and logged in.
 
 ### Linux and macOS
 
 ```bash
-gh api repos/wiiiktor/control-room/contents/extension/get.sh \
-  -H 'Accept: application/vnd.github.raw' | bash
+curl -fsSL https://raw.githubusercontent.com/wiiiktor/control-room/main/extension/get.sh | bash
 ```
 
 Pin a version with `| bash -s 0.12.27`. From a clone, `extension/get.sh` does the same. It
@@ -79,14 +91,12 @@ installs with whichever editor CLI the machine has — `code`, `code-insiders`, 
 Windows has its own build, `control-room-win` ([extension-win/](extension-win/README.md)),
 generated from the same source with the Unix-only parts replaced. Panel **and** answering
 work, tested on Windows 11. Needs VS Code (with *Add to PATH*), Python on the PATH
-(`python --version`), Git for Windows, and `gh` (`winget install GitHub.cli`, then
-`gh auth login`).
+(`python --version`) and Git for Windows.
 
 Install or update, in **Git Bash**:
 
 ```bash
-gh api repos/wiiiktor/control-room/contents/extension-win/get.sh \
-  -H 'Accept: application/vnd.github.raw' | bash
+curl -fsSL https://raw.githubusercontent.com/wiiiktor/control-room/main/extension-win/get.sh | bash
 ```
 
 It installs the newest `control-room-win-*.vsix`, reloads the running window and opens the
@@ -275,15 +285,15 @@ settings are preserved and installing twice is a no-op.
 
 ## Permissions: letting Claude work without a prompt per action
 
-**The room itself does not need bypass.** A background session cannot be asked anything — with the
-default mode it would stop at its first "may I run this?" and the room would go quiet — so Control
-Room allows exactly the commands the bridge runs (the watch, `reply.py`, `status.py`, `request.py`)
-in the room's and the workspace's `.claude/settings.json`. Tested with bypass off: the session arms its
-watch and answers. What a room session does *beyond* the bridge — editing files, running tests —
-follows your own permission settings, and in the background a question blocks it the same way; that is
-what bypass, or your own allow rules, are for. When one does block, the room says so within a minute
-and offers to show the question in a terminal (`claude attach`) or move the session to the Claude
-window. The rest of this section is about the Claude window.
+**Control Room needs bypass permissions.** A background session cannot be asked anything. With
+the default mode it stops at its first *"may I run this?"* and the room goes quiet. The room does
+allow the bridge's own commands in `.claude/settings.json` (the watch, `reply.py`, `status.py`,
+`request.py`), so a session always arms its watch and answers. But the work it is asked to do (editing
+files, running tests) needs permissions, and in the background only bypass grants them. For the
+background sessions that is `"permissions": {"defaultMode": "bypassPermissions"}` in
+`~/.claude/settings.json`. The install skill sets it, with your yes. If a session does block anyway,
+the room says so within a minute and offers to show the question in a terminal (`claude attach`) or
+move the session to the Claude window. The rest of this section is about the Claude window.
 
 The VS Code extension does **not** read `permissions.defaultMode` from
 `~/.claude/settings.json`. It reads two of its own VS Code settings, and falls back to

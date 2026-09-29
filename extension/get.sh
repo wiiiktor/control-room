@@ -3,20 +3,24 @@
 #
 # On any machine, with no clone of this repository:
 #
-#   gh api repos/wiiiktor/control-room/contents/extension/get.sh \
-#     -H 'Accept: application/vnd.github.raw' | bash
+#   curl -fsSL https://raw.githubusercontent.com/wiiiktor/control-room/main/extension/get.sh | bash
 #
 # ...and `| bash -s 0.9.0` for one particular version. From a clone, ./get.sh works the
-# same way. The repository is PRIVATE, so everything goes through `gh` rather than a plain
-# URL: raw.githubusercontent.com answers 404 for a private repo, which reads like a missing
-# file rather than a missing login.
+# same way. The repository is public, so nothing needs a login; `gh` is used only when it is
+# installed and logged in (it has a higher API rate limit than an anonymous curl).
 set -euo pipefail
 REPO=${CONTROL_ROOM_REPO:-wiiiktor/control-room}
 
-command -v gh >/dev/null || {
-  echo "gh is not installed — see https://cli.github.com (the repo is private, so a URL will not do)" >&2
-  exit 1; }
-gh auth status >/dev/null 2>&1 || { echo "gh is installed but not logged in: run 'gh auth login'" >&2; exit 1; }
+if command -v gh >/dev/null && gh auth status >/dev/null 2>&1; then
+  list() { gh api "repos/$REPO/contents/$1" --jq '.[] | select(.name|endswith(".vsix")) | .name'; }
+  fetch() { gh api "repos/$REPO/contents/$1" -H "Accept: application/vnd.github.raw"; }
+else
+  command -v curl >/dev/null || { echo "neither gh nor curl is installed" >&2; exit 1; }
+  command -v python3 >/dev/null || { echo "python3 is needed (it also answers the panel)" >&2; exit 1; }
+  list() { curl -fsSL "https://api.github.com/repos/$REPO/contents/$1" \
+             | python3 -c 'import json,sys; [print(x["name"]) for x in json.load(sys.stdin) if x["name"].endswith(".vsix")]'; }
+  fetch() { curl -fsSL "https://raw.githubusercontent.com/$REPO/main/$1"; }
+fi
 
 # whichever editor this machine has; a fork installs the same file the same way
 EDITOR_CLI=${CONTROL_ROOM_CODE:-}
@@ -36,15 +40,14 @@ else
   # there is only ever one .vsix in extension/; sort -V so a 0.10.0 beats a 0.9.0
   # ⛔ no `sort -V`: macOS ships BSD sort, which does not have it. Sort by the version
   # numbers themselves so 0.10.0 beats 0.9.0 on every machine.
-  NAME=$(gh api "repos/$REPO/contents/extension" \
-           --jq '.[] | select(.name|endswith(".vsix")) | .name' \
+  NAME=$(list extension \
          | awk -F'[-.]' '{printf "%d %d %d %s\n", $3, $4, $5, $0}' \
          | sort -n -k1,1 -k2,2 -k3,3 | tail -1 | cut -d' ' -f4)
   [ -n "$NAME" ] || { echo "no .vsix published in $REPO/extension" >&2; exit 1; }
 fi
 
 OUT="$(mktemp -d)/$NAME"
-gh api "repos/$REPO/contents/extension/$NAME" -H "Accept: application/vnd.github.raw" > "$OUT"
+fetch "extension/$NAME" > "$OUT"
 echo "downloaded $NAME ($(stat -c%s "$OUT" 2>/dev/null || stat -f%z "$OUT") bytes)"
 [ "${CONTROL_ROOM_NO_INSTALL:-}" = 1 ] && { echo "$OUT"; exit 0; }
 "$EDITOR_CLI" --install-extension "$OUT" --force
