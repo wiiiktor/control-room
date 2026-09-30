@@ -482,10 +482,7 @@ def main():
           "      return !(l && l.kind === 'interactive');\n"
           "    }).slice(0, 6);",
           why="the session list leaves out conversations open in a tab")
-    P.sub(ch, "    built.push(fresh);\n    sessBox.replaceChildren",
-          "    built.splice(1, 0, fresh);             // first: the room's own session is the safe choice\n"
-          "    sessBox.replaceChildren",
-          why="'Start a new session' is the first row")
+    # ('Start a new session' as the first row is no longer a patch: extension/chat.html does it itself.)
     wk = out / "src" / "wake.js"
     P.sub(wk, "  if (tabFound) return { do: 'close-tab-then-wake', how: 'taken-from-window' };\n"
               "  return { do: 'refuse', why: 'open-elsewhere' };",

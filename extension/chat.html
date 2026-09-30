@@ -3502,7 +3502,7 @@
         fresh.querySelector('em').textContent = 'could not start one';
       }
     };
-    built.push(fresh);
+    built.splice(1, 0, fresh);             // first, right under the heading: asked for, and the safe choice
     sessBox.replaceChildren.apply(sessBox, built);   // one swap: the list cannot end up doubled
 
     const tab = el('button', 'new');
