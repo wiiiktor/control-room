@@ -3457,6 +3457,7 @@
       // when you have merely looked. See sendAndWake().
       b.onclick = async () => {
         window.CONTROL_ROOM_SET_TARGET(id);
+        chooseOnly(id);
         dismissSplash();
         await refreshTimeline(true);             // so its past replies are available to draw
         tlFilter = id;
@@ -3481,10 +3482,12 @@
       fresh.disabled = true;
       fresh.querySelector('em').textContent = 'starting…';
       addressWhoeverAnswers();               // a new session is whoever answers, by definition
+      chooseOnly('');                        // the others go now, not when the new one is up
       try {
         const r = await (await fetch('/api/autostart', { method: 'POST', body: '{}' })).json();
         if (!r || !r.ok) throw new Error('refused');
-        followNewSession(fresh.querySelector('em'), () => setTimeout(dismissSplash, 1500));
+        dismissSplash();                     // the wait is shown on the main screen, where it stays visible
+        followNewSession();
         if (r.mode === 'hidden') {
           setTimeout(() => {
             if (aliveIds.length) return;
@@ -3562,9 +3565,11 @@
    *  come up it was only one more row beside the session already there, so the reader had to guess
    *  which was new. Now the wait counts out loud, and the first session that was not listening before
    *  the click becomes the target and the session shown. */
-  function followNewSession(em, done) {
+  function followNewSession(done) {
     const before = new Set(aliveIds);
     const t0 = Date.now();
+    const line = (t) => { if (!addSteps([t])) waiting([t]); };
+    waiting(['starting a new session — a new Claude takes 30–60 s to get ready']);
     const iv = setInterval(() => {
       const s = Math.round((Date.now() - t0) / 1000);
       const fresh = aliveIds.find(id => !before.has(id));
@@ -3574,14 +3579,26 @@
         tlFilter = fresh; tlChosen = true;
         try { localStorage.setItem('ctrl-to', fresh); } catch {}
         drawTarget();
-        if (em.isConnected) em.textContent = 'ready: ' + (tlNames[fresh] || fresh.slice(0, 8)) + ' — write now';
+        waitingNow = false;
+        show([el('div', 'badge ok', 'New session ready: ' + (tlNames[fresh] || fresh.slice(0, 8)) + ' — write now')], false);
         if (done) done(fresh);
         return;
       }
-      if (!em.isConnected) return clearInterval(iv);
-      if (s > 180) { clearInterval(iv); em.textContent = 'nothing after 3 minutes — try Diagnose'; return; }
-      em.textContent = 'starting… ' + s + ' s — a new Claude takes 30–60 s to get ready';
+      if (s > 180) {
+        clearInterval(iv);
+        waitingNow = false;
+        show([el('div', 'badge warn', 'No new session after 3 minutes — try Diagnose (Cmd/Ctrl+Shift+P → Control Room: Diagnose)')], false);
+        return;
+      }
+      line('starting a new session… ' + s + ' s — a new Claude takes 30–60 s to get ready');
     }, 1000);
+  }
+
+  /** \u2b50 CHOOSING IS LETTING GO. Asked for: when a session is chosen -- or a new one asked for -- the
+   *  room's other background sessions are stopped at once, not a minute later when the chosen one
+   *  starts listening. '' keeps none (a new session is on its way). */
+  function chooseOnly(id) {
+    fetch('/api/choose', { method: 'POST', body: JSON.stringify({ session: id || '' }) }).catch(() => {});
   }
 
   function addressWhoeverAnswers() {
@@ -3925,10 +3942,12 @@
       fresh.disabled = true;
       fresh.querySelector('em').textContent = 'starting…';
       addressWhoeverAnswers();               // a new session is whoever answers, by definition
+      chooseOnly('');
       try {
         const r = await (await fetch('/api/autostart', { method: 'POST', body: '{}' })).json();
         if (!r || !r.ok) throw new Error('refused');
-        followNewSession(fresh.querySelector('em'), () => setTimeout(closeSessionMenu, 1500));
+        closeSessionMenu();
+        followNewSession();
       } catch {
         fresh.disabled = false;
         fresh.querySelector('em').textContent = 'could not start — try again, or Diagnose';
@@ -3950,6 +3969,7 @@
         // then talking to a different one is the confusing half of this panel.
         target = id || '';
         targetGuessed = false;   // chosen here, on purpose: report it dead if it is
+        if (id) chooseOnly(id);
         drawTarget();
         closeSessionMenu();
         drawTimeline();

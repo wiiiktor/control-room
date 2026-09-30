@@ -1155,6 +1155,13 @@ function activate(context) {
         }
         // Start a session on the reader's behalf, in the background. See
         // startSessionInTerminal for why it is a terminal and not the tab.
+        // \u2b50 a session was chosen in the panel (or a new one asked for, session ''): the room's other
+        // background listeners are let go now, not when the chosen one first answers
+        if (route === '/api/choose') {
+          const keep = String(JSON.parse(req.body || '{}').session || '');
+          releaseOthers(dir, keep);
+          return reply({ ok: true });
+        }
         if (route === '/api/autostart') {
           const first = WAKE;
           startSessionInTerminal(dir, first);
