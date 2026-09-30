@@ -2958,9 +2958,33 @@
     }
   }
 
+  /** Fill tlRows for the SESSIONS menu before the timeline has ever been opened.
+   *
+   *  \u26d4 EVERY ROW SAID "no control room log available", INCLUDING THE SESSION THAT HAD JUST
+   *  ANSWERED. The menu counts tlRows, and tlRows was written in ONE place -- refreshTimeline,
+   *  which runs when the timeline is opened. Until the reader pressed T, the array was the empty
+   *  one it starts as, so every count came out zero and the whole list wore the `empty` styling.
+   *  The count is the menu's own business, so it is fetched here rather than borrowed from a
+   *  panel that may never be opened. Once the strip has rows, refreshTimeline keeps them current
+   *  and this does nothing.
+   */
+  let counting = false;
+  async function countRows() {
+    if (tlRows.length || counting) return;
+    counting = true;
+    try {
+      const d = await (await fetch('/api/messages?since=0', { cache: 'no-store' })).json();
+      // the first poll may not have run yet, and a hidden reply must not be counted
+      if (d.hidden) tlHidden = new Set(d.hidden);
+      tlRows = replyRows(d.messages || []).filter(r => !tlHidden.has(r.id));
+    } catch { /* offline: no counts this round, and the next minute tries again */
+    } finally { counting = false; }
+  }
+
   async function loadSessions() {
     try {
       tlNames = (await (await fetch('/api/sessions', { cache: 'no-store' })).json()).sessions || {};
+      await countRows();                 // so "N here" is right on the first draw, not the first T
       // the corner lamp's list is built from these, so it is rebuilt with them. \u26d4 Nothing else
       // calls sessionMenu() any more: it used to be rebuilt by every timeline redraw, and the
       // timeline no longer holds it.
@@ -3794,16 +3818,10 @@
     return btn;
   }
 
-  /** Pull the whole log and redraw the strip. Called when the timeline opens, and again
-      whenever a message arrives while it is open -- it used to be built ONCE, so a reply
-      that landed after opening was invisible until you closed and reopened it. */
-  async function refreshTimeline(keepFilter) {
-    let msgs;
-    try {
-      msgs = (await (await fetch('/api/messages?since=0', { cache: 'no-store' })).json()).messages || [];
-    } catch {
-      return tlEl.replaceChildren(el('p', 'empty-note', 'offline — cannot read the log'));
-    }
+  /** The strip's rows, worked out from the whole log: one per reply, plus a placeholder for a
+      question still waiting for one. Lifted out of refreshTimeline because the SESSIONS menu
+      counts these too, and it is drawn long before the timeline is ever opened. */
+  function replyRows(msgs) {
     const replies = [];
     let asked = [];
     for (const m of msgs) {
@@ -3819,6 +3837,20 @@
       if (!r.pending) return;
       r.pending = !replies.slice(i + 1).some(x => !x.pending && x.session === r.session);
     });
+    return replies;
+  }
+
+  /** Pull the whole log and redraw the strip. Called when the timeline opens, and again
+      whenever a message arrives while it is open -- it used to be built ONCE, so a reply
+      that landed after opening was invisible until you closed and reopened it. */
+  async function refreshTimeline(keepFilter) {
+    let msgs;
+    try {
+      msgs = (await (await fetch('/api/messages?since=0', { cache: 'no-store' })).json()).messages || [];
+    } catch {
+      return tlEl.replaceChildren(el('p', 'empty-note', 'offline — cannot read the log'));
+    }
+    const replies = replyRows(msgs);
     tlRows = replies.filter(r => !tlHidden.has(r.id));
     if (!keepFilter || tlFilter === null) {
       tlFilter = replies.length ? (replies[replies.length - 1].session || '') : null;
