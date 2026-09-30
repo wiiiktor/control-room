@@ -67,10 +67,27 @@ unit test checks every combination. A heartbeat file never outvotes `claude agen
 not running is woken even in the 90 s its file stays fresh after it died. If `claude agents` cannot be
 read, the heartbeat alone decides, so a failed check never wakes a listener.
 
-**One session per room.** Once a newly woken or started session is listening, the room lets its other
-background listeners go (`claude stop`) and says so. Sessions in a Claude tab or a terminal are never
-stopped by this. "Stop the others" in the panel does the same by hand, and lists any it could not stop
-with the reason.
+**One session per room.** Choosing a session in the panel, or asking for a new one, lets the room's
+other background sessions go at once (`claude stop`) -- busy ones too, since the reader chose. That
+includes the room's stragglers: background sessions running from the room folder that are not
+listening (still booting, never armed, lapsed), as long as they started before the choice, so the
+new session asked for in the same click is never stopped by it. Once the new or woken session is
+listening, the same release runs again for anything the first one missed (`claude agents` is not a
+complete list). Sessions in a Claude tab or a terminal are never stopped by this. The notice ("X was
+let go") is **quiet**: the panel shows it in passing at the top and keeps it in the timeline, and it
+never replaces what the chosen session is saying. "Stop the others" in the panel does the same by
+hand, and lists any it could not stop with the reason.
+
+**Starting a new session** (measured 2026-09-30, Claude Code 2.1.285): `claude --bg` returns in under a
+second, the daemon hands it a pre-started host, and the session is listening 5-9 s after the click.
+The panel closes the splash at once, counts the seconds on the main screen, and then makes the new
+session the one addressed and shown, under its own name (the page asks for the session list the
+moment an unnamed listener appears; names otherwise refresh once a minute). The splash does not come
+back while the old session leaves -- that is the switch working, not the room going deaf.
+
+**Order.** Every list of sessions -- the splash, the S menu, the palette -- puts the last conversation
+first: the transcript's modification time (`lastAt` in `/api/sessions`), bumped by the page as soon as
+a message to or from a session arrives.
 
 **Where new sessions live.** A session the room *starts* runs from the room folder, so Claude files it
 under the room's own project and it never appears in the Claude window's session list. A session the
@@ -121,6 +138,8 @@ file that the extension picks up within a second and answers:
 python3 request.py open-in-claude <session-id>      # open (move) that conversation in the Claude window
 python3 request.py close-claude-tab [<session-id>]   # close one conversation's Claude tab, or all of them
 python3 request.py wake <session-id>                 # bring a conversation to this room, as writing to it does
+python3 request.py new-session                       # start a new session for this room, as "New session" does
+python3 request.py choose <session-id>               # let the room's other sessions go, as choosing it does
 ```
 
 Requests older than 30 s are refused, so a leftover file cannot fire when VS Code starts later.

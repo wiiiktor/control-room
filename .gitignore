@@ -16,3 +16,4 @@ __pycache__/
 extension/runtime/
 extension-sidebar/runtime/
 extension-win/build/
+tests/scenario/shots/

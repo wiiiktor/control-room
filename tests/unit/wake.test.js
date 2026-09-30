@@ -55,4 +55,18 @@ module.exports = {
                   { sessionId: 'c', kind: 'interactive' }];
     t.eq(wake.toRelease(['a', 'b', 'c', 'd'], rows, 'b'), ['a'], 'keeps b, never c (a window), d is not running');
   },
+  'a release also stops the room\'s own stragglers, but never one started after the choice': (t) => {
+    const room = '/ws/control-room';
+    const rows = [
+      { sessionId: 'old', kind: 'background', cwd: room, startedAt: 100 },     // started by the room, never listened
+      { sessionId: 'new', kind: 'background', cwd: room, startedAt: 900 },     // asked for in the same click
+      { sessionId: 'elsewhere', kind: 'background', cwd: '/ws', startedAt: 100 }, // not the room's, not listening
+      { sessionId: 'tab', kind: 'interactive', cwd: room, startedAt: 100 },    // a window: never
+      { sessionId: 'lis', kind: 'background', cwd: '/ws', startedAt: 100 },    // listening here
+    ];
+    t.eq(wake.toRelease(['lis'], rows, '', room, 500), ['lis', 'old'], 'new session request: the old ones go');
+    t.eq(wake.toRelease(['lis'], rows, 'new', room, 1000), ['lis', 'old'], 'the new one is kept by id too');
+    t.eq(wake.toRelease(['lis'], rows, 'lis', room, 1000), ['old', 'new'], 'choosing lis: every other room session goes');
+    t.eq(wake.toRelease(['lis'], rows, 'lis'), [], 'without a room: listeners only, as before');
+  },
 };

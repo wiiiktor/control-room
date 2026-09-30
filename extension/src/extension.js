@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
 const { Log, setFloor } = require('./log');
-const { labels, titleOf, labelMatchesTitle, activityOf } = require('./sessions');
+const { labels, lastActive, titleOf, labelMatchesTitle, activityOf } = require('./sessions');
 const hook = require('./hook');
 const runtime = require('./runtime');
 const diagnose = require('./diagnose');
@@ -260,7 +260,11 @@ function startHeadless(dir, args, what, done) {
   p.stderr.on('data', d => { err += String(d); });
   p.on('error', e => done({ ok: false, why: 'could not run claude — ' + (e && e.message || e) }));
   p.on('close', (code) => {
-    // `backgrounded · 16b59ea7` -- the short id `claude attach|logs|stop` take
+    // `backgrounded · 16b59ea7` -- the short id `claude attach|logs|stop` take.
+    // \u26d4 IN COLOUR WHEN FORCE_COLOR IS SET (measured, 2.1.285): `· \x1b[36m16b59ea7\x1b[39m`, and
+    // the digits of the colour code broke the match -- a session that started fine was reported as
+    // a failure and started a second time in a terminal. The codes are taken out first.
+    out = out.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
     const m = /backgrounded\s*\W*\s*([0-9a-f]{6,})/i.exec(out);
     // \u26a0 A RESUME OF A SESSION THAT IS ALREADY RUNNING BECOMES A COPY under a NEW id -- the CLI
     // says so in its own output. The room has to report that, because the reader picked one session
@@ -398,8 +402,8 @@ function claudeTerminal(opts, args) {
 
 /** Say something in the room itself. Not a reply and not a message to the session: a line from
  *  the extension, which is the only voice that can report a terminal nobody can see. */
-function announce(dir, markup, about) {
-  try { new Log(dir).append('assistant', markup, null, about); } catch { /* read-only room */ }
+function announce(dir, markup, about, quiet) {
+  try { new Log(dir).append('assistant', markup, null, about, quiet); } catch { /* read-only room */ }
 }
 
 /** A started session must PROVE it started.
@@ -809,17 +813,18 @@ async function wakeForRoom(dir, sid) {
 /** A room talks to one session: once `keep` is up, let the other background listeners go. */
 function releaseOthers(dir, keep) {
   const listening = new Log(dir).watchers({}).map(w => w.session);
-  if (!listening.some(s => s !== keep)) return;
+  const before = Date.now();
   liveCache = { at: 0, rows: [] };
   liveSessions((rows) => {
-    for (const sid of wake.toRelease(listening, rows, keep)) {
+    for (const sid of wake.toRelease(listening, rows, keep, dir, before)) {
       stopSession(sid, (r) => {
         if (!r.ok) return;
         try { fs.unlinkSync(path.join(dir, '.watch.' + sid)); } catch { /* already gone */ }
         const t = titleOf(sid, workspaceRoot(dir), dir) || sid.slice(0, 8);
         const k = titleOf(keep, workspaceRoot(dir), dir) || keep.slice(0, 8);
-        announce(dir, '::note ' + t + ' was let go — this room talks to one session at a time, and now '
-          + 'that is ' + k + '. Writing to ' + t + ' brings it back.', sid);
+        // quiet: shown in passing, never in place of what the chosen session is saying (chat.html passing())
+        announce(dir, '::note ' + t + ' was let go — this room talks to one session at a time'
+          + (keep ? ', and now that is ' + k : '') + '. Writing to ' + t + ' brings it back.', sid, true);
       });
     }
   });
@@ -884,6 +889,18 @@ async function handleRequest(dir, req) {
   if (req.action === 'wake') {
     if (!valid) return { ok: false, why: 'not a session id' };
     return wakeForRoom(dir, sid);
+  }
+  // the panel's "New session" and choosing a session, for a room session to ask (and the sandbox
+  // tests, which cannot click): the same two calls the page makes, /api/choose then /api/autostart
+  if (req.action === 'new-session') {
+    releaseOthers(dir, '');
+    startSessionInTerminal(dir, WAKE);
+    return { ok: true, action: req.action };
+  }
+  if (req.action === 'choose') {
+    if (!valid) return { ok: false, why: 'not a session id' };
+    releaseOthers(dir, sid);
+    return { ok: true, action: req.action, session: sid };
   }
   if (req.action === 'close-claude-tab') {
     if (sid && !valid) return { ok: false, why: 'not a session id' };
@@ -1082,6 +1099,7 @@ function activate(context) {
           const live = await new Promise(res => liveSessions(res));
           return reply({
             sessions: names, watchers: here, elsewhere: elsewhere(names, here),
+            lastAt: lastActive(workspaceRoot(dir), dir),
             live: Object.assign(beatingIds(), Object.fromEntries(live.map(r => [r.sessionId,
               { status: r.status || '', kind: r.kind || '', name: r.name || '' }]))),
             waking: wakingIds(),
@@ -1270,8 +1288,10 @@ function activate(context) {
     const names = await labels(workspaceRoot(found[0].dir), ...found.map(i => i.dir));
     const items = [];
     let live = 0;
+    const at = lastActive(workspaceRoot(found[0].dir), ...found.map(i => i.dir));
     for (const inst of found) {
-      const watching = new Log(inst.dir).watchers(names);
+      // the last conversation first, as every list of sessions (chat.html byRecency)
+      const watching = new Log(inst.dir).watchers(names).sort((a, b) => (at[b.session] || 0) - (at[a.session] || 0));
       live += watching.length;
       for (const w of watching) {
         items.push({

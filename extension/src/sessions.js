@@ -136,6 +136,25 @@ async function labels(workspacePath, ...extra) {
   return out;
 }
 
+/** When each conversation last moved: its transcript's mtime (ms), newest wherever it is filed. The
+ *  one order every list of sessions uses (chat.html byRecency) -- the same the Claude window's own
+ *  session list goes by. A readdir and a stat per file; no transcript is read. */
+function lastActive(workspacePath, ...extra) {
+  const out = {};
+  for (const p of [workspacePath].concat(extra.filter(Boolean))) {
+    let files;
+    try { files = fs.readdirSync(projectDir(p)).filter(f => f.endsWith('.jsonl')); } catch { continue; }
+    for (const f of files) {
+      try {
+        const id = f.replace(/\.jsonl$/, '');
+        const t = fs.statSync(path.join(projectDir(p), f)).mtimeMs;
+        if (!(id in out) || t > out[id]) out[id] = t;
+      } catch { /* vanished */ }
+    }
+  }
+  return out;
+}
+
 /** The Claude window's title for one conversation, wherever its transcript is filed. */
 function titleOf(sid, ...paths) {
   for (const p of paths.filter(Boolean)) {
@@ -272,4 +291,4 @@ function activityOf(sid, ...paths) {
   return [];
 }
 
-module.exports = { labels, projectDir, aiTitle, titleOf, labelMatchesTitle, activity, activityOf, stepLabel };
+module.exports = { lastActive, labels, projectDir, aiTitle, titleOf, labelMatchesTitle, activity, activityOf, stepLabel };

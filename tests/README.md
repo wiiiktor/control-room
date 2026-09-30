@@ -1,13 +1,35 @@
 # Tests
 
-Three layers. The first costs nothing; the other two start real Claude sessions on a cheap model
+Four layers. The first two cost nothing; the other two start real Claude sessions on a cheap model
 (`CR_MODEL`, default `haiku`) in a throwaway workspace and take a few minutes.
 
 ```bash
 node tests/run.js               # unit: no Claude process, no VS Code (a filter works: node tests/run.js wake)
+node tests/scenario/run.js      # scenario: the panel page in headless Chrome, clicked through, ~5 s
 sh tests/sandbox/all.sh         # sandbox + end to end, against the code in this repo
 sh tests/sandbox/all.sh --no-e2e
 ```
+
+## Scenario — `tests/scenario/`
+
+`chat.html` runs in a real headless Chrome against a model of the extension (`backend.js`: which sessions
+exist, listen, are busy; what is in the log), on Chrome's virtual clock, so a minute of waiting takes a
+moment. `driver.js` clicks what the reader clicks and records, every half second, what is on the screen,
+whether the splash is up, who is addressed and shown, the S-menu and splash order, and the pill.
+`cases.js` says what *smooth* means as checks over that record:
+
+| Case | Checks |
+|---|---|
+| new session from the splash / from the S menu | the splash goes within 1 s and stays gone; "starting…" at once and until it is ready; the new session is addressed and shown, under its name; no NOT WATCHING; the old (busy) session is stopped within 3 s; only the new one listens; it is first in the S menu |
+| a slow start (40 s) | the wait stays up and counts the seconds |
+| a session the first release missed | it goes when the new one is up, and its notice does not replace the ready screen |
+| while it works | the steps are listed by name, never "[object Object]" |
+| sessions are listed by last conversation | the splash and the S menu agree, newest first |
+| switching to a sleeping session | chosen at once, the splash stays away, the old one stops, the answer lands and stays |
+
+`--dump` prints every sample; `--shots` saves a screenshot every 2 s into `tests/scenario/shots/`.
+`backend.js` is a model: a change to the extension rule it stands for (named at each rule) has to be
+made there too.
 
 ## Unit — `tests/run.js`
 
@@ -32,6 +54,8 @@ the way the extension trusts one. It never touches your rooms or conversations.
 | `room-roundtrip.sh` | a session started the way the panel starts one is told by the real hooks to watch, arms the watch, and answers a message in the room as itself. `PERMS=default` runs it without bypass permissions: the room's allow rules must be enough |
 | `e2e-claude-window.sh` | the **real Claude extension** in an isolated VS Code opens a conversation the room holds. `HANDOFF=off`: fails exactly as reported. `HANDOFF=on`: no error, the conversation runs in the window, the room is told |
 | `e2e-blocked.sh` | a room session running without bypass is asked for something that needs permission: it stops (`waiting`), and the room says so once, offering to answer it in a terminal (`claude attach`, which shows the question) or to move it to the Claude window |
+| `new-session-timing.sh` | how long a new room session takes, stage by stage (on your own model unless `CR_MODEL` is set); fails over 60 s |
+| `e2e-new-session.sh` | "New session" through the real extension (`request.py new-session`, the button's two calls): a busy room session is stopped, exactly one new background session starts from the room folder and listens within 45 s, the let-go notice is quiet, nothing "could not start" |
 | `e2e-takeover.sh` | a conversation idle in a Claude tab is written to from the room: its tab closes, it runs in the room under the same id and listens, the previous room session is let go, no copy, no error |
 
 The end-to-end tests run a second VS Code instance with its own user-data and extensions folders under

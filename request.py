@@ -4,6 +4,8 @@
     python3 request.py open-in-claude <session-id>    open that conversation in the Claude window
     python3 request.py close-claude-tab [<session-id>] close the Claude tab(s) -- one conversation's, or all
     python3 request.py wake <session-id>               bring a conversation to this room, as writing to it does
+    python3 request.py new-session                     start a new session for this room, as "New session" does
+    python3 request.py choose <session-id>             let every other session of this room go, as choosing it does
 
 A session in the room cannot reach VS Code; the extension can, and it checks every room for a
 request once a second. The request is a file, written whole and renamed into place, so the
@@ -17,7 +19,7 @@ from pathlib import Path
 
 _HERE = Path(sys.argv[0]).absolute().parent
 ROOM = Path(os.environ.get("CONTROL_ROOM_DIR") or _HERE)
-ACTIONS = {"open-in-claude", "close-claude-tab", "wake"}
+ACTIONS = {"open-in-claude", "close-claude-tab", "wake", "new-session", "choose"}
 
 
 def main(argv):

@@ -6,7 +6,7 @@
 . "$(dirname "$0")/lib.sh"
 cd "$REPO/extension" || exit 1
 if [ "${1:-}" != --no-e2e ]; then
-  cp ../chatlog.py ../reply.py ../status.py ../watch.py ../request.py runtime/
+  mkdir -p runtime && cp ../chatlog.py ../reply.py ../status.py ../watch.py ../request.py runtime/
   npm_config_cache=${npm_config_cache:-$HOME/.cache/cr-npm} npx --yes -p node@22 -p @vscode/vsce -- \
     vsce package --allow-missing-repository -o "$SB/cr-test.vsix" >/dev/null 2>&1 || { echo "build failed"; exit 1; }
   mkdir -p "$EXT"
@@ -18,11 +18,13 @@ total=0
 T=$REPO/tests/sandbox
 sh "$T/handoff.sh"; total=$((total + $?))
 sh "$T/room-roundtrip.sh"; total=$((total + $?))
+CR_MODEL=${CR_MODEL:-haiku} sh "$T/new-session-timing.sh"; total=$((total + $?))
 env PERMS=default sh "$T/room-roundtrip.sh"; total=$((total + $?))
 if [ "${1:-}" != --no-e2e ]; then
   env HANDOFF=off sh "$T/e2e-claude-window.sh"; total=$((total + $?))
   env HANDOFF=on sh "$T/e2e-claude-window.sh"; total=$((total + $?))
   sh "$T/e2e-takeover.sh"; total=$((total + $?))
   sh "$T/e2e-blocked.sh"; total=$((total + $?))
+  sh "$T/e2e-new-session.sh"; total=$((total + $?))
 fi
 echo; echo "sandbox: $total failure(s)"; exit $total

@@ -535,6 +535,11 @@
     height: max-content; max-height: calc(100% - 202px);
   }
   .tl-list.open { display: flex; }
+  .toast { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 60;
+           max-width: min(720px, 90vw); padding: 8px 14px; border-radius: 8px; font-size: 13px;
+           background: var(--panel); color: var(--ink); border: 1px solid var(--ink);
+           box-shadow: 0 4px 14px rgba(0,0,0,.25); opacity: .95; transition: opacity .9s; pointer-events: none; }
+  .toast.gone { opacity: 0; }
   .tl-list button.tl-new {
     display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
     font-size: 20px; font-weight: 900; padding: 14px 18px; margin-bottom: 6px;
@@ -2777,7 +2782,7 @@
     const wrap = screenEl.querySelector ? screenEl.querySelector('.waitbox') : null;
     if (!wrap || !waitingNow) return false;
     let list = wrap.querySelector('.progress');
-    const lines = (status || []).map(stepOf);
+    const lines = (status || []).map(stepOf).filter(x => x.t.trim());
     const had = list ? [...list.children].map(r => r.textContent) : [];
     // only ever appended to; anything else (a new turn, status.py lines cleared) is a fresh list
     const grows = had.length <= lines.length && had.every((t, i) => t === lines[i].t);
@@ -2807,10 +2812,14 @@
     const wrap = el('div', 'waitbox');
     wrap.append(box);
     let list = null;
-    if (status && status.length) {
+    // \u26d4 "[object Object]" UNDER "YOU SAID". The extension sends each step as an object ({t, d}), and
+    // this drew it as a string -- only addSteps() went through stepOf(). Asked for: a step that has no
+    // words is left out, so the list is empty rather than wrong.
+    const steps = (status || []).map(stepOf).filter(x => x.t.trim());
+    if (steps.length) {
       // newest last, the way a log reads; the last line is the one happening now
       list = el('div', 'progress');
-      status.forEach((line, i) => list.append(el('div', 'step' + (i === status.length - 1 ? ' now' : ''), line)));
+      steps.forEach((x, i) => { const n = stepNode(x); if (i === steps.length - 1) n.classList.add('now'); list.append(n); });
       wrap.append(list);
     }
     show([wrap]);
@@ -2966,12 +2975,27 @@
     }
   }
 
+  /** Show a quiet notice for a few seconds, over the bottom of the screen. Always returns true. */
+  function passing(m) {
+    const t = String(m.text || '').split('\n').map(l => l.replace(/^::\w+\s*/, '')).filter(Boolean)[0] || '';
+    if (!t || !splashPrimed) return true;             // the first poll is history, not news
+    const n = el('div', 'toast', t.replace(/\*\*/g, ''));
+    document.body.append(n);
+    setTimeout(() => n.classList.add('gone'), 7000);
+    setTimeout(() => n.remove(), 8000);
+    return true;
+  }
+  let lastNameAsk = 0;
+  // no name yet, or still the words the panel started it with (the Claude window's title comes a few
+  // seconds into its first turn)
+  const unnamed = (id) => !tlNames[id] || /^Watch this control room/i.test(tlNames[id]);
   let lastMirrored = '';                 // the session whose Claude-tab turns were mirrored last
   let lastMirroredAt = 0;                // ...and when: the mirror itself proves the Claude window is in use
   async function loadSessions() {
     try {
       const d = await (await fetch('/api/sessions', { cache: 'no-store' })).json();
       tlNames = d.sessions || {};
+      if (d.lastAt) tlLastAt = d.lastAt;
       // \u26d4 AND WHAT IS LIVE WHERE. This minute-by-minute refresh dropped `live`, so the page kept
       // whatever the session picker last saw -- often nothing -- and could not tell that the chosen
       // conversation was open in the Claude window.
@@ -2981,6 +3005,7 @@
       // timeline no longer holds it.
       try { sessionMenu(); } catch { /* the page is still coming up */ }
       lastWatcherSig = '';                 // force the "to:" list to rebuild with names
+      try { drawTarget(); } catch { /* the page is still coming up */ }
     } catch { /* offline; the poll will try again with the next name it needs */ }
   }
 
@@ -3007,11 +3032,22 @@
       if (data.waking) wakingNow = data.waking;
       if (data.working) workingNow = data.working;
       drawWatchers(data.watchers || [], data.elsewhere);
+      // \u26d4 A NEW SESSION HAD NO NAME FOR A MINUTE. Names came only with the minute-by-minute
+      // session list, so a session that had just started listening was "aaaaaaaa-0000-…" on the ready
+      // screen, in "to:" and nowhere in the S menu. A listener without a real name yet -- none at all,
+      // or still the first prompt the panel gave it -- asks for the list again, at most every 3 s.
+      if ((data.watchers || []).some(w => unnamed(w.session)) && Date.now() - lastNameAsk > 3000) {
+        lastNameAsk = Date.now();
+        loadSessions();
+      }
       const dead = lastWatchAge === null || lastWatchAge === undefined || lastWatchAge > 90;
       // \u26d4 NOT WHILE A WAKE IS IN FLIGHT. Red "not watching" is true in the seconds after a
       // session is asked to wake, and useless: the reader has just done the one thing that fixes
       // it and is being told it is broken. The alarm waits until the ask has had its chance.
-      const waking = Object.keys(wakingNow).length > 0;
+      // ...and not while a session you just chose, or a new one, is on its way: the old one leaving
+      // is the switch working, not the room going deaf
+      const starting = followingNew || Date.now() - choseAt < 20000;
+      const waking = Object.keys(wakingNow).length > 0 || starting;
       // \u26d4 NOT AN ALARM WHEN IT IS IN THE CLAUDE WINDOW. Nobody watches the room then, by design --
       // the conversation is open in a Claude tab, its turns are mirrored here, and writing here brings
       // it back. A red NOT WATCHING said "broken" about the normal state of using the Claude window.
@@ -3024,7 +3060,7 @@
       const inWindow = dead && !waking && ((!!live && live.kind === 'interactive') || mirroredLately);
       deaf.classList.toggle('on', dead && !waking);
       deaf.classList.toggle('calm', inWindow);
-      deaf.textContent = waking ? 'waking…' : inWindow ? 'in the Claude window' : 'not watching';
+      deaf.textContent = followingNew ? 'starting…' : waking ? 'waking…' : inWindow ? 'in the Claude window' : 'not watching';
       lamp.classList.toggle('hidden', dead && !waking);
       if (offline) { offline = false; since = 0; return; }  // redraw from history next tick
       // progress lines move while NO new message arrives, so they are their own redraw
@@ -3047,12 +3083,24 @@
       // room itself -- "moved to the Claude window", "was let go" -- and is shown whoever is chosen
       const belongs = (m) => !tlChosen
         || (m.role === 'user' ? (m.to || '') === tlFilter : !m.session || m.session === tlFilter);
+      // a conversation moves its session to the top of every list NOW, not at the next list refresh
+      let moved = false;
+      for (const m of data.messages) {
+        const who = m.session || (m.role === 'user' ? m.to : '');
+        const t = Date.parse(m.ts || '') || Date.now();
+        if (who && splashPrimed && !(tlLastAt[who] >= t)) { tlLastAt[who] = t; moved = true; }
+      }
+      if (moved) try { sessionMenu(); } catch { /* the page is still coming up */ }
       for (const m of data.messages) if (m.mirror) {
         lastMirrored = m.session || m.to || lastMirrored;
         const t = Date.parse(m.ts || '');
         if (t > lastMirroredAt) lastMirroredAt = t;
       }
-      const ours = data.messages.filter(belongs);
+      // \u26d4 A NOTICE ABOUT THE ROOM IS NOT A REPLY. "X was let go" is a line from the extension, and
+      // it arrives at the worst moment -- just as a new or chosen session comes up -- where it replaced
+      // "New session ready" or the answer you were reading. A quiet one is shown in passing, at the
+      // bottom, and stays in the timeline; the screen keeps what it had.
+      const ours = data.messages.filter(belongs).filter(m => !(m.quiet && m.role === 'assistant' && passing(m)));
 
       // Walk the batch in order: questions pile up until a reply answers them all.
       for (const m of ours) {
@@ -3334,13 +3382,23 @@
   const SPLASH_TEXT = 'Nothing is reading this room yet — pick a session, or start one.';
   const WAITING_TEXT = 'Waiting for the session to come up…';
   let splashDismissed = false;
+  let followingNew = false;    // a new session was asked for and has not come up (followNewSession)
+  let choseAt = 0;             // when a session was last chosen, or a new one asked for (chooseOnly)
   let splashWatching = null;
   let splashWaiting = false;   // pressed, and now watching for the session to appear
   let splashLive = false;      // a reply has actually arrived: the only thing that is proof
   let splashPrimed = false;    // the first poll is history, not news
 
   function splashSay(watching) {
-    // the watch dying is news: the splash comes back, saying the original thing again
+    // the watch dying is news: the splash comes back, saying the original thing again.
+    // \u26d4 BUT NOT WHEN YOU CAUSED IT. Choosing a session, or asking for a new one, lets the old one
+    // go on purpose -- and its heartbeat stopping brought the splash straight back over the wait
+    // ("Nothing is reading this room yet"), a second after the click that closed it. For two minutes
+    // after a choice, and for as long as a new session is on its way, the splash stays closed.
+    if (splashWatching && !watching && (followingNew || Date.now() - choseAt < 120000)) {
+      splashWatching = watching;
+      return;
+    }
     if (splashWatching && !watching) {
       // ⛔ do NOT forget that you pressed the button. A heartbeat goes stale 90 seconds
       // after its watch stops, and an unrelated watch dying while you were on your way to
@@ -3419,6 +3477,7 @@
       d = await (await fetch('/api/sessions', { cache: 'no-store' })).json();
     } catch { sessLoaded = false; return; }
     const names = d.sessions || {};
+    if (d.lastAt) tlLastAt = Object.assign({}, tlLastAt, d.lastAt);
     const live = new Set((d.watchers || []).map(w => w.session));
     const away = d.elsewhere || {};
     // ⛔ AND THE PAGE HAS TO KEEP IT. This list is the first thing on screen and can be
@@ -3429,7 +3488,7 @@
     // session does not read. Every other row worked, which is why it looked like one bad
     // entry. The splash now hands over what it just learned.
     elsewhereIn = Object.assign({}, elsewhereIn, away);
-    const ids = Object.keys(names).slice(0, 6);
+    const ids = byRecency(Object.keys(names)).slice(0, 6);
     // (the guard is set at the top of the function now, before the await)
     const built = [el('b', '', ids.length ? 'pick a session' : 'no sessions here yet')];
     ids.forEach((id) => {
@@ -3566,31 +3625,51 @@
    *  which was new. Now the wait counts out loud, and the first session that was not listening before
    *  the click becomes the target and the session shown. */
   function followNewSession(done) {
+    followingNew = true;
     const before = new Set(aliveIds);
     const t0 = Date.now();
     const line = (t) => { if (!addSteps([t])) waiting([t]); };
-    waiting(['starting a new session — a new Claude takes 30–60 s to get ready']);
+    // \u26d4 "YOU SAID: review the diff" STAYED UP over the new session's wait and its first words --
+    // the last question of the session just left. What was asked for now is a new session.
+    lastCommand = 'New session';
+    pendingAsk = [];
+    // measured 2026-09-30 on 2.1.285: listening 5-8 s after the click; a cold start can take longer
+    waiting(['starting a new session — usually ready in 10–20 s']);
     const iv = setInterval(() => {
       const s = Math.round((Date.now() - t0) / 1000);
       const fresh = aliveIds.find(id => !before.has(id));
       if (fresh) {
         clearInterval(iv);
+        followingNew = false;
+        choseAt = Date.now();                // it is the chosen one now
         target = fresh; targetGuessed = false;
         tlFilter = fresh; tlChosen = true;
         try { localStorage.setItem('ctrl-to', fresh); } catch {}
         drawTarget();
         waitingNow = false;
-        show([el('div', 'badge ok', 'New session ready: ' + (tlNames[fresh] || fresh.slice(0, 8)) + ' — write now')], false);
+        // \u26d4 its name arrives a moment after it starts listening (the list is asked for at once,
+        // see unnamed()), so the badge says the id until then and is corrected in place
+        const says = () => 'New session ready: ' + (unnamed(fresh) ? fresh.slice(0, 8) : tlNames[fresh]) + ' — write now';
+        const badge = el('div', 'badge ok', says());
+        show([badge]);                       // under YOU SAID: New session
+        loadSessions();
+        const t1 = Date.now();
+        const named = setInterval(() => {
+          if (!badge.isConnected || Date.now() - t1 > 20000) return clearInterval(named);
+          badge.textContent = says();
+          if (!unnamed(fresh)) clearInterval(named);
+        }, 500);
         if (done) done(fresh);
         return;
       }
       if (s > 180) {
         clearInterval(iv);
+        followingNew = false;
         waitingNow = false;
         show([el('div', 'badge warn', 'No new session after 3 minutes — try Diagnose (Cmd/Ctrl+Shift+P → Control Room: Diagnose)')], false);
         return;
       }
-      line('starting a new session… ' + s + ' s — a new Claude takes 30–60 s to get ready');
+      line('starting a new session… ' + s + ' s' + (s < 30 ? ' — usually ready in 10–20 s' : ' — slower than usual; still waiting'));
     }, 1000);
   }
 
@@ -3598,6 +3677,7 @@
    *  room's other background sessions are stopped at once, not a minute later when the chosen one
    *  starts listening. '' keeps none (a new session is on its way). */
   function chooseOnly(id) {
+    choseAt = Date.now();
     fetch('/api/choose', { method: 'POST', body: JSON.stringify({ session: id || '' }) }).catch(() => {});
   }
 
@@ -3668,6 +3748,18 @@
   const tlBar = document.getElementById('tl-bar');
   const tlHead = document.getElementById('tl-head');
   let tlFilter = null, tlRows = [], tlNames = {};
+  let tlLastAt = {};           // session -> when its conversation last moved (transcript mtime, ms)
+
+  /** \u2b50 ONE ORDER FOR EVERY LIST OF SESSIONS: last conversation first. Asked for, 2026-09-30. The
+   *  splash went by transcript age, the S menu by the order sessions first spoke in this room's log
+   *  (so the oldest conversation sat on top), and the two disagreed about the same sessions. A
+   *  session with no known time keeps its place in `ids`, after the dated ones; '' (replies from
+   *  before sessions were recorded) is always last. */
+  function byRecency(ids) {
+    const at = (id) => (id && tlLastAt[id] !== undefined) ? tlLastAt[id] : -1;
+    const pos = new Map(ids.map((id, i) => [id, i]));
+    return ids.slice().sort((a, b) => (!a) - (!b) || at(b) - at(a) || pos.get(a) - pos.get(b));
+  }
   let tlHidden = new Set();      // replies the reader has taken out of the strip
   // true only when the session was picked from the menu. A filter that merely followed
   // the newest reply must not stop the next one from being shown.
@@ -3929,9 +4021,10 @@
   function sessionMenu() {
     const btn = sessBtn;                     // the corner lamp is the anchor now
     const list = el('div', 'tl-list');
-    const ids = [...new Set(tlRows.map(m => m.session || ''))];
-    // every session that HAS a transcript, newest first, plus any in the log without one
-    Object.keys(tlNames).forEach(id => { if (!ids.includes(id)) ids.push(id); });
+    // every session that has a transcript, plus any that spoke in this log without one -- in ONE
+    // order, the last conversation first (byRecency). \u26d4 It used to be the order of first
+    // appearance in the log, which put the oldest conversation at the top.
+    const ids = byRecency([...new Set(Object.keys(tlNames).concat(tlRows.map(m => m.session || '')))]);
     const withReplies = new Set(tlRows.map(m => m.session || ''));
     // \u2b50 A NEW SESSION, FIRST AND BIG, asked for: the menu listed only sessions that already exist,
     // so starting a fresh one meant going back to the splash. Same action as the splash's row.

@@ -474,10 +474,10 @@ def main():
     # Now a conversation that is open in a tab or a terminal is not offered, "Start a new session" is
     # the first row, and a message that still reaches one is refused with the reason.
     ch = out / "chat.html"
-    P.sub(ch, "    const ids = Object.keys(names).slice(0, 6);",
+    P.sub(ch, "    const ids = byRecency(Object.keys(names)).slice(0, 6);",
           "    // ⛔ not a conversation that is open in the Claude tab or a terminal: writing to it would\n"
           "    // take it away from there. The room starts its own session instead (the first row).\n"
-          "    const ids = Object.keys(names).filter((id) => {\n"
+          "    const ids = byRecency(Object.keys(names)).filter((id) => {\n"
           "      const l = (d.live || {})[id];\n"
           "      return !(l && l.kind === 'interactive');\n"
           "    }).slice(0, 6);",

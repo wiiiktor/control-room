@@ -60,7 +60,7 @@ class Log {
     return out;
   }
 
-  append(role, text, to, about) {
+  append(role, text, to, about, quiet) {
     const existing = this.read();
     let high = 0;
     try {
@@ -72,6 +72,7 @@ class Log {
     const msg = { id, role, text, ts: localStamp() };
     if (to) msg.to = to;
     if (about) msg.about = about;       // a notice from the machinery about one session
+    if (quiet) msg.quiet = true;        // ...that the page shows in passing, not in place of the screen
     fs.appendFileSync(this.file, JSON.stringify(msg) + '\n');
     this.clearStatus();
     return msg;

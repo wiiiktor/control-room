@@ -82,9 +82,22 @@ function refusalScreen(why, name, row) {
  * that runs in the background. A session in a Claude window or a terminal is never stopped by this --
  * it cannot be (`claude stop` does not reach it), and it is somebody's window.
  */
-function toRelease(listening, rows, keep) {
-  return listening.filter((sid) => sid !== keep
+function toRelease(listening, rows, keep, room, before) {
+  const out = listening.filter((sid) => sid !== keep
     && rows.some((r) => r.sessionId === sid && r.kind === 'background'));
+  // \u2b50 AND THE ROOM'S OWN STRAGGLERS. A session the room started runs from the room folder; one
+  // that is still booting, never armed its watch, or let it lapse is not "listening", so it survived
+  // every release and turned up later as a second choice ("later I had two sessions to choose
+  // from"). Asked for: older sessions can be killed. Only those that started BEFORE the choice --
+  // the new session asked for in the same click must not be stopped by it.
+  if (room) {
+    for (const r of rows) {
+      if (r.kind !== 'background' || r.cwd !== room || r.sessionId === keep || out.includes(r.sessionId)) continue;
+      if (before && !(Number(r.startedAt) < before)) continue;
+      out.push(r.sessionId);
+    }
+  }
+  return out;
 }
 
 module.exports = { plan, refusalScreen, toRelease };

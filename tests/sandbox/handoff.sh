@@ -17,7 +17,7 @@ touch "$ROOM/.watch.$sid"                      # the room holds it, as a watchin
 (cd "$WS" && clean "$CLAUDE" -p --model "$MODEL" --resume="$sid" "Reply with the single word: again") \
   > "$SB/s1.out" 2> "$SB/s1.err"; code=$?
 check "S1 resume of a room-held session exits non-zero" '[ "$code" -ne 0 ]'
-check "S1 ... because it is running as a background session" 'grep -q "running as a background session" "$SB/s1.err"'
+check "S1 ... because it is running as a background session" 'grep -qE "running as a background session|running in the background" "$SB/s1.err"'
 check "S1 the room still holds it" '[ "$(agent_field "$sid" kind)" = "background" ]'
 
 # S2 -- the same launch through the wrapper, the way claudeProcessWrapper makes the extension run it
