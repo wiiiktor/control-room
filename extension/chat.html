@@ -535,6 +535,13 @@
     height: max-content; max-height: calc(100% - 202px);
   }
   .tl-list.open { display: flex; }
+  .tl-list button.tl-new {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    font-size: 20px; font-weight: 900; padding: 14px 18px; margin-bottom: 6px;
+    background: var(--green); color: var(--on-green); border: 3px solid var(--ink); box-shadow: var(--pop-sm);
+  }
+  .tl-list button.tl-new em { font-size: 13px; font-weight: 700; font-style: normal; opacity: .75; }
+  .tl-list button.tl-new:disabled { opacity: .7; cursor: default; }
   .tl-list button {
     font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer;
     color: var(--ink); background: var(--paper); border: 3px solid var(--ink);
@@ -3880,6 +3887,26 @@
     // every session that HAS a transcript, newest first, plus any in the log without one
     Object.keys(tlNames).forEach(id => { if (!ids.includes(id)) ids.push(id); });
     const withReplies = new Set(tlRows.map(m => m.session || ''));
+    // \u2b50 A NEW SESSION, FIRST AND BIG, asked for: the menu listed only sessions that already exist,
+    // so starting a fresh one meant going back to the splash. Same action as the splash's row.
+    const fresh = el('button', 'tl-new');
+    fresh.type = 'button';
+    fresh.append(el('span', '', 'New session'), el('em', '', 'starts in the background'));
+    fresh.onclick = async () => {
+      fresh.disabled = true;
+      fresh.querySelector('em').textContent = 'starting…';
+      addressWhoeverAnswers();               // a new session is whoever answers, by definition
+      try {
+        const r = await (await fetch('/api/autostart', { method: 'POST', body: '{}' })).json();
+        if (!r || !r.ok) throw new Error('refused');
+        fresh.querySelector('em').textContent = 'started — write, and it answers in a moment';
+        setTimeout(closeSessionMenu, 1200);
+      } catch {
+        fresh.disabled = false;
+        fresh.querySelector('em').textContent = 'could not start — try again, or Diagnose';
+      }
+    };
+    list.append(fresh);
     ids.forEach(id => {
       const b = el('button', tlFilter === id ? 'on' : '');
       b.type = 'button';
