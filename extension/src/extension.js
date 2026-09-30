@@ -1009,10 +1009,9 @@ function activate(context) {
     // ignored, so the tab itself says so
     let title = name;
     const retitle = (watchers) => {
-      // The version is BACK in the tab title, asked for again: with a build a few minutes old at
-      // any time, "which one am I looking at" is a question the tab should answer without being
-      // opened. The splash stamps it too.
-      const want = name + ' ' + BUILD + (watchers.length ? '' : ' (no watcher)');
+      // No version in the tab title, asked for (2026-09-30): the builds have settled, and "Control
+      // Room" is what the tab should say. The version is still on the splash and in Diagnose.
+      const want = name + (watchers.length ? '' : ' (no watcher)');
       if (want !== title) { title = want; panel.title = want; }
     };
 

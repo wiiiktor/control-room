@@ -2,7 +2,7 @@
   "name": "control-room",
   "displayName": "Control Room",
   "description": "A big-button control panel for driving Claude Code from inside the editor.",
-  "version": "0.34.12",
+  "version": "0.34.13",
   "publisher": "wiiiktor",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "icon.png",
