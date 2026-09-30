@@ -2,7 +2,7 @@
 
 ![Control Room](docs/control-room.png)
 
-## Install: one prompt
+## Install
 
 Paste this into Claude in VS Code:
 
@@ -12,4 +12,4 @@ Install Control Room: download https://raw.githubusercontent.com/wiiiktor/contro
 
 ![Control Room in use](docs/control-room-example.png)
 
-<sub>[Full guide](docs/GUIDE.md)</sub>
+<sub>[License](LICENSE) · [Full guide](docs/GUIDE.md)</sub>
