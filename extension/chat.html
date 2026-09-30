@@ -3484,7 +3484,7 @@
       try {
         const r = await (await fetch('/api/autostart', { method: 'POST', body: '{}' })).json();
         if (!r || !r.ok) throw new Error('refused');
-        fresh.querySelector('em').textContent = 'started — it answers in a moment';
+        followNewSession(fresh.querySelector('em'), () => setTimeout(dismissSplash, 1500));
         if (r.mode === 'hidden') {
           setTimeout(() => {
             if (aliveIds.length) return;
@@ -3555,6 +3555,35 @@
    *  addressed to a session id it does not have -- so its watcher skipped all of them and
    *  the bridge never formed, with a green panel and a live session on either side of it.
    *  Asking for somebody new means talking to whoever turns up. */
+  /** A new session was asked for: count the seconds until it is listening, then make it THE session.
+   *
+   *  \u26d4 A MINUTE OF NOTHING, THEN TWO CHOICES. A new Claude takes 30-60 s to boot and arm its watch,
+   *  and the splash said "it answers in a moment" and then nothing -- measured, a minute. When it did
+   *  come up it was only one more row beside the session already there, so the reader had to guess
+   *  which was new. Now the wait counts out loud, and the first session that was not listening before
+   *  the click becomes the target and the session shown. */
+  function followNewSession(em, done) {
+    const before = new Set(aliveIds);
+    const t0 = Date.now();
+    const iv = setInterval(() => {
+      const s = Math.round((Date.now() - t0) / 1000);
+      const fresh = aliveIds.find(id => !before.has(id));
+      if (fresh) {
+        clearInterval(iv);
+        target = fresh; targetGuessed = false;
+        tlFilter = fresh; tlChosen = true;
+        try { localStorage.setItem('ctrl-to', fresh); } catch {}
+        drawTarget();
+        if (em.isConnected) em.textContent = 'ready: ' + (tlNames[fresh] || fresh.slice(0, 8)) + ' — write now';
+        if (done) done(fresh);
+        return;
+      }
+      if (!em.isConnected) return clearInterval(iv);
+      if (s > 180) { clearInterval(iv); em.textContent = 'nothing after 3 minutes — try Diagnose'; return; }
+      em.textContent = 'starting… ' + s + ' s — a new Claude takes 30–60 s to get ready';
+    }, 1000);
+  }
+
   function addressWhoeverAnswers() {
     if (!target) return;
     target = '';
@@ -3899,8 +3928,7 @@
       try {
         const r = await (await fetch('/api/autostart', { method: 'POST', body: '{}' })).json();
         if (!r || !r.ok) throw new Error('refused');
-        fresh.querySelector('em').textContent = 'started — write, and it answers in a moment';
-        setTimeout(closeSessionMenu, 1200);
+        followNewSession(fresh.querySelector('em'), () => setTimeout(closeSessionMenu, 1500));
       } catch {
         fresh.disabled = false;
         fresh.querySelector('em').textContent = 'could not start — try again, or Diagnose';
