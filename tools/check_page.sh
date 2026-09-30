@@ -51,7 +51,14 @@ OUT=$(mktemp /tmp/cr_page_XXXX.js)
   # a later tick. Exercising immediately found an empty list every time and passed vacuously.
   printf '    const wait = (ms) => new Promise(r => require("timers").setTimeout(r, ms));\n'
   printf '    await wait(60);\n'
-  printf '    try { sessionMenu(); clickAll(menuList, "session row"); } catch (e) { note("session list", e); }\n'
+  printf '    try { sessionMenu(); } catch (e) { note("session list", e); }\n'
+  # \u26d4 AND WHAT THE ROWS SAY, NOT ONLY THAT THEY BUILT. The third cell is "N here" or
+  # "no control room log available", and it was the SECOND for every session in the room until the
+  # timeline had been opened once -- the menu counted an array only the timeline filled. Reading it
+  # here is the only place that regression can be caught: the rows exist either way.
+  printf '    console.log("MENU COUNTS: " + [...((menuList && menuList.children) || [])]\n'
+  printf '      .map(b => ((b.children || [])[2] || {}).textContent || "").join(" | "));\n'
+  printf '    try { clickAll(menuList, "session row"); } catch (e) { note("session row", e); }\n'
   printf '    try { await loadSplashSessions(); clickAll(sessBox, "splash row"); } catch (e) { note("splash list", e); }\n'
   printf '    if (!menuList || !menuList.children.length) { bad++; console.log("HARNESS BLIND: the session list built no rows -- the fixtures are not reaching the page"); }\n'
   printf '    await wait(80);\n'

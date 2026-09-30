@@ -71,10 +71,18 @@ globalThis.FIXTURES = {
     live: { [B_ID]: { status: 'idle', kind: 'background' } },
     waking: {},
   },
-  '/api/log': {
-    messages: [{ id: 1, role: 'user', text: 'hello', ts: '2026-09-27T21:00:00', session: A_ID },
-               { id: 2, role: 'assistant', text: '::ok hello back', ts: '2026-09-27T21:00:01', session: A_ID }],
-    last: 2, build: 'test', status: [], watch: 3, hidden: [],
+  // \u26d4 THIS KEY WAS '/api/log', WHICH THE PAGE HAS NEVER CALLED. fetch() matches by substring,
+  // so every message fetch fell through to the {ok:true} stub and the strip, the counts and the
+  // breadcrumbs were all built from an empty log -- the same vacuous green the note above warns
+  // about, one route along. The page asks for /api/messages; so does the fixture now.
+  '/api/messages': {
+    messages: [{ id: 1, role: 'user', text: 'hello', ts: '2026-09-27T21:00:00' },
+               { id: 2, role: 'assistant', text: '::ok hello back', ts: '2026-09-27T21:00:01', session: A_ID },
+               { id: 3, role: 'user', text: 'and again', ts: '2026-09-27T21:01:00' },
+               { id: 4, role: 'assistant', text: '::ok still here', ts: '2026-09-27T21:01:01', session: A_ID },
+               // the asleep session has said something here too, so the two rows cannot both be right by accident
+               { id: 5, role: 'assistant', text: '::note from the other one', ts: '2026-09-27T21:02:00', session: B_ID }],
+    last: 5, build: 'test', status: [], watch: 3, hidden: [],
     watchers: [{ session: A_ID, age: 3, label: 'the session that is watching' }],
     elsewhere: {}, live: { [B_ID]: { status: 'idle', kind: 'background' } }, waking: {},
   },
