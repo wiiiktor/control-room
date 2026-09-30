@@ -9,7 +9,7 @@ view, and it is a **separate codebase** — separate extension id, separate sett
 terminal belongs to the sidebar only**. This version reaches a session through the Claude tab,
 and opens a terminal for one purpose alone: resuming a session you asked it to bring back.
 
-Install, usage, permissions and the markup are all in the [repository README](../README.md).
+Install, usage, permissions and the markup are all in the [guide](../docs/GUIDE.md).
 
 ## Build it yourself
 
