@@ -1032,7 +1032,9 @@ function activate(context) {
     const retitle = (watchers) => {
       // No version in the tab title, asked for (2026-09-30): the builds have settled, and "Control
       // Room" is what the tab should say. The version is still on the splash and in Diagnose.
-      const want = name + (watchers.length ? '' : ' (no watcher)');
+      // "(write now)", not "(no watcher)", asked for (2026-09-30): with nobody listening, writing is
+      // exactly what helps -- the message wakes a session -- and "no watcher" read like a fault.
+      const want = name + (watchers.length ? '' : ' (write now)');
       if (want !== title) { title = want; panel.title = want; }
     };
 

@@ -256,7 +256,8 @@ claude stop <short id>     # free the conversation; the Claude tab's own resume 
 What reads the log is a watch running **inside** a Claude Code session, so it dies with
 that session — and nothing else can start it again. Until it is back, messages you type sit
 in `chat.jsonl` unread, which looks exactly like the panel being broken. The panel says so:
-the corner pill goes **NOT WATCHING** and the tab title gains `(no watcher)`.
+the corner pill goes **NOT WATCHING** and the tab title gains `(write now)`: writing is what
+wakes a session.
 
 The extension installs a `SessionStart` hook that closes most of this gap, the first time
 a panel opens — no prompt, because it is machinery you have not met yet. It writes
