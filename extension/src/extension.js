@@ -1414,6 +1414,18 @@ function activate(context) {
     await vscode.window.showTextDocument(doc, { preview: false });
   }));
 
+  // \u2b50 AN ICON IN THE ACTIVITY BAR. The panel lives in the editor area, so the sidebar view is only a
+  // button: showing it opens the panel and folds the sidebar away again, so the next click on the icon
+  // opens the panel again instead of leaving an empty sidebar. Its welcome text has a link as well.
+  if (vscode.window.createTreeView) {
+    const launcher = vscode.window.createTreeView('controlRoom.launcher',
+      { treeDataProvider: { getChildren: () => [], getTreeItem: (x) => x } });
+    context.subscriptions.push(launcher, launcher.onDidChangeVisibility(async (e) => {
+      if (!e.visible) return;
+      await vscode.commands.executeCommand('controlRoom.open');
+      vscode.commands.executeCommand('workbench.action.closeSidebar');
+    }));
+  }
   context.subscriptions.push(vscode.commands.registerCommand('controlRoom.open', async () => {
     // ⛔ NO QUESTION HERE ANY MORE. This used to ask which session before the room existed --
     // a decision demanded before anything was on screen, about a list whose entries mostly
