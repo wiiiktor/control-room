@@ -1304,7 +1304,10 @@
   #screen .md-list > li::before, #detail .md-list > li::before {
     content: ""; position: absolute; left: -1.05em; box-sizing: border-box;
     width: .65em; height: .65em; top: calc((1.45em - .65em) / 2);
-    border-radius: 50%; border: 2px solid var(--ink); background: transparent;
+    /* FILLED, not hollow, asked for (2026-09-30): a plain item's ring was transparent and read as
+       empty. It takes the palette's neutral fill (--grey, the same as a plain button), so a toned
+       item still stands out by its colour. */
+    border-radius: 50%; border: 2px solid var(--ink); background: var(--grey);
   }
   #screen .md-list > li.tone.ok::before,    #detail .md-list > li.tone.ok::before    { background: var(--green); }
   #screen .md-list > li.tone.warn::before,  #detail .md-list > li.tone.warn::before  { background: var(--yellow); }
