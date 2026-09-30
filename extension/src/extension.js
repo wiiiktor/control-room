@@ -820,11 +820,15 @@ function releaseOthers(dir, keep) {
       stopSession(sid, (r) => {
         if (!r.ok) return;
         try { fs.unlinkSync(path.join(dir, '.watch.' + sid)); } catch { /* already gone */ }
-        const t = titleOf(sid, workspaceRoot(dir), dir) || sid.slice(0, 8);
-        const k = titleOf(keep, workspaceRoot(dir), dir) || keep.slice(0, 8);
+        // \u2b50 NAME AND ID, TWO LINES, as asked for (2026-09-30): the room's sessions are titled alike
+        // ("control panel monitoring" three times), so a sentence of names said nothing about which one
+        // went and which one stayed.
+        //   Stopped "control panel monitoring - cda95a58"
+        //   Now talking to "control room panel monitoring - 8ef64249"
+        const who = (id) => '"' + (titleOf(id, workspaceRoot(dir), dir) || 'session') + ' - ' + id.slice(0, 8) + '"';
         // quiet: shown in passing, never in place of what the chosen session is saying (chat.html passing())
-        announce(dir, '::note ' + t + ' was let go — this room talks to one session at a time'
-          + (keep ? ', and now that is ' + k : '') + '. Writing to ' + t + ' brings it back.', sid, true);
+        announce(dir, '::note Stopped ' + who(sid) + '\n::note Now talking to '
+          + (keep ? who(keep) : 'a new session, starting'), sid, true);
       });
     }
   });

@@ -69,8 +69,8 @@
       at(P.missFirst === id ? (P.lateMs || 12000) : (P.stopMs || 600), () => {
         s.listening = false; s.busy = false;
         S.released.push([now() - t0, id]);
-        append('assistant', '::note ' + s.label + ' was let go — this room talks to one session at a time'
-          + (keep ? ', and now that is ' + label(keep) : '') + '. Writing to ' + s.label + ' brings it back.',
+        const who = (x) => '"' + label(x) + ' - ' + x.slice(0, 8) + '"';
+        append('assistant', '::note Stopped ' + who(id) + '\n::note Now talking to ' + (keep ? who(keep) : 'a new session, starting'),
           { about: id, quiet: !P.loudNotices });
       });
     }

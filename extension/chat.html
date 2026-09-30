@@ -538,7 +538,8 @@
   .toast { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 60;
            max-width: min(720px, 90vw); padding: 8px 14px; border-radius: 8px; font-size: 13px;
            background: var(--panel); color: var(--ink); border: 1px solid var(--ink);
-           box-shadow: 0 4px 14px rgba(0,0,0,.25); opacity: .95; transition: opacity .9s; pointer-events: none; }
+           box-shadow: 0 4px 14px rgba(0,0,0,.25); opacity: .95; transition: opacity .9s; pointer-events: none;
+           text-align: left; line-height: 1.5; }
   .toast.gone { opacity: 0; }
   .tl-list button.tl-new {
     display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
@@ -2977,9 +2978,11 @@
 
   /** Show a quiet notice for a few seconds, over the bottom of the screen. Always returns true. */
   function passing(m) {
-    const t = String(m.text || '').split('\n').map(l => l.replace(/^::\w+\s*/, '')).filter(Boolean)[0] || '';
-    if (!t || !splashPrimed) return true;             // the first poll is history, not news
-    const n = el('div', 'toast', t.replace(/\*\*/g, ''));
+    // every line, one under the other ("Stopped …" / "Now talking to …")
+    const lines = String(m.text || '').split('\n').map(l => l.replace(/^::\w+\s*/, '').replace(/\*\*/g, '').trim()).filter(Boolean);
+    if (!lines.length || !splashPrimed) return true;  // the first poll is history, not news
+    const n = el('div', 'toast');
+    lines.forEach(l => n.append(el('div', '', l)));
     document.body.append(n);
     setTimeout(() => n.classList.add('gone'), 7000);
     setTimeout(() => n.remove(), 8000);

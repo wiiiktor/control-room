@@ -69,9 +69,12 @@ for (const c of require(process.env.CR_CASES || './cases')) {
   if (filter && !c.name.includes(filter)) continue;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cr-scn-'));
   const file = build(c.P, tmp);
-  const dom = await chrome(file, c.P.endMs + 2000, ['--dump-dom'], tmp);
-  // the LAST one: the record is appended at the end of <body>
-  const m = [...dom.matchAll(/<pre id="__cr_result">(\{[\s\S]*?)<\/pre>/g)].pop();
+  // the LAST one: the record is appended at the end of <body>.
+  // \u26d4 Once in a few dozen runs Chrome prints the page without it (seen 2026-09-30, a different
+  // case each time, never twice in a row): one retry, so a flake does not read as a regression.
+  const record = async () => [...(await chrome(file, c.P.endMs + 2000, ['--dump-dom'], tmp))
+    .matchAll(/<pre id="__cr_result">(\{[\s\S]*?)<\/pre>/g)].pop();
+  const m = (await record()) || (await record());
   console.log('\n' + c.name);
   if (!m) { console.log('  \x1b[31mFAIL\x1b[0m the page produced no record'); failed++; continue; }
   const rec = JSON.parse(unescape(m[1]));

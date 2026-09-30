@@ -73,8 +73,8 @@ includes the room's stragglers: background sessions running from the room folder
 listening (still booting, never armed, lapsed), as long as they started before the choice, so the
 new session asked for in the same click is never stopped by it. Once the new or woken session is
 listening, the same release runs again for anything the first one missed (`claude agents` is not a
-complete list). Sessions in a Claude tab or a terminal are never stopped by this. The notice ("X was
-let go") is **quiet**: the panel shows it in passing at the top and keeps it in the timeline, and it
+complete list). Sessions in a Claude tab or a terminal are never stopped by this. The notice -- `Stopped "<title> - <id>"`, and under it
+`Now talking to "<title> - <id>"` -- is **quiet**: the panel shows it in passing at the top and keeps it in the timeline, and it
 never replaces what the chosen session is saying. "Stop the others" in the panel does the same by
 hand, and lists any it could not stop with the reason.
 

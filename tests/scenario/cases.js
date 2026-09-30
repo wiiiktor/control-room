@@ -59,7 +59,7 @@ function newSessionChecks(rec, click, P) {
   const named = ready && first(rec, ready.t, s => /control room monitoring/.test(s.screen));
   out.push(['the ready screen names the new session', !!named && named.t - ready.t <= 2000,
     ready ? (first(rec, ready.t, () => true) || {}).screen : '']);
-  const hijack = ready && rec.samples.filter(s => s.t >= ready.t && s.t < ready.t + 10000 && /was let go/.test(s.screen));
+  const hijack = ready && rec.samples.filter(s => s.t >= ready.t && s.t < ready.t + 10000 && /Stopped "|was let go/.test(s.screen));
   out.push(['no "was let go" notice takes over the screen after it is ready', ready && !hijack.length,
     hijack && hijack.length ? hijack[0].screen.slice(0, 120) : '']);
   const alarm = rec.samples.find(s => s.t > t && /not watching/i.test(s.pill));
@@ -112,11 +112,18 @@ module.exports = [
       const t = stepAt(rec, 'clickSplashNew');
       const ready = first(rec, t, s => s.target === NEW && s.shown === NEW);
       const r = rel(rec, OLD);
-      const hijack = ready && rec.samples.filter(s => s.t >= ready.t && /was let go/.test(s.screen));
+      const hijack = ready && rec.samples.filter(s => s.t >= ready.t && /Stopped "|was let go/.test(s.screen));
       const end = rec.samples[rec.samples.length - 1];
       return [
         ['it is stopped once the new session is up', r !== undefined && ready && r >= ready.t - 1000,
           r !== undefined ? (r - t) + ' ms after the click' : 'never'],
+        (() => {
+          const t = rec.samples.map(x => x.toast).find(x => x && x.length) || [];
+          const lines = t[0] || [];
+          return ['the notice says who stopped and who is talking now, on two lines',
+            /^Stopped "uncommitted changes review - 11111111"$/.test(lines[0] || '')
+              && /^Now talking to "control room monitoring - aaaaaaaa"$/.test(lines[1] || ''), JSON.stringify(lines)];
+        })(),
         ['its notice does not replace the ready screen', ready && !hijack.length,
           hijack && hijack.length ? hijack[0].screen.slice(0, 120) : ''],
         ['in the end only the new session listens', JSON.stringify(end.listening) === JSON.stringify([NEW]), JSON.stringify(end.listening)],
@@ -164,7 +171,7 @@ module.exports = [
       const chosen = first(rec, t, s => s.target === NAP && s.shown === NAP);
       const r = rel(rec, OLD);
       const got = first(rec, t, s => /answer to: hello again/.test(s.screen));
-      const hijack = got && rec.samples.filter(s => s.t > got.t && /was let go/.test(s.screen));
+      const hijack = got && rec.samples.filter(s => s.t > got.t && /Stopped "|was let go/.test(s.screen));
       const end = rec.samples[rec.samples.length - 1];
       return [
         ['it is chosen at once', chosen && chosen.t - t <= 1000, chosen ? (chosen.t - t) + ' ms' : 'never'],

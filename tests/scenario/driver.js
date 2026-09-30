@@ -74,6 +74,7 @@
       menuRows: menuRows().map(rowId).filter(Boolean),
       menuFirst: text(menuRows()[0]).slice(0, 60),
       menuText: menuRows().map(text),
+      toast: [...document.querySelectorAll('.toast')].map(n => [...n.children].map(text)),
     });
   };
   setInterval(sample, 500);
