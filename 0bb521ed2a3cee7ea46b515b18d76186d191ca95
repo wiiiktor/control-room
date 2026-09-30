@@ -1,0 +1,1 @@
+Correction to the Windows line: make.py rewrites name, displayName, description and version in package.json (make.py lines 507-511), not only name and version. It still never touches "license".
