@@ -10,7 +10,7 @@ curl -fsSL https://raw.githubusercontent.com/wiiiktor/control-room/main/extensio
 ```
 
 Needs VS Code, Python and Git for Windows; no login (the repository is public). Or give Claude the
-one-prompt install from the [main README](../README.md#install). Reload a running window with
+one-prompt install from the [main README](../README.md). Reload a running window with
 `code --open-url "vscode://wiiiktor.control-room-win/reload"`.
 
 ## Build

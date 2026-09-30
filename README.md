@@ -2,9 +2,7 @@
 
 ![Control Room](docs/control-room.png)
 
-## Install
-
-Paste this into Claude in VS Code:
+**Install** → Paste this into Claude in your VS Code:
 
 ```text
 Install Control Room: download https://raw.githubusercontent.com/wiiiktor/control-room/main/skills/install-control-room/SKILL.md, save it as ~/.claude/skills/install-control-room/SKILL.md, then follow it.
