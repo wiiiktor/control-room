@@ -15,7 +15,8 @@ const os = require('os');
 const path = require('path');
 
 const HERE = __dirname;
-const PAGE = path.join(HERE, '..', '..', 'extension', 'chat.html');
+// CR_PAGE: another chat.html (an installed one); CR_CASES: another cases file
+const PAGE = process.env.CR_PAGE || path.join(HERE, '..', '..', 'extension', 'chat.html');
 const CHROME = process.env.CHROME || [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser',
@@ -64,7 +65,7 @@ const unescape = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&
 if (!CHROME) { console.log('SKIP: no Chrome found (set CHROME=)'); process.exit(0); }
 (async () => {
 let failed = 0;
-for (const c of require('./cases')) {
+for (const c of require(process.env.CR_CASES || './cases')) {
   if (filter && !c.name.includes(filter)) continue;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cr-scn-'));
   const file = build(c.P, tmp);

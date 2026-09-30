@@ -2996,6 +2996,7 @@
       const d = await (await fetch('/api/sessions', { cache: 'no-store' })).json();
       tlNames = d.sessions || {};
       if (d.lastAt) tlLastAt = d.lastAt;
+      if (d.here) tlHere = d.here;
       // \u26d4 AND WHAT IS LIVE WHERE. This minute-by-minute refresh dropped `live`, so the page kept
       // whatever the session picker last saw -- often nothing -- and could not tell that the chosen
       // conversation was open in the Claude window.
@@ -3749,6 +3750,7 @@
   const tlHead = document.getElementById('tl-head');
   let tlFilter = null, tlRows = [], tlNames = {};
   let tlLastAt = {};           // session -> when its conversation last moved (transcript mtime, ms)
+  let tlHere = {};             // session -> replies it gave in this room (from the extension)
 
   /** \u2b50 ONE ORDER FOR EVERY LIST OF SESSIONS: last conversation first. Asked for, 2026-09-30. The
    *  splash went by transcript age, the S menu by the order sessions first spoke in this room's log
@@ -4025,7 +4027,10 @@
     // order, the last conversation first (byRecency). \u26d4 It used to be the order of first
     // appearance in the log, which put the oldest conversation at the top.
     const ids = byRecency([...new Set(Object.keys(tlNames).concat(tlRows.map(m => m.session || '')))]);
-    const withReplies = new Set(tlRows.map(m => m.session || ''));
+    // \u26d4 COUNTED FROM THE TIMELINE ONLY, which is not loaded until it is opened: every row said
+    // "no control room log available". The extension's count (tlHere) covers the time before that.
+    const count = (id) => Math.max(tlRows.filter(m => (m.session || '') === id && !m.pending).length, tlHere[id] || 0);
+    const withReplies = new Set(ids.filter(id => count(id) > 0));
     // \u2b50 A NEW SESSION, FIRST AND BIG, asked for: the menu listed only sessions that already exist,
     // so starting a fresh one meant going back to the splash. Same action as the splash's row.
     const fresh = el('button', 'tl-new');
@@ -4050,10 +4055,10 @@
     ids.forEach(id => {
       const b = el('button', tlFilter === id ? 'on' : '');
       b.type = 'button';
-      const n = tlRows.filter(m => (m.session || '') === id).length;
+      const n = count(id);
       b.append(el('em', '', id ? id.slice(0, 8) : '—'),
                el('span', '', (id ? (tlNames[id] || '(transcript gone)') : 'before sessions were recorded')),
-               el('em', '', n ? n + ' here' : 'no control room log available'));
+               el('em', '', n ? n + ' here' : 'not used in this room yet'));
       b.classList.toggle('empty', !withReplies.has(id));
       b.onclick = () => {
         tlFilter = id;                       // exactly one session is shown, always

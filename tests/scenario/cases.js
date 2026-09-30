@@ -146,6 +146,11 @@ module.exports = [
       return [
         ['splash rows by recency', sameOrder(end.splashRows, BY_RECENCY), end.splashRows.join(' ')],
         ['S menu rows by recency', sameOrder(end.menuRows, BY_RECENCY), end.menuRows.join(' ')],
+        // before the timeline was ever opened: the counts come from the extension
+        ['S menu counts replies in this room without the timeline',
+          end.menuText.some(t => t.includes(OLD.slice(0, 8)) && /1 here/.test(t))
+            && !end.menuText.some(t => /no control room log/.test(t)),
+          end.menuText.slice(1, 3).join(' | ')],
       ];
     },
   },

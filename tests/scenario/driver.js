@@ -32,6 +32,7 @@
       if (!b) throw new Error('no splash row for ' + s.id.slice(0, 8));
       b.click();
     },
+    menuOpen: () => { document.getElementById('sess-btn').click(); },
     menuNew: () => {
       const b = menuRows().find(x => /new session/i.test(text(x)));
       if (!b) throw new Error('no "New session" in the S menu');
@@ -72,6 +73,7 @@
       splashRows: splashRows().map(rowId).filter(Boolean),
       menuRows: menuRows().map(rowId).filter(Boolean),
       menuFirst: text(menuRows()[0]).slice(0, 60),
+      menuText: menuRows().map(text),
     });
   };
   setInterval(sample, 500);

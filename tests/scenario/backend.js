@@ -100,6 +100,8 @@
     },
     '/api/sessions': () => ({
       sessions: names(), lastAt: lastAt(), watchers: watchers(), elsewhere: {}, waking: {},
+      // extension.js /api/sessions `here`: replies per session in this room
+      here: S.log.reduce((n, m) => { if (m.role === 'assistant' && m.session) n[m.session] = (n[m.session] || 0) + 1; return n; }, {}),
       live: Object.fromEntries([...S.sessions.entries()].filter(([, s]) => s.listening)
         .map(([id, s]) => [id, { status: s.busy ? 'busy' : 'idle', kind: 'background', name: s.label }])),
     }),

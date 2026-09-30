@@ -1100,6 +1100,13 @@ function activate(context) {
           return reply({
             sessions: names, watchers: here, elsewhere: elsewhere(names, here),
             lastAt: lastActive(workspaceRoot(dir), dir),
+            // how many replies each session gave in THIS room, for the S menu -- it counted the
+            // timeline's rows, which are not loaded until the timeline is opened, so every row said
+            // "no control room log available"
+            here: log.read().reduce((n, m) => {
+              if (m.role === 'assistant' && m.session) n[m.session] = (n[m.session] || 0) + 1;
+              return n;
+            }, {}),
             live: Object.assign(beatingIds(), Object.fromEntries(live.map(r => [r.sessionId,
               { status: r.status || '', kind: r.kind || '', name: r.name || '' }]))),
             waking: wakingIds(),
