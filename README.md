@@ -1,8 +1,4 @@
-# Control Room
-
-![Control Room](docs/control-room.png)
-
-**Install** → Paste this into Claude in your VS Code:
+# Control Room → install it with a prompt:
 
 ```text
 Install Control Room: download https://raw.githubusercontent.com/wiiiktor/control-room/main/skills/install-control-room/SKILL.md, save it as ~/.claude/skills/install-control-room/SKILL.md, then follow it.
@@ -10,4 +6,7 @@ Install Control Room: download https://raw.githubusercontent.com/wiiiktor/contro
 
 ![Control Room in use](docs/control-room-example.png)
 
-<sub>[License](LICENSE) · [Full guide](docs/GUIDE.md)</sub>
+A new VS Code extension for working with Claude: a clean, readable panel where Claude answers with
+headlines, tiles, charts and buttons instead of a scrolling wall of text.
+
+[License](LICENSE) · [Full guide](docs/GUIDE.md)
