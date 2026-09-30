@@ -823,8 +823,8 @@ function releaseOthers(dir, keep) {
         const t = titleOf(sid, workspaceRoot(dir), dir) || sid.slice(0, 8);
         const k = titleOf(keep, workspaceRoot(dir), dir) || keep.slice(0, 8);
         // quiet: shown in passing, never in place of what the chosen session is saying (chat.html passing())
-        announce(dir, '::note ' + t + ' was let go — this room talks to one session at a time'
-          + (keep ? ', and now that is ' + k : '') + '. Writing to ' + t + ' brings it back.', sid, true);
+        announce(dir, '::note Session "' + t + '" was let go — this room talks to one session at a time'
+          + (keep ? ', and now that is "' + k + '"' : '') + '. Writing to "' + t + '" brings it back.', sid, true);
       });
     }
   });
