@@ -870,7 +870,10 @@
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 12px; }
   .stat {
     background: var(--panel); border: 3px solid var(--ink);
-    border-radius: 14px; padding: 13px 16px;
+    /* Same radius as .badge. These sit directly beside the coloured pills in a reply, and at 14px
+       against their 24px the white boxes read as a different kind of object. Asked for 2026-10-02:
+       "make corner radius of white placeholders the same as coloured ones". */
+    border-radius: 24px; padding: 13px 16px;
   }
   .stat b {
     display: block; font-size: 13px; font-weight: 800; letter-spacing: .06em;
@@ -881,7 +884,7 @@
   /* A chart is a stat that moved: same card, same ink, one line of data. */
   .chart {
     background: var(--panel); border: 3px solid var(--ink);
-    border-radius: 14px; padding: 13px 16px;
+    border-radius: 24px; padding: 13px 16px;   /* matches .badge and .stat -- see .stat above */
   }
   .chart b {
     display: block; font-size: 13px; font-weight: 800; letter-spacing: .06em;
